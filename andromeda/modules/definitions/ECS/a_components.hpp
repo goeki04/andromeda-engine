@@ -14,6 +14,7 @@
 
 #include "a_math.hpp"
 #include "a_model_record.hpp"
+#include <span>
 #include <string>
 #include "a_particle_group.hpp"
 namespace Andromeda::ECS::Component {
@@ -106,13 +107,42 @@ namespace Andromeda::ECS::Component {
      * @brief Component that holds multiple particle groups, each with its own constraints and properties. 
      */
     struct ParticleSystem {
+        u8 nextParticleGroupID = 1;                ///< Counter for generating unique IDs for new particle groups.
         bool useParticleGroups = false;            ///< Flag indicating whether to use particle groups or not.
-        std::vector<ParticleGroup> particleGroups; ///< Groups of particles with specific constraints.
-        u8 selectedGroupIndex = 0; ///< Index of the currently selected particle group for editing in the UI.
+
         ParticleSystem() {
             // Initialize with a default particle group
             particleGroups.emplace_back();
         }
+
+        // Defined out-of-line in a_component_parser.hpp (after ParticleGroup's own to_json/from_json),
+        // not here: this header is included by many files that never see ParticleGroup's JSON bindings,
+        // and those bindings must already be visible when these functions' bodies are compiled.
+        friend void to_json(nlohmann::json& j, const ParticleSystem& ps);
+        friend void from_json(const nlohmann::json& j, ParticleSystem& ps);
+
+        std::span<ParticleGroup> getParticleGroups() {
+            if (useParticleGroups) {
+                return particleGroups;
+            } else {
+                return std::span<ParticleGroup>(&particleGroups[0], 1);
+            }
+        }
+
+        void addParticleGroup() {
+            auto& group = particleGroups.emplace_back();
+            nextParticleGroupID++;
+            group.groupName = "ParticleGroup_" + std::to_string(nextParticleGroupID);
+        }
+
+        void removeParticleGroup(i32 indexToRemove) {
+            if (indexToRemove >= 0 && indexToRemove < static_cast<i32>(particleGroups.size()) && particleGroups.size() > 1) {
+                particleGroups.erase(particleGroups.begin() + indexToRemove);
+            }
+        }
+
+    private:
+        std::vector<ParticleGroup> particleGroups; ///< Groups of particles with specific constraints.
     };
 
     /**

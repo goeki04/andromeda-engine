@@ -19,7 +19,7 @@
 #include "a_event_manager.hpp"
 #include "a_subsystem_manager.hpp"
 #include "a_shader_generated.hpp"
-
+#include "a_particle_component_ui.hpp"
 /**
  * @namespace Andromeda::Gui::Component
  * @brief ImGui drawing routines that render the editable inspector UI for ECS components.
@@ -211,40 +211,15 @@ namespace Andromeda::Gui::Component
         ImGui::Spacing();
     }
 
-    void drawParticleGroups(ECS::Component::ParticleSystem& particleComp) {
-        if (ImGui::Button("+")) {
-            auto& group = particleComp.particleGroups.emplace_back();
-            u8 index = static_cast<u8>(particleComp.particleGroups.size());
-            group.groupName = "ParticleGroup_" + std::to_string(index);
-            group.particleGroupID = index;
-            particleComp.selectedGroupIndex = index;
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("-")) {
-            if (particleComp.particleGroups.size() > 1) {
-                if (particleComp.selectedGroupIndex < particleComp.particleGroups.size()) {
-                    particleComp.particleGroups.erase(particleComp.particleGroups.begin() +
-                                                      particleComp.selectedGroupIndex);
-                }
-
-                if (particleComp.selectedGroupIndex >= particleComp.particleGroups.size()) {
-                    particleComp.selectedGroupIndex = static_cast<u8>(particleComp.particleGroups.size() - 1);
-                }
-            }
-        }
-        if (ImGui::BeginChild("ParticleGroups")) {
-
-        }
-    }
-
     template<>
     inline void drawComponentUI<ECS::Component::ParticleSystem>(ECS::EntityHandle handle, std::any& undoState) {
         auto& particleComp = handle.get<ECS::Component::ParticleSystem>();
 
-        if (ImGui::Checkbox("Enable Particle Groups", &particleComp.useParticleGroups)) {
-            if (particleComp.useParticleGroups) {
-                drawParticleGroups(particleComp);
-            }
+        ImGui::Checkbox("Enable Particle Groups", &particleComp.useParticleGroups);
+        if (particleComp.useParticleGroups) {
+            drawParticleGroups(particleComp);
+        } else {
+            drawParticleGroupProperties(particleComp.getParticleGroups(), 0);
         }
     }
 

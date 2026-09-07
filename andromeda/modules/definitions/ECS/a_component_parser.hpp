@@ -38,9 +38,21 @@ namespace Andromeda::ECS::Component {
     inline void from_json(const nlohmann::json& json, deviceType& e) {
         e = static_cast<deviceType>(json.get<int>());
     }
+
+    /** @brief Serializes the ParticleSystem component (particle groups, ID counter, enabled flag). */
+    inline void to_json(nlohmann::json& j, const ParticleSystem& ps) {
+        j["particleGroups"] = ps.particleGroups;
+        j["nextParticleGroupID"] = ps.nextParticleGroupID;
+        j["useParticleGroups"] = ps.useParticleGroups;
+    }
+
+    inline void from_json(const nlohmann::json& j, ParticleSystem& ps) {
+        j.at("particleGroups").get_to(ps.particleGroups);
+        j.at("nextParticleGroupID").get_to(ps.nextParticleGroupID);
+        j.at("useParticleGroups").get_to(ps.useParticleGroups);
+    }
     /** @brief Serializes the Transform component (Position, Rotation, Scale). */
     NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Transform, position, rotation, scale)
-    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ParticleSystem, particleGroups)
     /** @brief Serializes the Axis-Aligned Bounding Box (AABB) component. */
     NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AABB, min, max, center)
 

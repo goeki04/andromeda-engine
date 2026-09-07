@@ -42,6 +42,7 @@ target_link_libraries(gui PUBLIC
     sdl::sdl
 
     core
+    reflection
     scene
     serialization
     definitions
