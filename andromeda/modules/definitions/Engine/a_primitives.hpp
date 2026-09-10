@@ -55,6 +55,56 @@ namespace Andromeda {
     /** @brief 64-bit signed integer (alias for @c std::int64_t). */
     using i64 = std::int64_t;
 
+    template<typename T>
+    struct ChannelTraits {
+        static constexpr u32 count = 0; 
+    };
+
+    template<>
+    struct ChannelTraits<vec2> {
+        static constexpr u32 count = 2;
+    };
+    template<>
+
+    struct ChannelTraits<vec3> {
+        static constexpr u32 count = 3;
+    };
+    template<>
+
+    struct ChannelTraits<vec4> {
+        static constexpr u32 count = 4;
+    };
+
+    template<>
+    struct ChannelTraits<ivec2> {
+        static constexpr u32 count = 2;
+    };
+
+    template<>
+    struct ChannelTraits<ivec3> {
+        static constexpr u32 count = 3;
+    };
+
+    template<>
+    struct ChannelTraits<ivec4> {
+        static constexpr u32 count = 4;
+    };
+
+    template<>
+    struct ChannelTraits<float> {
+        static constexpr u32 count = 1;
+    };
+
+    template<>
+    struct ChannelTraits<i32> {
+        static constexpr u32 count = 1;
+    };
+
+    template<>
+    struct ChannelTraits<bool> {
+        static constexpr u32 count = 1;
+    };
+
     /**
      * @namespace Andromeda::ECS
      * @brief Entity-Component-System primitives shared across the engine.

@@ -22,7 +22,7 @@ add_library(gui STATIC
     ${CMAKE_SOURCE_DIR}/bindings/implot/implot_items.cpp
     ${CMAKE_SOURCE_DIR}/bindings/implot/implot_demo.cpp
 )
-target_compile_definitions(gui PRIVATE ASSET_PATH="${CMAKE_SOURCE_DIR}/assets/")
+target_compile_definitions(gui PRIVATE ASSET_PATH="${CMAKE_SOURCE_DIR}/assets/" ModulePath="${CMAKE_SOURCE_DIR}/modules/")
 target_include_directories(gui PUBLIC 
     .
     Components
@@ -42,7 +42,6 @@ target_link_libraries(gui PUBLIC
     sdl::sdl
 
     core
-    reflection
     scene
     serialization
     definitions

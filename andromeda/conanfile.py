@@ -24,7 +24,6 @@ class CmakeTest(ConanFile):
         self.requires("spirv-reflect/1.4.350.0")
         self.requires("glslang/1.4.350.0")
         self.requires("stb/cci.20230920")
-        self.requires("llvm-core/19.1.7")
         self.requires("protobuf/3.21.12")
         self.requires("openssl/4.0.1")
         self.requires("boost/1.91.0")
@@ -34,6 +33,11 @@ class CmakeTest(ConanFile):
         # ConanCenter only ships implot/0.17, which is too old for imgui 1.92 and fails
         # to link in Release (missing ImGui::GetForegroundDrawList from ShowMetricsWindow).
         self.requires("gtest/1.17.0")
+        # libclang (conan-recipes/libclang) repackages the official LLVM release
+        # binaries for modules/reflection. Windows-only for now - the reflection
+        # module degrades to a no-op elsewhere, so the Linux build stays green.
+        if self.settings.os == "Windows":
+            self.requires("libclang/21.1.8")
     def build_requirements(self):
         self.tool_requires("glslang/1.4.350.0")
         self.tool_requires("directx-shader-compiler/1.9.2602")

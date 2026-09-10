@@ -2,7 +2,8 @@
 #include "a_components.hpp"
 #include "a_particle_group.hpp"
 #include <type_traits>
-#include "a_Reflector.hpp"
+#include "generated_particle_group_meta.hpp"
+#include "a_particle_group.hpp"
 namespace Andromeda::Gui::Component{
 
    void drawAddParticleButton(ECS::Component::ParticleSystem& particleComp) {
@@ -10,6 +11,61 @@ namespace Andromeda::Gui::Component{
        if (ImGui::Button("+", ImVec2(s, s))) {
            particleComp.addParticleGroup();
        }
+   }
+
+   void drawBindingList(std::vector<std::string>& eventNames, std::vector<std::string>& particleFields) {
+       if (ImGui::Button("Event")) {
+           ImGui::OpenPopup("EventBindingPopup");
+       }
+       ImGui::SameLine();
+       if (ImGui::Button("Field")) {
+           ImGui::OpenPopup("FieldBindingPopup");
+       }
+
+       if (ImGui::BeginPopup("EventBindingPopup")) {
+           static char searchQuery[64] = "";
+           ImGui::InputTextWithHint("##searchEvent", "Search event...", searchQuery, IM_ARRAYSIZE(searchQuery));
+           for (auto const& e : eventNames) {
+                   auto it = std::search(e.begin(), e.end(), searchQuery, searchQuery + strlen(searchQuery),
+                                         [](char a, char b) { return std::tolower(a) == std::tolower(b); });
+                   if (it != e.end() || searchQuery[0] == '\0') {
+                       if (ImGui::Selectable(e.c_str())) {
+                           ImGui::CloseCurrentPopup();
+                       }
+                   }
+           }
+           ImGui::EndPopup();
+       }
+       if (ImGui::BeginPopup("FieldBindingPopup")) {
+           static char searchQuery[64] = "";
+           ImGui::InputTextWithHint("##searchParticleField", "Search property...", searchQuery, IM_ARRAYSIZE(searchQuery));
+           for (auto const& p : particleFields) {
+               if (ImGui::Selectable(p.c_str())) {
+                   ImGui::CloseCurrentPopup();
+               }
+           }
+           ImGui::EndPopup();
+       }
+   }
+
+         /** @brief Draws the event binding window for the particle system.
+Event bindings let users connect particle system properties to custom callbacks or events. */
+   void drawEventBindingWindow(Andromeda::ParticleGroup& group) {
+       ImGui::PushID("EventBindings");
+       float s = ImGui::GetFrameHeight();
+       if (ImGui::TreeNode("Event Bindings")) {
+           ImGui::Indent();
+           Andromeda::Meta::forEachField(group, [&](auto const& f, auto& value) {
+               using V = std::decay_t<decltype(value)>;
+               constexpr u32 channelCount = ChannelTraits<V>::count;
+           });
+           std::vector<std::string> eventNames = {"OnStart", "OnUpdate", "OnEnd"};
+           std::vector<std::string> particleFields = {"Position", "Velocity", "Color", "Size", "Lifetime"};
+           drawBindingList(eventNames, particleFields);
+           ImGui::TreePop();
+       }
+       ImGui::Unindent();
+       ImGui::PopID();
    }
 
    void drawParticleGroupProperties(std::span<Andromeda::ParticleGroup> group, u32 index) {
@@ -32,11 +88,12 @@ namespace Andromeda::Gui::Component{
        ImGui::Text("Color");
        ImGui::SameLine(100);
        ImGui::DragFloat3("##ParticleColor", &group[index].particleColor.x);
+
+       drawEventBindingWindow(group[index]);
    }
     
    void drawParticleGroups(ECS::Component::ParticleSystem& particleComp) {
         drawAddParticleButton(particleComp);
-
         i32 indexToRemove = -1;
         if (ImGui::BeginChild("ParticleGroups", ImVec2(0, 120),ImGuiChildFlags_ResizeY)) {
             auto groupes = particleComp.getParticleGroups();
@@ -84,20 +141,5 @@ namespace Andromeda::Gui::Component{
             particleComp.removeParticleGroup(indexToRemove);
         }
         ImGui::EndChild();
-   }
-
-
-   /** @brief Draws the event binding window for the particle system.
-        Event bindings let users connect particle system properties to custom callbacks or events. */
-   void drawEventBindingWindow() {
-       if (ImGui::CollapsingHeader("Event Bindings")) {
-           float s = ImGui::GetFrameHeight();
-           if (ImGui::Button("+", ImVec2(s,s))) {
-
-           }
-           if (ImGui::BeginChild("EventBindings", ImVec2(0, 150),ImGuiChildFlags_ResizeY)) {
-                
-           }
-       }
    }
 }

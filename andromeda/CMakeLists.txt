@@ -53,7 +53,6 @@ protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${PROTO_FILES})
 add_subdirectory(modules/network)
 add_subdirectory(modules/core)
 add_subdirectory(modules/definitions)
-add_subdirectory(modules/reflection)
 add_subdirectory(modules/renderer)
 add_subdirectory(modules/scene)
 add_subdirectory(modules/gui)
@@ -166,6 +165,7 @@ set(ANDROMEDA_TEST_SOURCES
     "tests/test_resource.cpp"
     "tests/test_rhi.cpp"
     "tests/test_boost_websocket_client.cpp"
+    "tests/test_reflector.cpp"
 )
 
 add_executable(AndromedaTests ${ANDROMEDA_TEST_SOURCES})
@@ -183,6 +183,7 @@ target_link_libraries(AndromedaTests PRIVATE
     GTest::gtest_main
     definitions
     network
+    reflection
 )
 
 gtest_discover_tests(AndromedaTests)
@@ -239,3 +240,4 @@ target_link_libraries(AndromedaMockServer PRIVATE
 if(WIN32)
     target_link_libraries(AndromedaMockServer PRIVATE ws2_32)
 endif()
+
