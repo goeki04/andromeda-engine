@@ -75,7 +75,7 @@ namespace Andromeda::Meta {
 
 
     // ------------------------------------------------------------------------
-    // Andromeda::EventBinding (1 fields) from modules/definitions/renderer/a_particle_group.hpp
+    // Andromeda::EventBinding (3 fields) from modules/definitions/renderer/a_particle_group.hpp
     // ------------------------------------------------------------------------
     template <>
     struct StructInfo<::Andromeda::EventBinding> {
@@ -88,10 +88,12 @@ namespace Andromeda::Meta {
         static constexpr std::string_view doc = "";
 
         static constexpr auto fields = std::make_tuple(
-            makeField("event", "IEvent*", "Type of the event to bind to.", "", &type::event)
+            makeField("event", "IEvent*", "Type of the event to bind to.", "nullptr", &type::event),
+            makeField("eventIndex", "i32", "Index of the event in the event list.", "-1", &type::eventIndex),
+            makeField("fieldIndex", "i32", "Index of the field in the particle group to bind to.", "-1", &type::fieldIndex)
         );
 
-        static constexpr std::array<std::string_view, 1> fieldNames = {"event"};
+        static constexpr std::array<std::string_view, 3> fieldNames = {"event", "eventIndex", "fieldIndex"};
         static constexpr std::size_t fieldCount = std::tuple_size_v<decltype(fields)>;
     };
 

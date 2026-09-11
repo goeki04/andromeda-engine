@@ -30,6 +30,7 @@ target_include_directories(gui PUBLIC
     Panels
     State
     Widgets
+    Components
     ${CMAKE_SOURCE_DIR}/bindings/
     ${CMAKE_SOURCE_DIR}/bindings/implot/
     ${CMAKE_BINARY_DIR}/generated/

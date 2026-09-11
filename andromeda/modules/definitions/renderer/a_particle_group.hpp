@@ -8,7 +8,9 @@
 namespace Andromeda {
 
     struct EventBinding {
-        IEvent* event; ///< Type of the event to bind to.
+        IEvent* event = nullptr; ///< Type of the event to bind to.
+        i32 eventIndex = -1; ///< Index of the event in the event list.
+        i32 fieldIndex = -1; ///< Index of the field in the particle group to bind to.
     };
 
     struct ParticleGroup {

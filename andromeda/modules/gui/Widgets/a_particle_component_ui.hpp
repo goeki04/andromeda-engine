@@ -2,73 +2,90 @@
 #include "a_components.hpp"
 #include "a_particle_group.hpp"
 #include <type_traits>
+#include <string>
+#include <vector>
 #include "generated_particle_group_meta.hpp"
 #include "a_particle_group.hpp"
+#include "IconsLucide.h"
+#include "a_Dropdown_Button.hpp"
 namespace Andromeda::Gui::Component{
 
-   void drawAddParticleButton(ECS::Component::ParticleSystem& particleComp) {
+   inline void drawAddParticleButton(ECS::Component::ParticleSystem& particleComp) {
        float s = ImGui::GetFrameHeight(); // GetFrameHeight = FontSize +style.FramePadding.y * 2
        if (ImGui::Button("+", ImVec2(s, s))) {
            particleComp.addParticleGroup();
        }
    }
 
-   void drawBindingList(std::vector<std::string>& eventNames, std::vector<std::string>& particleFields) {
-       if (ImGui::Button("Event")) {
-           ImGui::OpenPopup("EventBindingPopup");
-       }
-       ImGui::SameLine();
-       if (ImGui::Button("Field")) {
-           ImGui::OpenPopup("FieldBindingPopup");
-       }
+   /** @brief Event names offered by the binding dropdown. Constant, so it lives at namespace scope. */
+   inline const std::vector<std::string> kEventNames = {"OnStart", "OnUpdate", "OnEnd"};
 
-       if (ImGui::BeginPopup("EventBindingPopup")) {
-           static char searchQuery[64] = "";
-           ImGui::InputTextWithHint("##searchEvent", "Search event...", searchQuery, IM_ARRAYSIZE(searchQuery));
-           for (auto const& e : eventNames) {
-                   auto it = std::search(e.begin(), e.end(), searchQuery, searchQuery + strlen(searchQuery),
-                                         [](char a, char b) { return std::tolower(a) == std::tolower(b); });
-                   if (it != e.end() || searchQuery[0] == '\0') {
-                       if (ImGui::Selectable(e.c_str())) {
-                           ImGui::CloseCurrentPopup();
-                       }
-                   }
+   /** @brief Particle fields offered by the binding dropdown. */
+   inline const std::vector<std::string> kParticleFields = {"Position", "Velocity", "Color", "Size", "Lifetime"};
+
+   /**
+    * @brief Draws one event -> field binding row.
+    * @param binding The binding to edit; it owns the selection, the widget is stateless.
+    */
+   inline void drawBindingList(EventBinding& binding, Andromeda::ParticleGroup& group) {
+       if (ImGui::BeginTable("EventBindingTable", 4)) {
+           ImGui::TableSetupColumn("Edit", ImGuiTableColumnFlags_WidthFixed);
+           ImGui::TableSetupColumn("Event", ImGuiTableColumnFlags_WidthStretch);
+           ImGui::TableSetupColumn("Field", ImGuiTableColumnFlags_WidthStretch);
+           ImGui::TableSetupColumn("Delete", ImGuiTableColumnFlags_WidthFixed);
+           ImGui::TableNextRow();
+           ImGui::TableNextColumn();
+           ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+           ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+           if (ImGui::Button(ICON_LC_EDIT_2 "##editBinding")) {
            }
-           ImGui::EndPopup();
-       }
-       if (ImGui::BeginPopup("FieldBindingPopup")) {
-           static char searchQuery[64] = "";
-           ImGui::InputTextWithHint("##searchParticleField", "Search property...", searchQuery, IM_ARRAYSIZE(searchQuery));
-           for (auto const& p : particleFields) {
-               if (ImGui::Selectable(p.c_str())) {
-                   ImGui::CloseCurrentPopup();
-               }
+           ImGui::PopStyleColor(2);
+           ImGui::TableNextColumn();
+           drawDropdownButton("event", kEventNames, binding.eventIndex, "Select event...");
+
+           ImGui::TableNextColumn();
+           drawDropdownButton("field", kParticleFields, binding.fieldIndex, "Select field...");
+
+           ImGui::TableNextColumn();
+           ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+           ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+           if (ImGui::Button(ICON_LC_MINUS "##removeBinding")) {
+               group.eventBindings.erase(group.eventBindings.begin() + static_cast<ptrdiff_t>(&binding - &group.eventBindings[0]));
            }
-           ImGui::EndPopup();
+           ImGui::PopStyleColor(2);
+
+           ImGui::EndTable();
        }
    }
 
-         /** @brief Draws the event binding window for the particle system.
-Event bindings let users connect particle system properties to custom callbacks or events. */
-   void drawEventBindingWindow(Andromeda::ParticleGroup& group) {
+    /** @brief Draws the event binding window for the particle system.
+    Event bindings let users connect particle system properties to custom callbacks or events. */
+   inline void drawEventBindingWindow(Andromeda::ParticleGroup& group) {
        ImGui::PushID("EventBindings");
-       float s = ImGui::GetFrameHeight();
        if (ImGui::TreeNode("Event Bindings")) {
-           ImGui::Indent();
            Andromeda::Meta::forEachField(group, [&](auto const& f, auto& value) {
                using V = std::decay_t<decltype(value)>;
                constexpr u32 channelCount = ChannelTraits<V>::count;
            });
-           std::vector<std::string> eventNames = {"OnStart", "OnUpdate", "OnEnd"};
-           std::vector<std::string> particleFields = {"Position", "Velocity", "Color", "Size", "Lifetime"};
-           drawBindingList(eventNames, particleFields);
+           i32 size = static_cast<i32>(group.eventBindings.size());
+           for (size_t i = 0; i < size; ++i) {
+               ImGui::PushID(static_cast<int>(i));
+               drawBindingList(group.eventBindings[i], group);
+               if (size > 1 && i < size - 1) {
+                   ImGui::Separator();
+               }
+               ImGui::PopID();
+           }
+
+           if (ImGui::Button("+ Binding")) {
+               group.eventBindings.emplace_back();
+           }
            ImGui::TreePop();
        }
-       ImGui::Unindent();
        ImGui::PopID();
    }
 
-   void drawParticleGroupProperties(std::span<Andromeda::ParticleGroup> group, u32 index) {
+   inline void drawParticleGroupProperties(std::span<Andromeda::ParticleGroup> group, u32 index) {
        ImGui::Text("Count");
        ImGui::SameLine(100);
        ImGui::DragInt("##ParticleCount", &group[index].particleCount);
@@ -92,7 +109,7 @@ Event bindings let users connect particle system properties to custom callbacks 
        drawEventBindingWindow(group[index]);
    }
     
-   void drawParticleGroups(ECS::Component::ParticleSystem& particleComp) {
+   inline void drawParticleGroups(ECS::Component::ParticleSystem& particleComp) {
         drawAddParticleButton(particleComp);
         i32 indexToRemove = -1;
         if (ImGui::BeginChild("ParticleGroups", ImVec2(0, 120),ImGuiChildFlags_ResizeY)) {

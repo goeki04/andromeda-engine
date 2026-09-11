@@ -6,6 +6,44 @@ project(Andromeda LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# ==============================================================================
+# Compiler cache (sccache)
+# ==============================================================================
+# Opt-out switch; when sccache is not installed this block does nothing at all, so the
+# build stays identical for anyone without it. Must sit before the first add_subdirectory()
+# because CMAKE_CXX_COMPILER_LAUNCHER is read when a target is created, not when it builds.
+option(ANDROMEDA_USE_SCCACHE "Route compilation through sccache when it is available" ON)
+
+if(ANDROMEDA_USE_SCCACHE)
+    find_program(SCCACHE_PROGRAM sccache)
+
+    if(NOT SCCACHE_PROGRAM)
+        message(STATUS "Andromeda: sccache not found - building without a compiler cache.")
+    elseif(NOT CMAKE_GENERATOR MATCHES "Ninja|Makefiles")
+        # Compiler launchers are silently ignored by the Visual Studio generator. Say so
+        # rather than letting someone believe caching is active. The conan presets use Ninja.
+        message(STATUS
+            "Andromeda: sccache found but generator '${CMAKE_GENERATOR}' ignores compiler "
+            "launchers - caching stays off. Use the Ninja-based conan presets to benefit.")
+    else()
+        set(CMAKE_CXX_COMPILER_LAUNCHER "${SCCACHE_PROGRAM}")
+
+        if(MSVC)
+            # MSVC defaults to /Zi, which writes debug info into a shared .pdb owned by a
+            # separate mspdbsrv process. sccache cannot cache those objects. /Z7 embeds the
+            # same debug info in the .obj instead - identical debugging experience, and
+            # cacheable. CMP0141 (CMake 3.25) would offer a cleaner switch, but it has to be
+            # set before project(), so patch the flags directly.
+            foreach(config DEBUG RELWITHDEBINFO)
+                string(REPLACE "/Zi" "/Z7" CMAKE_CXX_FLAGS_${config} "${CMAKE_CXX_FLAGS_${config}}")
+                string(REPLACE "/ZI" "/Z7" CMAKE_CXX_FLAGS_${config} "${CMAKE_CXX_FLAGS_${config}}")
+            endforeach()
+        endif()
+
+        message(STATUS "Andromeda: sccache enabled (${SCCACHE_PROGRAM}).")
+    endif()
+endif()
+
 if(WIN32)
     add_compile_definitions(ANDROMEDA_OS="Windows")
 elseif(UNIX)
@@ -165,8 +203,24 @@ set(ANDROMEDA_TEST_SOURCES
     "tests/test_resource.cpp"
     "tests/test_rhi.cpp"
     "tests/test_boost_websocket_client.cpp"
-    "tests/test_reflector.cpp"
 )
+
+# tests/test_reflector.cpp exercises the libclang-based reflector: it includes
+# a_Reflector.hpp and links a `reflection` target, neither of which exists in the tree
+# yet (there is no modules/reflection/). Leaving them unconditional makes CMake fail at
+# generate time with "AndromedaTests links to target reflection but the target was not
+# found", which takes down the whole configure - not just the tests. Flip this ON once
+# modules/reflection is added.
+option(ANDROMEDA_BUILD_REFLECTION_TESTS "Build tests/test_reflector.cpp (requires the reflection target)" OFF)
+
+if(ANDROMEDA_BUILD_REFLECTION_TESTS)
+    if(NOT TARGET reflection)
+        message(FATAL_ERROR
+            "ANDROMEDA_BUILD_REFLECTION_TESTS=ON but no `reflection` target exists. "
+            "Add modules/reflection (providing a_Reflector.hpp) and an add_subdirectory() for it.")
+    endif()
+    list(APPEND ANDROMEDA_TEST_SOURCES "tests/test_reflector.cpp")
+endif()
 
 add_executable(AndromedaTests ${ANDROMEDA_TEST_SOURCES})
 target_compile_definitions(resource PRIVATE SHADER_PATH="${CMAKE_CURRENT_SOURCE_DIR}/modules/shader/")
@@ -183,8 +237,11 @@ target_link_libraries(AndromedaTests PRIVATE
     GTest::gtest_main
     definitions
     network
-    reflection
 )
+
+if(ANDROMEDA_BUILD_REFLECTION_TESTS)
+    target_link_libraries(AndromedaTests PRIVATE reflection)
+endif()
 
 gtest_discover_tests(AndromedaTests)
 

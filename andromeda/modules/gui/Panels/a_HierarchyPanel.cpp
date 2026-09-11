@@ -3,6 +3,7 @@
 #include "a_components.hpp"
 #include "a_SelectionContext.hpp"
 #include "a_EditorContext.hpp"
+#include "a_Style.hpp"
 #include "a_registry.hpp"
 #include "a_event_manager.hpp"
 #include "a_primitiveGenerator.hpp"
@@ -132,13 +133,20 @@ namespace Andromeda::Gui
 
     void HierarchyPanel::drawNormalSelectable(EditorContext& ctx, ECS::Entity e, ECS::EntityHandle handle, bool isSelected)
     {
-        if (isSelected) ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.5f, 0.0f, 1.0f));
+        // Selection is a neutral, brighter grey - pushed locally rather than set globally,
+        // because ImGuiCol_Header also paints CollapsingHeader/TreeNode bars, which must stay
+        // at the plain 0.18 grey. Replaces the earlier orange text override.
+        if (isSelected) {
+            ImGui::PushStyleColor(ImGuiCol_Header, SelectionBg);
+            ImGui::PushStyleColor(ImGuiCol_HeaderHovered, SelectionBgHovered);
+            ImGui::PushStyleColor(ImGuiCol_HeaderActive, SelectionBgHovered);
+        }
 
         if (ImGui::Selectable(getEntityName(handle).c_str(), isSelected)) {
             selectEntity(ctx, e);
         }
 
-        if (isSelected) ImGui::PopStyleColor();
+        if (isSelected) ImGui::PopStyleColor(3);
 
         if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
             beginRename(handle);

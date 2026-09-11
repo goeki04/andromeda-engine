@@ -30,11 +30,15 @@ namespace Andromeda::Window {
     }
     void WindowManager::start() {
 
-        i16 windowFlags = 0;
+        // SDL_WindowFlags is a Uint64 in SDL3 - an i16 silently truncates every flag >= 0x8000.
+        SDL_WindowFlags windowFlags = 0;
         SDL_Surface* surface = CreateSDLSurface(ASSET_PATH "logo.png");
 
         windowFlags |= SDL_WINDOW_MAXIMIZED;
         windowFlags |= SDL_WINDOW_RESIZABLE;
+        // Without this the window is created at logical size on a scaled display, so the whole
+        // UI is rendered below native resolution and looks soft / pixelated.
+        windowFlags |= SDL_WINDOW_HIGH_PIXEL_DENSITY;
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
         SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);

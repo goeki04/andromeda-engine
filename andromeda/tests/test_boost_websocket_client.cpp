@@ -4,6 +4,7 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/ostream_sink.h>
 #include <chrono>
+#include <memory>
 #include <sstream>
 #include "a_BoostWebsocketClient.hpp"
 #include "a_logger.hpp"
@@ -43,7 +44,11 @@ private:
 
 class BoostWebsocketClientTest : public ::testing::Test {
 protected:
-    boost::asio::io_context m_IoContext;
+    // Both the io_context and the client itself must live in a shared_ptr: the client
+    // takes a shared io_context, and connect() spawns coroutines that keep the object
+    // alive via shared_from_this(). A stack instance compiles in some setups but throws
+    // std::bad_weak_ptr the moment connect() is called.
+    std::shared_ptr<boost::asio::io_context> m_IoContext = std::make_shared<boost::asio::io_context>();
     boost::asio::ssl::context m_SslContext{ boost::asio::ssl::context::tlsv12_client };
 
     void SetUp() override {
@@ -63,10 +68,10 @@ TEST_F(BoostWebsocketClientTest, ConnectSucceedsAgainstPublicEchoServer) {
     req.path = "/raw";
 
     LogCapture capture;
-    BoostWebsocketClient client(m_IoContext, m_SslContext, req, std::nullopt);
+    auto client = std::make_shared<BoostWebsocketClient>(m_IoContext, m_SslContext, req, std::nullopt);
 
-    ASSERT_NO_THROW(client.connect());
-    m_IoContext.run_for(std::chrono::seconds(10));
+    ASSERT_NO_THROW(client->connect());
+    m_IoContext->run_for(std::chrono::seconds(10));
 
     EXPECT_NE(capture.text().find("Successfully connected"), std::string::npos)
         << "Expected a successful connection log line. Full log:\n" << capture.text();
@@ -79,10 +84,10 @@ TEST_F(BoostWebsocketClientTest, ConnectFailsGracefullyForUnresolvableHost) {
     req.path = "/";
 
     LogCapture capture;
-    BoostWebsocketClient client(m_IoContext, m_SslContext, req, std::nullopt);
+    auto client = std::make_shared<BoostWebsocketClient>(m_IoContext, m_SslContext, req, std::nullopt);
 
-    ASSERT_NO_THROW(client.connect());
-    m_IoContext.run_for(std::chrono::seconds(10));
+    ASSERT_NO_THROW(client->connect());
+    m_IoContext->run_for(std::chrono::seconds(10));
 
     EXPECT_NE(capture.text().find("Connection failed"), std::string::npos)
         << "DNS resolution should fail fast and be caught, not crash or hang. Full log:\n" << capture.text();
@@ -99,12 +104,12 @@ TEST_F(BoostWebsocketClientTest, ConnectDoesNotHangOnUnreachableHost) {
     req.path = "/";
 
     LogCapture capture;
-    BoostWebsocketClient client(m_IoContext, m_SslContext, req, std::nullopt);
+    auto client = std::make_shared<BoostWebsocketClient>(m_IoContext, m_SslContext, req, std::nullopt);
 
-    ASSERT_NO_THROW(client.connect());
+    ASSERT_NO_THROW(client->connect());
 
     const auto start = std::chrono::steady_clock::now();
-    m_IoContext.run_for(std::chrono::seconds(35)); // internal timeout is 30s
+    m_IoContext->run_for(std::chrono::seconds(35)); // internal timeout is 30s
     const auto elapsed = std::chrono::steady_clock::now() - start;
 
     EXPECT_LT(elapsed, std::chrono::seconds(35))

@@ -1,6 +1,7 @@
 #include "a_BrowserPanel.hpp"
 #include "a_EditorContext.hpp"
 #include "a_ImGuiOperators.hpp"
+#include "a_Style.hpp"
 #include <cmath>
 #include "scene.hpp"
 namespace Andromeda::Gui {
@@ -89,8 +90,10 @@ namespace Andromeda::Gui {
         }
 
         if (tile.selected) {
-            dl->AddRect(tile.pMin, tile.pMax, IM_COL32(0, 120, 255, 255), 4.0f, 0, 2.5f);
-            dl->AddRectFilled(tile.pMin, tile.pMax, IM_COL32(0, 120, 255, 40), 4.0f);
+            // Same accent as every other "selected" state in the editor - this used to be a
+            // separately hand-typed (0,120,255), close to but not the same blue as the theme.
+            dl->AddRect(tile.pMin, tile.pMax, ImGui::GetColorU32(AccentColor), 4.0f, 0, 2.5f);
+            dl->AddRectFilled(tile.pMin, tile.pMax, ImGui::GetColorU32(withAlpha(AccentColor, 0.16f)), 4.0f);
         }
         else if (tile.hovered) {
             dl->AddRect(tile.pMin, tile.pMax, IM_COL32(255, 255, 255, 100), 4.0f);

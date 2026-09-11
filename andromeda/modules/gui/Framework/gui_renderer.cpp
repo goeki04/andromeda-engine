@@ -181,5 +181,9 @@ namespace Andromeda::Gui {
         io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+        // imgui 1.92 DPI handling: re-rasterize fonts and rescale viewports when the window
+        // moves to a display with a different scale, instead of stretching a 1x bitmap.
+        io.ConfigDpiScaleFonts = true;
+        io.ConfigDpiScaleViewports = true;
     }
 }
