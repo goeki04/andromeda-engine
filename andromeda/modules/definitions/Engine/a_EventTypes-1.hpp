@@ -1,6 +1,7 @@
 #pragma once
 
 #include "a_Keycodes.hpp"
+#include "a_meta_attributes.hpp"
 #include <string>
 #include <any>
 namespace Andromeda {
@@ -103,7 +104,11 @@ namespace Andromeda {
         static constexpr EventType GetStaticType() { return EventType::OnEnableWireframe; }
     };
 
-    struct [[BindableEvent]] OnSensorMessageReceived : IEvent {
+    /**
+     * @brief Triggered when a raw message arrives from the sensor.
+     * A_EVENT makes this event appear in the editor's event-binding dropdown.
+     */
+    struct A_EVENT OnSensorMessageReceived : IEvent {
         std::string message; ///< The raw message received from the sensor.
         explicit OnSensorMessageReceived(const std::string& msg) : message(msg) {}
         static constexpr EventType GetStaticType() { return EventType::OnSensorMessageReceived; }

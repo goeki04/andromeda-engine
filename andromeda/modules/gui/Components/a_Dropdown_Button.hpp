@@ -10,7 +10,7 @@
 #include <cstring>
 #include <string>
 #include <vector>
-
+#include <span>
 #include "imgui.h"
 #include "imgui_internal.h"
 
@@ -28,8 +28,7 @@ namespace Andromeda::Gui::Component
      * @param placeholder   Text drawn on the button while @p selectedIndex is -1.
      * @return true on the frame an entry was picked.
      */
-    inline bool drawDropdownButton(const char* id,
-                                   const std::vector<std::string>& options,
+    inline bool drawDropdownButton(const char* id, std::span < const std::string_view> options,
                                    int& selectedIndex,
                                    const char* placeholder = "Select...")
     {
@@ -75,8 +74,14 @@ namespace Andromeda::Gui::Component
 
         // Fixed width (0 height = auto): popups are AlwaysAutoResize, so without this the popup
         // grows to fit its content and ends up wider than the button.
+
+        float popupWidth = width;
+        for (const std::string_view option : options)
+            popupWidth = std::max(popupWidth, ImGui::CalcTextSize(option.data(), option.data() + option.size()).x);
+        popupWidth += g.Style.WindowPadding.x * 2.0f + g.Style.FramePadding.x * 2.0f;
+
         ImGui::SetNextWindowPos(ImVec2(bb.Min.x, bb.Max.y + g.Style.ItemSpacing.y));
-        ImGui::SetNextWindowSize(ImVec2(width, 0.0f));
+        ImGui::SetNextWindowSize(ImVec2(popupWidth, 0.0f));
         if (ImGui::BeginPopup(popupId.c_str())) {
             ImGui::PushItemWidth(-FLT_MIN);
             ImGui::InputTextWithHint("##search", "Search...", searchQuery, IM_ARRAYSIZE(searchQuery));
@@ -84,7 +89,7 @@ namespace Andromeda::Gui::Component
 
             const size_t queryLength = std::strlen(searchQuery);
             for (int i = 0; i < static_cast<int>(options.size()); ++i) {
-                const std::string& option = options[i];
+                const std::string_view option = options[i];
 
                 if (queryLength != 0) {
                     const auto match = std::search(option.begin(), option.end(),
@@ -97,7 +102,7 @@ namespace Andromeda::Gui::Component
                         continue;
                 }
 
-                if (ImGui::Selectable(option.c_str(), i == selectedIndex)) {
+                if (ImGui::Selectable(option.data(), i == selectedIndex)) {
                     selectedIndex = i;
                     changed = true;
                     ImGui::CloseCurrentPopup();
@@ -119,12 +124,44 @@ namespace Andromeda::Gui::Component
         window->DrawList->AddCircleFilled(markerCenter, markerInner, IM_COL32_WHITE, 0);
         window->DrawList->AddCircle(markerCenter, markerOuter, IM_COL32_WHITE, 0, 1.0f);
 
-        const char* label = (selectedIndex >= 0 && selectedIndex < static_cast<int>(options.size()))
-                          ? options[selectedIndex].c_str()
-                          : placeholder;
-        ImGui::RenderTextClipped(ImVec2(bb.Min.x + g.Style.FramePadding.x, bb.Min.y),
-                                 ImVec2(markerCenter.x - markerOuter - g.Style.ItemInnerSpacing.x, bb.Max.y),
-                                 label, nullptr, nullptr, ImVec2(0.0f, 0.5f), &bb);
+        const char* label;
+        if (selectedIndex >= 0 && selectedIndex < static_cast<int>(options.size())) {
+            label = options[selectedIndex].data();
+        } else {
+            label = placeholder;
+        }
+        const ImVec2 textMin(bb.Min.x + g.Style.FramePadding.x, bb.Min.y);
+        const ImVec2 textMax(markerCenter.x - markerOuter - g.Style.ItemInnerSpacing.x, bb.Max.y);
+        const float available = textMax.x - textMin.x;
+
+        const ImVec2 labelSize = ImGui::CalcTextSize(label);
+        const char* remaining = nullptr;
+        g.Font->CalcTextSizeA(g.FontSize, available, 0.0f, label, nullptr, &remaining);
+        const bool truncated = (remaining && *remaining != '\0');
+
+        if (!truncated) {
+            ImGui::RenderTextClipped(textMin, textMax, label, nullptr, &labelSize, ImVec2(0.0f, 0.5f), &bb);
+        } else {
+            static constexpr char kEllipsis[] = "...";
+            const float ellipsisWidth = ImGui::CalcTextSize(kEllipsis).x;
+
+            const char* cut = nullptr;
+            g.Font->CalcTextSizeA(g.FontSize, ImMax(available - ellipsisWidth, 0.0f), 0.0f, label, nullptr, &cut);
+            if (!cut)
+                cut = label;
+
+            char buffer[128];
+            const int keep = ImMin(static_cast<int>(cut - label),
+                                   static_cast<int>(sizeof(buffer)) - static_cast<int>(sizeof(kEllipsis)));
+            std::memcpy(buffer, label, static_cast<size_t>(keep));
+            std::memcpy(buffer + keep, kEllipsis, sizeof(kEllipsis));
+
+            ImGui::RenderTextClipped(textMin, textMax, buffer, nullptr, nullptr, ImVec2(0.0f, 0.5f), &bb);
+        }
+
+
+        if (truncated && hovered)
+            ImGui::SetTooltip("%s", label);
 
         return changed;
     }

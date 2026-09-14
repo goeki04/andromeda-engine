@@ -62,8 +62,6 @@ namespace Andromeda {
                 std::getline(is, line); // std::getline will remove the newline character and stop at the end of the line
                 OnSensorMessageReceived event{ line };
                 sensorEventQueue.push(std::move(event));
-                A_INFO("Sensor Zeile empfangen: {}", line);
-                
             }
         } catch (const std::exception& e) {
             A_ERROR("Server not online");

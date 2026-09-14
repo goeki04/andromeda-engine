@@ -98,6 +98,7 @@ namespace Andromeda::Editor {
         m_GuiRenderer.destroy();
         EventManager::getInstance().RemoveEventListener(m_UndoListenerId);
         EventManager::getInstance().RemoveEventListener(m_PushUndoListenerId);
+        EventManager::getInstance().RemoveEventListener(m_MouseMotionListenerId);
     }
 
     bool Editor::RayIntersectAABB(const amath::CameraData& cam, const ECS::Component::AABB& aabb, const glm::mat4& modelMatrix)

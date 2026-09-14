@@ -5,11 +5,51 @@
 #include <string>
 #include <vector>
 #include "generated_particle_group_meta.hpp"
+#include "generated_event_meta.hpp"
 #include "a_particle_group.hpp"
 #include "IconsLucide.h"
 #include "a_Dropdown_Button.hpp"
-namespace Andromeda::Gui::Component{
+#include "a_logger.hpp"
+ namespace Andromeda::Gui::Component{
 
+    template<typename T>
+    constexpr std::size_t countBindableFields() {
+        std::size_t n = 0;
+        Andromeda::Meta::forEachField<T>([&](auto const& f) {
+            using V = typename std::decay_t<decltype(f)>::member_type;
+            if constexpr (ChannelTraits<V>::count > 0)
+                ++n;
+        });
+        return n;
+    }
+
+    template<typename T>
+    constexpr auto makeBindableFieldNames() {
+        std::array<std::string_view, countBindableFields<T>()> out{};
+        std::size_t i = 0;
+        Andromeda::Meta::forEachField<T>([&](auto const& f) {
+            using V = typename std::decay_t<decltype(f)>::member_type;
+            if constexpr (ChannelTraits<V>::count > 0)
+                out[i++] = f.name;
+        });
+        return out;
+    }
+
+    template<typename T>
+    constexpr auto makeBindableFieldChannels() {
+        std::array<u32, countBindableFields<T>()> out{};
+        std::size_t i = 0;
+        Andromeda::Meta::forEachField<T>([&](auto const& f) {
+            using V = typename std::decay_t<decltype(f)>::member_type;
+            if constexpr (ChannelTraits<V>::count > 0) {
+                out[i++] = ChannelTraits<V>::count;
+            }
+        });
+        return out;
+    }
+
+   inline constexpr auto g_BindableFieldNames = makeBindableFieldNames<Andromeda::ParticleGroup>();
+   inline constexpr auto g_BindableFieldChannels = makeBindableFieldChannels<Andromeda::ParticleGroup>();
    inline void drawAddParticleButton(ECS::Component::ParticleSystem& particleComp) {
        float s = ImGui::GetFrameHeight(); // GetFrameHeight = FontSize +style.FramePadding.y * 2
        if (ImGui::Button("+", ImVec2(s, s))) {
@@ -17,17 +57,30 @@ namespace Andromeda::Gui::Component{
        }
    }
 
-   /** @brief Event names offered by the binding dropdown. Constant, so it lives at namespace scope. */
-   inline const std::vector<std::string> kEventNames = {"OnStart", "OnUpdate", "OnEnd"};
+   /**
+    * @brief Event names offered by the binding dropdown.
+    * Generated from the events marked [[BindableEvent]] in a_EventTypes.hpp - to add an event to the
+    * dropdown, annotate it there; nothing here needs to change.
+    */
+   inline constexpr auto& g_EventNames = Andromeda::Meta::ReflectedEventsNames;
 
-   /** @brief Particle fields offered by the binding dropdown. */
-   inline const std::vector<std::string> kParticleFields = {"Position", "Velocity", "Color", "Size", "Lifetime"};
+   inline void parseEventString(const std::string& message) {
+       A_INFO("Received sensor message: {}", message);
+   }
+    template<typename T>
+        requires std::is_arithmetic_v<T> 
+   inline void parseEvent() {
+
+   }
 
    /**
     * @brief Draws one event -> field binding row.
     * @param binding The binding to edit; it owns the selection, the widget is stateless.
+    * @return true when the row's delete button was pressed. The row must not erase itself:
+    *         the caller is still iterating over the vector, so the erase happens after the loop.
     */
-   inline void drawBindingList(EventBinding& binding, Andromeda::ParticleGroup& group) {
+   inline bool drawBindingList(EventBinding& binding) {
+       bool removeRequested = false;
        if (ImGui::BeginTable("EventBindingTable", 4)) {
            ImGui::TableSetupColumn("Edit", ImGuiTableColumnFlags_WidthFixed);
            ImGui::TableSetupColumn("Event", ImGuiTableColumnFlags_WidthStretch);
@@ -41,21 +94,27 @@ namespace Andromeda::Gui::Component{
            }
            ImGui::PopStyleColor(2);
            ImGui::TableNextColumn();
-           drawDropdownButton("event", kEventNames, binding.eventIndex, "Select event...");
+
+           drawDropdownButton("event", g_EventNames, binding.eventIndex, "Select event...");
 
            ImGui::TableNextColumn();
-           drawDropdownButton("field", kParticleFields, binding.fieldIndex, "Select field...");
+           drawDropdownButton("field", g_BindableFieldNames, binding.fieldIndex, "Select field...");
+
+          
+           u32 fieldChannels = g_BindableFieldChannels[binding.fieldIndex];
+
 
            ImGui::TableNextColumn();
            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
            ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
            if (ImGui::Button(ICON_LC_MINUS "##removeBinding")) {
-               group.eventBindings.erase(group.eventBindings.begin() + static_cast<ptrdiff_t>(&binding - &group.eventBindings[0]));
+               removeRequested = true;
            }
            ImGui::PopStyleColor(2);
 
            ImGui::EndTable();
        }
+       return removeRequested;
    }
 
     /** @brief Draws the event binding window for the particle system.
@@ -63,18 +122,22 @@ namespace Andromeda::Gui::Component{
    inline void drawEventBindingWindow(Andromeda::ParticleGroup& group) {
        ImGui::PushID("EventBindings");
        if (ImGui::TreeNode("Event Bindings")) {
-           Andromeda::Meta::forEachField(group, [&](auto const& f, auto& value) {
-               using V = std::decay_t<decltype(value)>;
-               constexpr u32 channelCount = ChannelTraits<V>::count;
-           });
-           i32 size = static_cast<i32>(group.eventBindings.size());
-           for (size_t i = 0; i < size; ++i) {
-               ImGui::PushID(static_cast<int>(i));
-               drawBindingList(group.eventBindings[i], group);
-               if (size > 1 && i < size - 1) {
+
+           const i32 size = static_cast<i32>(group.eventBindings.size());
+           i32 indexToRemove = -1;
+           for (i32 i = 0; i < size; ++i) {
+               ImGui::PushID(i);
+               if (drawBindingList(group.eventBindings[i])) {
+                   indexToRemove = i;
+               }
+               if (i < size - 1) {
                    ImGui::Separator();
                }
                ImGui::PopID();
+           }
+
+           if (indexToRemove >= 0) {
+               group.eventBindings.erase(group.eventBindings.begin() + static_cast<ptrdiff_t>(indexToRemove));
            }
 
            if (ImGui::Button("+ Binding")) {

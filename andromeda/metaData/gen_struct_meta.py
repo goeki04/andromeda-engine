@@ -20,6 +20,12 @@ Usage:
     python metaData/gen_struct_meta.py
     python metaData/gen_struct_meta.py --input a.hpp --input b.hpp --output out.hpp
     python metaData/gen_struct_meta.py --struct ParticleGroup
+    python metaData/gen_struct_meta.py --input e.hpp --output e_meta.hpp --list-name ReflectedEvents
+
+The shared vocabulary (FieldInfo, StructInfo, forEachField) is NOT emitted here - it lives in
+the hand-written modules/definitions/Engine/a_meta_core.hpp, which every generated file
+includes. That is what lets several generated headers coexist in one translation unit; for the
+same reason --list-name must be unique per output file.
 
 Limitations (deliberate): this is a line-based scanner, not a real C++ frontend.
 It understands the struct convention used in this project - one member per line,
@@ -47,9 +53,11 @@ DEFAULT_OUTPUT = "modules/definitions/renderer/generated_particle_group_meta.hpp
 TAG = "-- StructMeta:"
 
 NAMESPACE_RE = re.compile(r"^\s*namespace\s+([A-Za-z_][\w:]*)\s*\{")
+# Attributes may be written as [[a::event]] or as an all-caps A_XXX marker macro.
+# The lookahead keeps 'struct A_Foo {' from being read as marker 'A_F' + name 'oo'.
 STRUCT_RE = re.compile(
     r"\b(?:struct|class)\s+"
-    r"(?P<attrs>(?:\[\[[^\]]*\]\]\s*)*)"
+    r"(?P<attrs>(?:(?:\[\[[^\]]*\]\]|A_[A-Z][A-Z0-9_]*(?=\s))\s*)*)"
     r"(?P<name>[A-Za-z_]\w*)\s*"
     r"(?P<bases>:[^{;]*)?\{"
 )
@@ -365,69 +373,13 @@ PRELUDE = '''#pragma once
 //  (target: generate_ecs_metadata).
 // ============================================================================
 
-#include <array>
-#include <cstddef>
-#include <string_view>
-#include <tuple>
-#include <utility>
+// FieldInfo, StructInfo and forEachField live in the hand-written core header, so that
+// several generated files can coexist in one translation unit without redefining them.
+#include "a_meta_core.hpp"
 
 {includes}
 
 namespace Andromeda::Meta {{
-
-    /** @brief Description of a single data member of a reflected struct. */
-    template <typename Owner, typename Member>
-    struct FieldInfo {{
-        using owner_type = Owner;
-        using member_type = Member;
-
-        std::string_view name;           ///< Member name, exactly as written in the header.
-        std::string_view typeName;       ///< Type as source text, e.g. "vec3".
-        std::string_view doc;            ///< Doxygen comment of the member ("" if none).
-        std::string_view defaultLiteral; ///< Default initializer as text ("" if none).
-        Member Owner::* pointer;         ///< Pointer-to-member for generic access.
-
-        constexpr const Member& get(const Owner& owner) const noexcept {{ return owner.*pointer; }}
-        constexpr Member& get(Owner& owner) const noexcept {{ return owner.*pointer; }}
-    }};
-
-    template <typename Owner, typename Member>
-    constexpr FieldInfo<Owner, Member> makeField(std::string_view name,
-                                                 std::string_view typeName,
-                                                 std::string_view doc,
-                                                 std::string_view defaultLiteral,
-                                                 Member Owner::* pointer) noexcept {{
-        return FieldInfo<Owner, Member>{{name, typeName, doc, defaultLiteral, pointer}};
-    }}
-
-    /** @brief Primary template - specialized below for every scanned struct. */
-    template <typename T>
-    struct StructInfo {{
-        static constexpr bool reflected = false;
-    }};
-
-    /** @brief True when metadata was generated for T. */
-    template <typename T>
-    inline constexpr bool isReflected = StructInfo<T>::reflected;
-
-    /** @brief Calls fn(field) for every field of T, in declaration order. */
-    template <typename T, typename Fn>
-    constexpr void forEachField(Fn&& fn) {{
-        std::apply([&fn](auto const&... field) {{ (fn(field), ...); }}, StructInfo<T>::fields);
-    }}
-
-    /** @brief Calls fn(field, value) for every field of a concrete instance. */
-    template <typename T, typename Fn>
-    constexpr void forEachField(T& instance, Fn&& fn) {{
-        std::apply([&](auto const&... field) {{ (fn(field, instance.*(field.pointer)), ...); }},
-                   StructInfo<T>::fields);
-    }}
-
-    template <typename T, typename Fn>
-    constexpr void forEachField(const T& instance, Fn&& fn) {{
-        std::apply([&](auto const&... field) {{ (fn(field, instance.*(field.pointer)), ...); }},
-                   StructInfo<T>::fields);
-    }}
 
 '''
 
@@ -480,7 +432,7 @@ def render_struct(struct, source_rel):
     return "\n".join(out)
 
 
-def render_header(collected):
+def render_header(collected, list_name="ReflectedStructs"):
     sources = "\n".join(f"//      {rel}" for rel, _ in collected)
     seen = []
     for rel, _ in collected:
@@ -491,17 +443,30 @@ def render_header(collected):
 
     parts = [PRELUDE.format(sources=sources, includes=includes)]
     all_types = []
+    all_names = []
     for rel, structs in collected:
         for struct in structs:
             parts.append(render_struct(struct, rel))
             all_types.append("::" + "::".join(filter(None, [struct["namespace"], struct["name"]])))
+            all_names.append(struct["name"])
 
+    # The alias name is per-output: two generated headers in one translation unit would
+    # otherwise declare the same alias with different contents.
     parts.append("    /** @brief Every struct this header carries metadata for. */")
     if all_types:
         joined = ",\n        ".join(all_types)
-        parts.append(f"    using ReflectedStructs = std::tuple<\n        {joined}\n    >;")
+        parts.append(f"    using {list_name} = std::tuple<\n        {joined}\n    >;")
     else:
-        parts.append("    using ReflectedStructs = std::tuple<>;")
+        parts.append(f"    using {list_name} = std::tuple<>;")
+    parts.append("")
+
+    # Flat name list, ready to hand to a dropdown as std::span<const std::string_view>.
+    parts.append(f"    /** @brief The same types as {list_name}, as display names in declaration order. */")
+    names = ", ".join('"%s"' % cpp_string(n) for n in all_names)
+    parts.append(
+        f"    inline constexpr std::array<std::string_view, {len(all_names)}> "
+        f"{list_name}Names = {{{names}}};"
+    )
     parts.append("")
     parts.append("} // namespace Andromeda::Meta")
     parts.append("")
@@ -523,6 +488,12 @@ def main(argv=None):
     parser.add_argument("--output", default=DEFAULT_OUTPUT, help="Destination file for the generated header.")
     parser.add_argument("--struct", action="append", default=None,
                         help="Only emit these structs (repeatable).")
+    parser.add_argument("--require-attr", default=None,
+                        help="Only emit structs annotated with this marker (e.g. A_EVENT). "
+                             "Without it every struct in the input is emitted.")
+    parser.add_argument("--list-name", default="ReflectedStructs",
+                        help="Name of the generated tuple alias listing every reflected type. "
+                             "Must be unique per output file.")
     parser.add_argument("--quiet", action="store_true", help="Suppress progress output.")
     args = parser.parse_args(argv)
 
@@ -545,16 +516,19 @@ def main(argv=None):
         structs = parse_header(abs_in)
         if wanted is not None:
             structs = [s for s in structs if s["name"] in wanted]
+        if args.require_attr:
+            structs = [s for s in structs if args.require_attr in s["attrs"]]
         for struct in structs:
             log(f"{TAG}   {struct['name']} -> {len(struct['fields'])} fields")
             total_fields += len(struct["fields"])
         collected.append((rel, structs))
 
     if not any(structs for _, structs in collected):
-        print(f"!! ERROR: no struct found in {', '.join(inputs)}.", file=sys.stderr)
+        hint = f" carrying {args.require_attr}" if args.require_attr else ""
+        print(f"!! ERROR: no struct{hint} found in {', '.join(inputs)}.", file=sys.stderr)
         return 1
 
-    content = render_header(collected)
+    content = render_header(collected, args.list_name)
     abs_out = resolve(args.output)
     os.makedirs(os.path.dirname(abs_out), exist_ok=True)
 

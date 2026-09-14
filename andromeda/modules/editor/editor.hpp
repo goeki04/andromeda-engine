@@ -33,6 +33,7 @@ namespace Andromeda::Editor {
         Undo::UndoBuffer m_UndoBuffer;
         EventListenerID m_UndoListenerId;
         EventListenerID m_PushUndoListenerId;
+        EventListenerID m_OnSensorMsgReceivedId;
         EventListenerID m_MouseMotionListenerId;
 
     public:

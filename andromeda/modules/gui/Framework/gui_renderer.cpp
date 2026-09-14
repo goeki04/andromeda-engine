@@ -56,7 +56,7 @@ namespace Andromeda::Gui {
         m_Panels.push_back(std::make_unique<BrowserPanel>("Browser"));
         m_Panels.push_back(std::make_unique<ViewportPanel>("Viewport"));
         m_Panels.push_back(std::make_unique<Chart>("Chart"));
-
+        
         for (auto& panel : m_Panels) {
             panel->initPanel(editorContext);
         }

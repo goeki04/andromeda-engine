@@ -101,6 +101,7 @@ add_subdirectory(modules/filesystem)
 add_subdirectory(modules/serialization)
 add_subdirectory(modules/renderer_rhi)
 add_subdirectory(modules/data)
+add_subdirectory(modules/particle_system)
 
 add_executable(AndromedaReflector tools/shader_reflector/main.cpp)
 target_link_libraries(AndromedaReflector PRIVATE spirv-reflect-static)
@@ -188,6 +189,7 @@ target_link_libraries(Andromeda PRIVATE
     editor
     input
     renderer_rhi
+    particle_system
     serialization
     filesystem
     resource
