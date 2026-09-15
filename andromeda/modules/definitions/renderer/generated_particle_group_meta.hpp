@@ -29,15 +29,15 @@ namespace Andromeda::Meta {
         static constexpr std::string_view name = "EventBinding";
         static constexpr std::string_view qualifiedName = "Andromeda::EventBinding";
         static constexpr std::string_view header = "modules/definitions/renderer/a_particle_group.hpp";
-        static constexpr std::string_view doc = "";
+        static constexpr std::string_view doc = "One \"event drives field\" connection of a particle group, as authored in the editor.";
 
         static constexpr auto fields = std::make_tuple(
-            makeField("event", "IEvent*", "Type of the event to bind to.", "nullptr", &type::event),
-            makeField("eventIndex", "i32", "Index of the event in the event list.", "-1", &type::eventIndex),
-            makeField("fieldIndex", "i32", "Index of the field in the particle group to bind to.", "-1", &type::fieldIndex)
+            makeField("message", "std::string", "Payload most recently delivered by the bound event.", "", &type::message),
+            makeField("eventIndex", "i32", "Index into Meta::ReflectedEventsNames, -1 while no event is selected.", "-1", &type::eventIndex),
+            makeField("fieldIndex", "i32", "Index into the bindable fields of ParticleGroup, -1 while unselected.", "-1", &type::fieldIndex)
         );
 
-        static constexpr std::array<std::string_view, 3> fieldNames = {"event", "eventIndex", "fieldIndex"};
+        static constexpr std::array<std::string_view, 3> fieldNames = {"message", "eventIndex", "fieldIndex"};
         static constexpr std::size_t fieldCount = std::tuple_size_v<decltype(fields)>;
     };
 
@@ -52,7 +52,7 @@ namespace Andromeda::Meta {
         static constexpr std::string_view name = "ParticleGroup";
         static constexpr std::string_view qualifiedName = "Andromeda::ParticleGroup";
         static constexpr std::string_view header = "modules/definitions/renderer/a_particle_group.hpp";
-        static constexpr std::string_view doc = "";
+        static constexpr std::string_view doc = "One emitter configuration: how many particles there are, how they look and how they move.";
 
         static constexpr auto fields = std::make_tuple(
             makeField("groupName", "std::string", "Name of the particle group for identification.", "\"ParticleGroup_1\"", &type::groupName),

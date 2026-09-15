@@ -3,17 +3,57 @@
 /**
  * @file a_particle_binding_system.hpp
  * @brief Subsystem that applies event bindings to the particle groups in the scene.
+ *
+ * @details This file is the reference for the whole binding feature, because it is the place where
+ *          the three halves meet: the events (a_EventTypes.hpp), the authoring data
+ *          (a_particle_group.hpp) and the editor UI (a_particle_component_ui.hpp).
+ *
+ * ### How a binding flows through the engine
+ *
+ * 1. The sensor line arrives on the network thread and is pushed into a queue
+ *    (a_tcp_sensor_client.cpp).
+ * 2. NetworkManager::update() drains the queue on the main thread and dispatches the event
+ *    through the EventManager.
+ * 3. ParticleBindingSystem, subscribed since start(), stores the payload in a member. It does
+ *    @b not touch any component from inside the callback - that would mean writing to the ECS in
+ *    the middle of another subsystem's update.
+ * 4. ParticleBindingSystem::update() walks every ParticleSystem component, every ParticleGroup in
+ *    it and every EventBinding in that group, and applies the stored payload wherever a binding
+ *    refers to the event it just received.
+ *
+ * ### Making a new event bindable
+ *
+ * 1. Annotate the event struct in a_EventTypes.hpp with @c [[BindableEvent]]. Without the marker
+ *    the generator skips it and it never appears in the editor's event dropdown.
+ * 2. Give the event fields whose types have channels. @c ChannelTraits<std::string>::count is 0,
+ *    so an event that only carries a raw string is listed but has nothing to bind - parse the
+ *    payload before dispatching and give the event typed fields (float, vec3, i32) instead.
+ * 3. Build. The @c generate_ecs_metadata target re-runs the scanner, so the event lands in
+ *    Meta::ReflectedEvents and Meta::ReflectedEventsNames, and the dropdown picks it up with no
+ *    change to the UI code.
+ * 4. Subscribe to it in ParticleBindingSystem::start(). This is currently the one manual step:
+ *    the subscription names a single concrete event type, so a newly marked event shows up in the
+ *    dropdown but stays silent until it is subscribed here as well.
+ * 5. Make sure something actually dispatches the event, otherwise the binding has no source.
+ *
+ * ### Creating a binding in the editor
+ *
+ * Select an entity with a particle system, expand a particle group, open "Event Bindings" and
+ * press "+ Binding". Both dropdowns start at -1 ("nothing selected"); pick the event in the first
+ * and the target field in the second. The field list only offers fields that have channels, so
+ * groupName and eventBindings never appear there.
  */
 
 #include "a_ISubsystem.hpp"
 #include <string_view>
 #include "a_event_manager.hpp"
 #include <string>
+#include "a_particle_group.hpp"
 namespace Andromeda::ECS {
     class ComponentRegistry;
 }
 namespace Andromeda {
-    
+
     /**
      * @class ParticleBindingSystem
      * @brief Drives ParticleGroup fields from engine events, once per frame.
@@ -23,10 +63,23 @@ namespace Andromeda {
      *          subscription for the whole engine, remembers the most recent payload, and walks
      *          every ParticleSystem component in @c update() to apply it. Groups and bindings can
      *          therefore be created and destroyed at runtime without touching the subscription.
+     *
+     *          The number of subscriptions scales with the number of bindable event @e types, not
+     *          with the number of groups or bindings in the scene - that is what keeps the
+     *          lifetime handling down to a single ID per event type.
      */
     class ParticleBindingSystem : public ISubsystem {
     public:
-        /** @brief Registers the event subscription. */
+        /**
+         * @brief Writes the stored payload into every binding of one particle group.
+         * @param bindings The group's binding list; entries are updated in place.
+         * @note Entries whose eventIndex is out of range are skipped rather than treated as an
+         *       error: -1 is the normal state of a binding the user has not filled in yet, and a
+         *       scene file may be older than the current event list.
+         */
+        void applyBinding(std::vector<EventBinding>& bindings);
+
+        /** @brief Looks up the scene registry and registers the event subscription. */
         void start() override;
 
         /** @brief Applies the most recent payload to every bound particle group. Once per frame. */
@@ -36,9 +89,10 @@ namespace Andromeda {
         void destroy() override;
 
         static constexpr std::string_view GetStaticName() { return "ParticleBindingSystem"; }
+
+        /** @brief Handle of the OnSensorMessageReceived subscription, released in destroy(). */
         EventListenerID m_OnSensorMessageReceived;
-        std::string payload;
-        ECS::ComponentRegistry* m_Registry = nullptr; ///< Pointer to the scene's registry
+
         /**
          * @brief Gets the runtime string identifier of the subsystem.
          * @return A C-string containing the subsystem's name.
@@ -46,5 +100,9 @@ namespace Andromeda {
         const char* getSubsystemName() const override {
             return GetStaticName().data();
         }
+
+    private:
+        std::string payload;                          ///< Payload of the most recent event, applied next update().
+        ECS::ComponentRegistry* m_Registry = nullptr; ///< Pointer to the scene's registry
     };
 }
