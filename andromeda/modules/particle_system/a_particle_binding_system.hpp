@@ -23,12 +23,16 @@
  *
  * ### Making a new event bindable
  *
- * 1. Annotate the event struct in a_EventTypes.hpp with @c [[BindableEvent]]. Without the marker
- *    the generator skips it and it never appears in the editor's event dropdown.
- * 2. Give the event fields whose types have channels. @c ChannelTraits<std::string>::count is 0,
- *    so an event that only carries a raw string is listed but has nothing to bind - parse the
- *    payload before dispatching and give the event typed fields (float, vec3, i32) instead.
- * 3. Build. The @c generate_ecs_metadata target re-runs the scanner, so the event lands in
+ * 1. Annotate the event struct with @c [[BindableEvent]]. Without the marker the generator skips
+ *    it and it never appears in the editor's event dropdown. Engine-wide events live in
+ *    a_EventTypes.hpp; a sensor-specific one belongs next to its payload (see a_sensor_events.hpp),
+ *    so that the engine core does not start depending on the data module.
+ * 2. Give the event a payload whose fields have channels. @c ChannelTraits<std::string>::count is
+ *    0, so a raw string carries nothing bindable - parse before dispatching. OnSensorMessageReceived
+ *    carries a @c SensorTelemetry variant, and the channels come from reflecting its alternatives
+ *    (BMV080Telemetry and any sensor added to the variant later), not from the event itself.
+ * 3. Add the header to the event generator's inputs in modules/definitions/CMakeLists.txt, then
+ *    build. The @c generate_ecs_metadata target re-runs the scanner, so the event lands in
  *    Meta::ReflectedEvents and Meta::ReflectedEventsNames, and the dropdown picks it up with no
  *    change to the UI code.
  * 4. Subscribe to it in ParticleBindingSystem::start(). This is currently the one manual step:
@@ -49,6 +53,7 @@
 #include "a_event_manager.hpp"
 #include <string>
 #include "a_particle_group.hpp"
+#include "a_sensor_events.hpp"
 namespace Andromeda::ECS {
     class ComponentRegistry;
 }
@@ -67,6 +72,10 @@ namespace Andromeda {
      *          The number of subscriptions scales with the number of bindable event @e types, not
      *          with the number of groups or bindings in the scene - that is what keeps the
      *          lifetime handling down to a single ID per event type.
+     *
+     * @note @c m_HasTelemetry exists because std::variant default-constructs to its first
+     *       alternative: without the flag, "nothing received yet" would be indistinguishable from
+     *       a BMV080Telemetry reading of all zeroes.
      */
     class ParticleBindingSystem : public ISubsystem {
     public:
@@ -102,7 +111,8 @@ namespace Andromeda {
         }
 
     private:
-        std::string payload;                          ///< Payload of the most recent event, applied next update().
+        SensorTelemetry m_Telemetry{};                ///< Payload of the most recent event, applied next update().
+        bool m_HasTelemetry = false;                  ///< False until the first event arrived; see note below.
         ECS::ComponentRegistry* m_Registry = nullptr; ///< Pointer to the scene's registry
     };
 }

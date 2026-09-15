@@ -9,6 +9,6 @@ target_include_directories(particle_system PUBLIC .)
 target_link_libraries(particle_system PUBLIC
 	core
 	scene
-	data
 	definitions
+	data
 )

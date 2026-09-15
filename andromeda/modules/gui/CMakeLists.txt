@@ -48,4 +48,5 @@ target_link_libraries(gui PUBLIC
     definitions
     resource
     renderer_rhi
+    data
 )

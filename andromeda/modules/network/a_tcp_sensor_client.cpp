@@ -9,6 +9,7 @@
 #include <a_logger.hpp>
 #include "a_primitives.hpp"
 #include "a_threadSafeQueue.hpp"
+#include "a_sensor_events.hpp"
 namespace net = boost::asio;
 using boost::asio::ip::tcp;
 /// <summary>
@@ -41,7 +42,7 @@ namespace Andromeda {
         }
     }
 
-    net::awaitable<void> readSensorStream(ThreadSafeQueue<OnSensorMessageReceived>& sensorEventQueue, std::string host, u16 port) {
+    net::awaitable<void> readSensorStream(ThreadSafeQueue<std::string>& sensorLineQueue, std::string host, u16 port) {
         auto executor = co_await net::this_coro::executor;
         tcp::resolver resolver(executor);
         tcp::socket socket(executor);
@@ -59,12 +60,11 @@ namespace Andromeda {
 
                 std::istream is(&buffer);
                 std::string line;
-                std::getline(is, line); // std::getline will remove the newline character and stop at the end of the line
-                OnSensorMessageReceived event{ line };
-                sensorEventQueue.push(std::move(event));
+                std::getline(is, line);
+                sensorLineQueue.push(std::move(line));
             }
         } catch (const std::exception& e) {
-            A_ERROR("Server not online");
+            A_ERROR("Server not online: {}", e.what()); 
         }
     }
 }

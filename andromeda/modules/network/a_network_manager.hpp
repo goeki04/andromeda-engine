@@ -15,7 +15,7 @@
 #include <thread>
 #include <boost/asio/executor_work_guard.hpp>
 #include "a_threadSafeQueue.hpp"
-#include "a_EventTypes.hpp"
+#include <string>
 namespace Andromeda {
 	/**
 	 * @class NetworkManager
@@ -51,6 +51,6 @@ namespace Andromeda {
 		std::optional<ProxySettings> m_ProxySettings;					///< Proxy configuration read from the environment.
 		std::optional<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>> m_WorkGuard;	///< Keeps io_context::run() alive while no work is pending.
 		std::jthread m_NetworkThread;									///< Dedicated thread executing the io_context.
-		ThreadSafeQueue<OnSensorMessageReceived> m_SensorEventQueue;	///< Queue for sensor events.
+		ThreadSafeQueue<std::string> m_SensorEventQueue;	///< Raw sensor lines, parsed and dispatched in update().
 	};
 }

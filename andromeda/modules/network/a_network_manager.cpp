@@ -6,8 +6,9 @@
 #include <string>
 #include "a_event_manager.hpp"
 #include <boost/asio/detached.hpp>
+#include "a_sensor_events.hpp"
 namespace Andromeda {
-    net::awaitable<void> readSensorStream(ThreadSafeQueue<OnSensorMessageReceived>& sensorEventQueue, std::string host, u16 port);
+    net::awaitable<void> readSensorStream(ThreadSafeQueue<std::string>& sensorLineQueue, std::string host, u16 port);
 	void NetworkManager::start()
 	{
 		m_IoContext = std::make_shared<boost::asio::io_context>();
@@ -41,9 +42,17 @@ namespace Andromeda {
 		if (m_HomeAssistantService) {
 			m_HomeAssistantService->update();
 		}
-        auto events = m_SensorEventQueue.dequeueAll();
-        for (const auto& event : events) {
-            EventManager::getInstance().Dispatch(EventType::OnSensorMessageReceived, event);
+        // Parsing happens here, on the main thread, so that a malformed line only costs one
+        // warning instead of ending the network coroutine's read loop.
+        auto lines = m_SensorEventQueue.dequeueAll();
+        for (const auto& line : lines) {
+            try {
+                const SensorData sensorData = nlohmann::json::parse(line).get<SensorData>();
+                const OnSensorMessageReceived event{ sensorData.data };
+                EventManager::getInstance().Dispatch(EventType::OnSensorMessageReceived, event);
+            } catch (const std::exception& e) {
+                A_WARN("Sensor line could not be parsed: {}", e.what());
+            }
         }
 	}
 }

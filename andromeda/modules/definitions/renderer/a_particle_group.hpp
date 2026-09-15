@@ -40,7 +40,7 @@ namespace Andromeda {
 
     /** @brief One "event drives field" connection of a particle group, as authored in the editor. */
     struct EventBinding {
-        std::string message; ///< Payload most recently delivered by the bound event.
+        i32 eventChannel = -1;
         i32 eventIndex = -1; ///< Index into Meta::ReflectedEventsNames, -1 while no event is selected.
         i32 fieldIndex = -1; ///< Index into the bindable fields of ParticleGroup, -1 while unselected.
     };

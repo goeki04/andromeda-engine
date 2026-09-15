@@ -32,12 +32,12 @@ namespace Andromeda::Meta {
         static constexpr std::string_view doc = "One \"event drives field\" connection of a particle group, as authored in the editor.";
 
         static constexpr auto fields = std::make_tuple(
-            makeField("message", "std::string", "Payload most recently delivered by the bound event.", "", &type::message),
+            makeField("eventChannel", "i32", "", "-1", &type::eventChannel),
             makeField("eventIndex", "i32", "Index into Meta::ReflectedEventsNames, -1 while no event is selected.", "-1", &type::eventIndex),
             makeField("fieldIndex", "i32", "Index into the bindable fields of ParticleGroup, -1 while unselected.", "-1", &type::fieldIndex)
         );
 
-        static constexpr std::array<std::string_view, 3> fieldNames = {"message", "eventIndex", "fieldIndex"};
+        static constexpr std::array<std::string_view, 3> fieldNames = {"eventChannel", "eventIndex", "fieldIndex"};
         static constexpr std::size_t fieldCount = std::tuple_size_v<decltype(fields)>;
     };
 

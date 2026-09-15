@@ -103,12 +103,6 @@ namespace Andromeda {
         static constexpr EventType GetStaticType() { return EventType::OnEnableWireframe; }
     };
 
-    struct [[BindableEvent]] OnSensorMessageReceived : IEvent {
-        std::string message; ///< The raw message received from the sensor.
-        explicit OnSensorMessageReceived(const std::string& msg) : message(msg) {}
-        static constexpr EventType GetStaticType() { return EventType::OnSensorMessageReceived; }
-    };
-
     struct PushUndoTransformEvent : IEvent {
         ECS::Entity entity;
         std::any oldState;

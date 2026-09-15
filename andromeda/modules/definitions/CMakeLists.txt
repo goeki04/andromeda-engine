@@ -17,12 +17,23 @@ set(GEN_META_INPUTS
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/a_particle_group.hpp"
 )
 set(GEN_META_OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/renderer/generated_particle_group_meta.hpp")
-
+#TODO: sort out telemetry metadata generation. Currently, the telemetry metadata is generated from a single file, 
+#but it should be generated from all telemetry files in the modules/data/telemetry directory
+set(GEN_TELEMETRY_INPUT "${CMAKE_SOURCE_DIR}/modules/data/telemetry/bmv080_telemetry.hpp")
+set(GEN_TELEMETRY_OUTPUT "${CMAKE_SOURCE_DIR}/modules/data/telemetry/generated_telemetry_meta.hpp")
 # Event metadata: same scanner, restricted to the events marked [[BindableEvent]]. Emits the name list
 # the editor's event dropdown reads. --list-name must differ from the one above, otherwise the
 # two generated headers declare the same alias in one translation unit.
-set(GEN_EVENT_INPUT "${CMAKE_CURRENT_SOURCE_DIR}/Engine/a_EventTypes.hpp")
+set(GEN_EVENT_INPUTS
+    "${CMAKE_CURRENT_SOURCE_DIR}/Engine/a_EventTypes.hpp"
+    "${CMAKE_SOURCE_DIR}/modules/data/telemetry/a_sensor_events.hpp"
+)
 set(GEN_EVENT_OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/Engine/generated_event_meta.hpp")
+
+set(GEN_EVENT_ARGS "")
+foreach(EVENT_INPUT ${GEN_EVENT_INPUTS})
+    list(APPEND GEN_EVENT_ARGS --input ${EVENT_INPUT})
+endforeach()
 add_custom_command(
     OUTPUT ${GEN_OUTPUT}
     COMMAND ${Python3_EXECUTABLE} ${GEN_SCRIPT}
@@ -55,22 +66,35 @@ add_custom_command(
 add_custom_command(
     OUTPUT ${GEN_EVENT_OUTPUT}
     COMMAND ${Python3_EXECUTABLE} ${GEN_META_SCRIPT}
-            --input ${GEN_EVENT_INPUT}
+            ${GEN_EVENT_ARGS}
             --output ${GEN_EVENT_OUTPUT}
             --list-name ReflectedEvents
             --require-attr BindableEvent
-    DEPENDS ${GEN_META_SCRIPT} ${GEN_EVENT_INPUT}
+    DEPENDS ${GEN_META_SCRIPT} ${GEN_EVENT_INPUTS}
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    COMMENT "Scanning a_EventTypes.hpp to generate event metadata..."
+    COMMENT "Scanning the event headers to generate event metadata..."
     VERBATIM
 )
 
-add_custom_target(generate_ecs_metadata DEPENDS ${GEN_OUTPUT} ${GEN_NAME_OUTPUT} ${GEN_META_OUTPUT} ${GEN_EVENT_OUTPUT})
+add_custom_command(
+    OUTPUT ${GEN_TELEMETRY_OUTPUT}
+    COMMAND ${Python3_EXECUTABLE} ${GEN_META_SCRIPT}
+            --input ${GEN_TELEMETRY_INPUT}
+            --output ${GEN_TELEMETRY_OUTPUT}
+            --list-name ReflectedTelemetry
+    DEPENDS ${GEN_META_SCRIPT} ${GEN_TELEMETRY_INPUT}
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Scanning the telemetry headers to generate channel metadata..."
+    VERBATIM
+)
+
+
+add_custom_target(generate_ecs_metadata DEPENDS ${GEN_OUTPUT} ${GEN_NAME_OUTPUT} ${GEN_META_OUTPUT} ${GEN_EVENT_OUTPUT} ${GEN_TELEMETRY_OUTPUT})
 
 add_library(definitions INTERFACE
 		Math/a_glm_json_parser.hpp)
 add_dependencies(definitions generate_ecs_metadata)
-target_sources(definitions INTERFACE ${GEN_OUTPUT} ${GEN_NAME_OUTPUT} ${GEN_META_OUTPUT} ${GEN_EVENT_OUTPUT})
+target_sources(definitions INTERFACE ${GEN_OUTPUT} ${GEN_NAME_OUTPUT} ${GEN_META_OUTPUT} ${GEN_EVENT_OUTPUT} ${GEN_TELEMETRY_OUTPUT})
 target_include_directories(definitions INTERFACE 
    .   
    Math
