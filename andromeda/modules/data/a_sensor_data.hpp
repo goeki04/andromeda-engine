@@ -1,7 +1,7 @@
 #pragma once
 #include <variant>
 #include "a_primitives.hpp"
-#include "telemetry/bmv0080_telemetry.hpp"
+#include "telemetry/bmv080_telemetry.hpp"
 #include <string>
 using SensorTelemetry = std::variant<Andromeda::BMV080Telemetry>;
 

@@ -13,6 +13,7 @@ add_library(gui STATIC
     Panels/a_DetailsPanel.cpp
     Panels/a_ConsolePanel.cpp
     Panels/a_ViewportPanel.cpp
+    Panels/a_ParticleEditor.cpp
     Widgets/a_MainMenuBar.cpp
     Widgets/Console.cpp
     ${CMAKE_SOURCE_DIR}/bindings/imgui_impl_sdl3.cpp
@@ -21,7 +22,7 @@ add_library(gui STATIC
     ${CMAKE_SOURCE_DIR}/bindings/implot/implot.cpp
     ${CMAKE_SOURCE_DIR}/bindings/implot/implot_items.cpp
     ${CMAKE_SOURCE_DIR}/bindings/implot/implot_demo.cpp
-)
+ "Panels/a_ParticleEditor.cpp")
 target_compile_definitions(gui PRIVATE ASSET_PATH="${CMAKE_SOURCE_DIR}/assets/" ModulePath="${CMAKE_SOURCE_DIR}/modules/")
 target_include_directories(gui PUBLIC 
     .

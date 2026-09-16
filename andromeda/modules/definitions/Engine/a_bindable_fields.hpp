@@ -2,6 +2,7 @@
 #include <array>
 #include <string_view>
 #include "a_primitives.hpp"
+#include "a_meta_core.hpp"
 namespace Andromeda {
     template<typename T>
     constexpr std::size_t countBindableFields() {

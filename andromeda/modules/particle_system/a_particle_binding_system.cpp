@@ -17,7 +17,7 @@ namespace Andromeda {
      *          to serialize bindings by name rather than by index once scenes are shipped.
      */
     inline constexpr auto& g_EventNames = Andromeda::Meta::ReflectedEventsNames;
-
+    
     void ParticleBindingSystem::applyBinding(std::vector<EventBinding>& bindings) {
 
         for (size_t i = 0; i < bindings.size(); ++i) {

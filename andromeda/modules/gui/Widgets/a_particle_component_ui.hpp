@@ -11,9 +11,15 @@
 #include "a_Dropdown_Button.hpp"
 #include "a_logger.hpp"
 #include "a_bindable_fields.hpp"
+#include "generated_telemetry_meta.hpp"
  namespace Andromeda::Gui::Component{
+    /*The Particle system fields*/
    inline constexpr auto g_BindableFieldNames = makeBindableFieldNames<Andromeda::ParticleGroup>();
    inline constexpr auto g_BindableFieldChannels = makeBindableFieldChannels<Andromeda::ParticleGroup>();
+   /* Event binding specific telemetry receiving e.x. from a sensor*/
+   inline constexpr auto g_TelemetryFields = makeBindableFieldNames<Andromeda::BMV080Telemetry>();
+   inline constexpr auto g_TelemetryChannels = makeBindableFieldChannels<Andromeda::BMV080Telemetry>();
+
    inline void drawAddParticleButton(ECS::Component::ParticleSystem& particleComp) {
        float s = ImGui::GetFrameHeight(); // GetFrameHeight = FontSize +style.FramePadding.y * 2
        if (ImGui::Button("+", ImVec2(s, s))) {
@@ -28,13 +34,12 @@
     */
    inline constexpr auto& g_EventNames = Andromeda::Meta::ReflectedEventsNames;
 
-   inline void parseEventString(const std::string& message) {
-       A_INFO("Received sensor message: {}", message);
-   }
-    template<typename T>
-        requires std::is_arithmetic_v<T> 
-   inline void parseEvent() {
-
+/**
+    * @brief Draws the per-binding edit popup. Call directly after the edit button, in the same cell.
+    * @param binding The binding being edited.
+    */
+   inline void drawEditBindingPopup(EventBinding& binding) {
+       ImGui::SetNextWindowSize(ImVec2(280.0f, 0.0f)); // 0 = Höhe automatisch
    }
 
    /**
@@ -54,8 +59,10 @@
            ImGui::TableNextColumn();
            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
            ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
-           if (ImGui::Button(ICON_LC_EDIT_2 "##editBinding")) {
-           }
+           if (ImGui::Button(ICON_LC_EDIT_2 "##editBinding"))
+               ImGui::OpenPopup("##bindingEdit");
+
+           drawEditBindingPopup(binding); // direkt hier, nicht später
            ImGui::PopStyleColor(2);
            ImGui::TableNextColumn();
 
@@ -72,6 +79,7 @@
            if (ImGui::Button(ICON_LC_MINUS "##removeBinding")) {
                removeRequested = true;
            }
+
            ImGui::PopStyleColor(2);
            ImGui::EndTable();
        }

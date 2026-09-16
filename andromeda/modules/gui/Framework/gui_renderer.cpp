@@ -12,6 +12,7 @@
 #include "a_ViewportPanel.hpp"
 #include "a_Style.hpp"
 #include <implot.h>
+#include "a_ParticleEditor.hpp"
 #include "a_subsystem_manager.hpp"
 #include "IconsLucide.h"
 namespace {
@@ -55,6 +56,7 @@ namespace Andromeda::Gui {
         m_Panels.push_back(std::make_unique<DetailsPanel>("Details"));
         m_Panels.push_back(std::make_unique<BrowserPanel>("Browser"));
         m_Panels.push_back(std::make_unique<ViewportPanel>("Viewport"));
+        m_Panels.push_back(std::make_unique<ParticleEditor>("Particle Editor"));
         m_Panels.push_back(std::make_unique<Chart>("Chart"));
         
         for (auto& panel : m_Panels) {

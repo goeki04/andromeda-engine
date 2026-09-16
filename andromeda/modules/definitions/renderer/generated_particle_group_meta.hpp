@@ -19,7 +19,7 @@ namespace Andromeda::Meta {
 
 
     // ------------------------------------------------------------------------
-    // Andromeda::EventBinding (3 fields) from modules/definitions/renderer/a_particle_group.hpp
+    // Andromeda::EventBinding (4 fields) from modules/definitions/renderer/a_particle_group.hpp
     // ------------------------------------------------------------------------
     template <>
     struct StructInfo<::Andromeda::EventBinding> {
@@ -32,12 +32,13 @@ namespace Andromeda::Meta {
         static constexpr std::string_view doc = "One \"event drives field\" connection of a particle group, as authored in the editor.";
 
         static constexpr auto fields = std::make_tuple(
+            makeField("showEditWindow", "bool", "", "false", &type::showEditWindow),
             makeField("eventChannel", "i32", "", "-1", &type::eventChannel),
             makeField("eventIndex", "i32", "Index into Meta::ReflectedEventsNames, -1 while no event is selected.", "-1", &type::eventIndex),
             makeField("fieldIndex", "i32", "Index into the bindable fields of ParticleGroup, -1 while unselected.", "-1", &type::fieldIndex)
         );
 
-        static constexpr std::array<std::string_view, 3> fieldNames = {"eventChannel", "eventIndex", "fieldIndex"};
+        static constexpr std::array<std::string_view, 4> fieldNames = {"showEditWindow", "eventChannel", "eventIndex", "fieldIndex"};
         static constexpr std::size_t fieldCount = std::tuple_size_v<decltype(fields)>;
     };
 
