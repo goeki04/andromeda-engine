@@ -38,6 +38,8 @@
 #include <functional>
 namespace Andromeda {
 
+    enum class NodeType : u8 { ParticleGroup, Sensor };
+
     /** @brief One "event drives field" connection of a particle group, as authored in the editor. */
     struct EventBinding {
         bool showEditWindow = false;

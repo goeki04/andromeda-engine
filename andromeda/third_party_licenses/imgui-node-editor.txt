@@ -1,0 +1,11 @@
+imgui-node-editor
+* version:  master (commit 021aa0ea4da13fed864bafb2a92d4c5205076866)
+* source:   https://github.com/thedmd/imgui-node-editor
+* author:   Michał Cichoń
+* license:  MIT (Copyright (c) 2019 Michał Cichoń)
+* usage:    Bundled as source under bindings/imgui-node-editor/ and compiled into
+            the application. Full license text: bindings/imgui-node-editor/LICENSE
+
+The above copyright notice and the permission notice in
+bindings/imgui-node-editor/LICENSE are included with all distributions of this
+software, as required by the MIT License.

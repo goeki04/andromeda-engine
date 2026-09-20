@@ -1,0 +1,46 @@
+#pragma once
+#include <type_traits>
+#include "a_primitives.hpp"
+
+namespace Andromeda {
+
+    /** @brief What a node field is in the graph: a pin on the left, an editable setting, or a pin on the right. */
+    enum class PinRole : u8 { None, Input, Param, Output };
+
+    template<PinRole Role, typename T>
+    struct Pin {
+        T value{};
+        constexpr Pin() = default;
+        constexpr Pin(T v) : value(v) {} // allows 'Param<float> inMin = 0.0f;'
+    };
+
+    template<typename T>
+    using Input = Pin<PinRole::Input, T>;
+    template<typename T>
+    using Param = Pin<PinRole::Param, T>;
+    template<typename T>
+    using Output = Pin<PinRole::Output, T>;
+
+    /** @brief Role and inner type of a node field; PinRole::None for plain members. */
+    template<typename T>
+    struct PinTraits {
+        static constexpr PinRole role = PinRole::None;
+        using value_type = T;
+    };
+
+    template<PinRole Role, typename T>
+    struct PinTraits<Pin<Role, T>> {
+        static constexpr PinRole role = Role;
+        using value_type = T;
+    };
+
+    template<typename T>
+    inline constexpr PinRole pinRole = PinTraits<T>::role;
+
+    // if one of these fails, the build stops here.
+    static_assert(pinRole<Input<float>> == PinRole::Input);
+    static_assert(pinRole<Param<float>> == PinRole::Param);
+    static_assert(pinRole<Output<vec3>> == PinRole::Output);
+    static_assert(pinRole<float> == PinRole::None);
+    static_assert(std::is_same_v<PinTraits<Output<vec3>>::value_type, vec3>);
+}

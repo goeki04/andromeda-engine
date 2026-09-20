@@ -4,6 +4,8 @@ find_package(imgui REQUIRED)
 find_package(imguizmo REQUIRED)
 # implot is vendored from master (bindings/implot) instead of ConanCenter's 0.17,
 # which is too old for imgui 1.92 and fails to link in Release.
+# imgui-node-editor is vendored from master (bindings/imgui-node-editor) because
+# ConanCenter does not ship it.
 add_library(gui STATIC
     Framework/gui_renderer.cpp
     Framework/a_Docking.cpp
@@ -22,18 +24,25 @@ add_library(gui STATIC
     ${CMAKE_SOURCE_DIR}/bindings/implot/implot.cpp
     ${CMAKE_SOURCE_DIR}/bindings/implot/implot_items.cpp
     ${CMAKE_SOURCE_DIR}/bindings/implot/implot_demo.cpp
- "Panels/a_ParticleEditor.cpp")
+    # Vendored imgui-node-editor (master)
+    ${CMAKE_SOURCE_DIR}/bindings/imgui-node-editor/imgui_node_editor.cpp
+    ${CMAKE_SOURCE_DIR}/bindings/imgui-node-editor/imgui_node_editor_api.cpp
+    ${CMAKE_SOURCE_DIR}/bindings/imgui-node-editor/imgui_canvas.cpp
+    ${CMAKE_SOURCE_DIR}/bindings/imgui-node-editor/crude_json.cpp
+)
 target_compile_definitions(gui PRIVATE ASSET_PATH="${CMAKE_SOURCE_DIR}/assets/" ModulePath="${CMAKE_SOURCE_DIR}/modules/")
 target_include_directories(gui PUBLIC 
     .
     Components
     Framework
     Panels
+    ParticleGraph/Nodes
     State
     Widgets
     Components
     ${CMAKE_SOURCE_DIR}/bindings/
     ${CMAKE_SOURCE_DIR}/bindings/implot/
+    ${CMAKE_SOURCE_DIR}/bindings/imgui-node-editor/
     ${CMAKE_BINARY_DIR}/generated/
 )
 target_compile_definitions(gui PRIVATE IMGUI_IMPL_OPENGL_LOADER_CUSTOM)

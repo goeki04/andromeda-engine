@@ -1,7 +1,6 @@
 #pragma once
 #include "a_components.hpp"
 #include "a_particle_group.hpp"
-#include <type_traits>
 #include <string>
 #include <vector>
 #include "generated_particle_group_meta.hpp"
@@ -12,7 +11,14 @@
 #include "a_logger.hpp"
 #include "a_bindable_fields.hpp"
 #include "generated_telemetry_meta.hpp"
+#include <string_view>
  namespace Andromeda::Gui::Component{
+
+     struct BindableEventSource {
+         std::span<const std::string_view> fieldNames;
+         std::span<const u32> channels;
+     };
+
     /*The Particle system fields*/
    inline constexpr auto g_BindableFieldNames = makeBindableFieldNames<Andromeda::ParticleGroup>();
    inline constexpr auto g_BindableFieldChannels = makeBindableFieldChannels<Andromeda::ParticleGroup>();
@@ -34,12 +40,28 @@
     */
    inline constexpr auto& g_EventNames = Andromeda::Meta::ReflectedEventsNames;
 
-/**
-    * @brief Draws the per-binding edit popup. Call directly after the edit button, in the same cell.
-    * @param binding The binding being edited.
-    */
-   inline void drawEditBindingPopup(EventBinding& binding) {
-       ImGui::SetNextWindowSize(ImVec2(280.0f, 0.0f)); // 0 = Höhe automatisch
+   inline const std::unordered_map<std::string_view, BindableEventSource> g_EventSources = {
+       {Meta::StructInfo<OnSensorMessageReceived>::name, {g_TelemetryFields, g_TelemetryChannels}},
+   };
+
+   inline void drawSourceDropdown(EventBinding& binding) {
+       if (binding.eventIndex < 0 || binding.eventIndex >= static_cast<i32>(g_EventNames.size())) {
+           ImGui::BeginDisabled();
+           i32 noSelection = -1;
+           drawDropdownButton("source", {}, noSelection, "Select source");
+           ImGui::EndDisabled();
+           return;
+       }
+
+       const std::string_view eventName = g_EventNames[binding.eventIndex];
+       const auto it = g_EventSources.find(eventName);
+       if (it == g_EventSources.end()) {
+           ImGui::AlignTextToFramePadding();
+           ImGui::TextDisabled("No sources");
+           return;
+       }
+
+       drawDropdownButton("source", it->second.fieldNames, binding.eventChannel, "Select source");
    }
 
    /**
@@ -50,9 +72,10 @@
     */
    inline bool drawBindingList(EventBinding& binding) {
        bool removeRequested = false;
-       if (ImGui::BeginTable("EventBindingTable", 4)) {
+       if (ImGui::BeginTable("EventBindingTable", 5)) {
            ImGui::TableSetupColumn("Edit", ImGuiTableColumnFlags_WidthFixed);
            ImGui::TableSetupColumn("Event", ImGuiTableColumnFlags_WidthStretch);
+           ImGui::TableSetupColumn("Source", ImGuiTableColumnFlags_WidthStretch);
            ImGui::TableSetupColumn("Field", ImGuiTableColumnFlags_WidthStretch);
            ImGui::TableSetupColumn("Delete", ImGuiTableColumnFlags_WidthFixed);
            ImGui::TableNextRow();
@@ -62,17 +85,16 @@
            if (ImGui::Button(ICON_LC_EDIT_2 "##editBinding"))
                ImGui::OpenPopup("##bindingEdit");
 
-           drawEditBindingPopup(binding); // direkt hier, nicht später
+
            ImGui::PopStyleColor(2);
            ImGui::TableNextColumn();
 
-           drawDropdownButton("event", g_EventNames, binding.eventIndex, "Select event...");
-
+           drawDropdownButton("event", g_EventNames, binding.eventIndex, "Select event");
            ImGui::TableNextColumn();
-           drawDropdownButton("field", g_BindableFieldNames, binding.fieldIndex, "Select field...");
-          
-           u32 fieldChannels = g_BindableFieldChannels[binding.fieldIndex];
+           drawSourceDropdown(binding);
+           ImGui::TableNextColumn();
 
+           drawDropdownButton("field", g_BindableFieldNames, binding.fieldIndex, "Select field");
            ImGui::TableNextColumn();
            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
            ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));

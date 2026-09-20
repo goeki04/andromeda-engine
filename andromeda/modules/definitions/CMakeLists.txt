@@ -4,8 +4,13 @@ find_package(spdlog REQUIRED)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 set(GEN_SCRIPT "${CMAKE_SOURCE_DIR}/metaData/gen_components.py")
 set(GEN_OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/ECS/generated_components.hpp")
+
 set(GEN_NAME_SCRIPT "${CMAKE_SOURCE_DIR}/metaData/gen_components_name.py")
 set(GEN_NAME_OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/ECS/generated_component_names.hpp")
+
+set(GEN_NODE_INPUT "${CMAKE_CURRENT_SOURCE_DIR}/gui/a_Nodes.hpp")
+set(GEN_NODE_OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/gui/generated_node_meta.hpp")
+
 set(COMPONENTS
     ECS/a_components.hpp
 )
@@ -88,13 +93,27 @@ add_custom_command(
     VERBATIM
 )
 
+add_custom_command(
+    OUTPUT ${GEN_NODE_OUTPUT}
+    COMMAND ${Python3_EXECUTABLE} ${GEN_META_SCRIPT}
+            --input ${GEN_NODE_INPUT}
+            --output ${GEN_NODE_OUTPUT}
+            --list-name ReflectedNodes
+            --require-attr ParticleNode
+    DEPENDS ${GEN_META_SCRIPT} ${GEN_NODE_INPUT}
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Scanning the node headers to generate node metadata..."
+    VERBATIM
+)
 
-add_custom_target(generate_ecs_metadata DEPENDS ${GEN_OUTPUT} ${GEN_NAME_OUTPUT} ${GEN_META_OUTPUT} ${GEN_EVENT_OUTPUT} ${GEN_TELEMETRY_OUTPUT})
+
+add_custom_target(generate_ecs_metadata DEPENDS ${GEN_OUTPUT} ${GEN_NAME_OUTPUT} ${GEN_META_OUTPUT} 
+${GEN_EVENT_OUTPUT} ${GEN_TELEMETRY_OUTPUT} ${GEN_NODE_OUTPUT})
 
 add_library(definitions INTERFACE
 		Math/a_glm_json_parser.hpp)
 add_dependencies(definitions generate_ecs_metadata)
-target_sources(definitions INTERFACE ${GEN_OUTPUT} ${GEN_NAME_OUTPUT} ${GEN_META_OUTPUT} ${GEN_EVENT_OUTPUT} ${GEN_TELEMETRY_OUTPUT})
+target_sources(definitions INTERFACE ${GEN_OUTPUT} ${GEN_NAME_OUTPUT} ${GEN_META_OUTPUT} ${GEN_EVENT_OUTPUT} ${GEN_TELEMETRY_OUTPUT} ${GEN_NODE_OUTPUT})
 target_include_directories(definitions INTERFACE 
    .   
    Math
@@ -102,6 +121,7 @@ target_include_directories(definitions INTERFACE
    renderer
    ECS
    network
+   gui
 )
 
 target_link_libraries(definitions INTERFACE

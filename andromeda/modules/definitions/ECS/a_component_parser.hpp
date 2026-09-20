@@ -9,11 +9,15 @@
 #include "a_glm_json_parser.hpp"
 #include "a_components.hpp"
 #include "a_model_record.hpp"
+#include <variant>
+#include <type_traits>
+#include <string>
  /**
   * @namespace Andromeda::ECS::Component
   * @brief Contains all ECS component structures and their associated serialization logic.
   */
 namespace Andromeda {
+
     inline void to_json(nlohmann::json& j, const ParticleGroup& p) {
         j = nlohmann::json{
             {"groupName", p.groupName}, {"particleCount", p.particleCount}, {"size", p.size},

@@ -1,0 +1,3 @@
+COMMIT 021aa0ea4da13fed864bafb2a92d4c5205076866
+imgui-node-editor vendored on 2026-09-16 from branch master (commit 021aa0ea). ConanCenter does not ship this library. master is used instead of develop because only master carries the fixes for modern imgui (PR #333: GetKeyData / ImRect::Floor removal). Built from source against imgui 1.92.5. Only the library sources and LICENSE were taken; examples/, docs/, misc/ and external/ were left out.
+Local patches: none.
