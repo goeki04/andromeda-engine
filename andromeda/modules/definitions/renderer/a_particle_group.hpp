@@ -33,12 +33,20 @@
 #include "a_primitives.hpp"
 #include <string>
 #include "a_EventTypes.hpp"
+#include "a_node_graph.hpp"
 #include <variant>
 #include <vector>
 #include <functional>
 namespace Andromeda {
 
     enum class NodeType : u8 { ParticleGroup, Sensor };
+
+    using GraphValue = std::variant<i32, float, bool>;
+
+    struct GraphVariable {
+        std::string name;
+        GraphValue value;
+    };
 
     /** @brief One "event drives field" connection of a particle group, as authored in the editor. */
     struct EventBinding {
@@ -57,5 +65,7 @@ namespace Andromeda {
         vec3 particleColor = {1.0f, 1.0f, 1.0f}; ///< Color of the particles (RGB).
         float minLifeTime = 0.0f;                ///< Minimum lifetime of the particles in seconds.
         std::vector<EventBinding> eventBindings; ///< List of event bindings for this particle group.
+        std::vector<GraphVariable> graphVariables; ///< List of graph variables for this particle group.
+        ParticleGraph graph;                     ///< Node graph edited in the particle editor.
     };
 } // namespace Andromeda

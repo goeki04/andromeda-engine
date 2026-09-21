@@ -17,6 +17,9 @@ class CmakeTest(ConanFile):
         self.requires("glm/1.0.1")
         self.requires("sdl/3.2.20")
         self.requires("imgui/1.92.5-docking", override=True)
+        # implot is vendored from master (bindings/implot) for imgui 1.92 compatibility.
+        # ConanCenter only ships implot/0.17, which is too old for imgui 1.92 and fails
+        # to link in Release (missing ImGui::GetForegroundDrawList from ShowMetricsWindow).
         self.requires("glew/2.2.0")
         self.requires("nlohmann_json/3.12.0")
         self.requires("assimp/6.0.2")
@@ -29,9 +32,6 @@ class CmakeTest(ConanFile):
         self.requires("boost/1.91.0")
         self.requires("imguizmo/cci.20231114")
         self.requires("spdlog/1.17.0")
-        # implot is vendored from master (bindings/implot) for imgui 1.92 compatibility.
-        # ConanCenter only ships implot/0.17, which is too old for imgui 1.92 and fails
-        # to link in Release (missing ImGui::GetForegroundDrawList from ShowMetricsWindow).
         self.requires("gtest/1.17.0")
         # libclang (conan-recipes/libclang) repackages the official LLVM release
         # binaries for modules/reflection. Windows-only for now - the reflection

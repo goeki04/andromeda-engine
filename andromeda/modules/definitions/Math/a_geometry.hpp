@@ -21,8 +21,8 @@ namespace Andromeda {
      * @brief Axis-Aligned Bounding Box for collision and culling.
      */
     struct AABB {
-        vec3 min{ 1e34f };  ///< Initialized to infinity to ensure correct min-clamping
-        vec3 max{ -1e34f }; ///< Initialized to negative infinity to ensure correct max-clamping
+        vec3 min = vec3(1e34f);  ///< Initialized to infinity to ensure correct min-clamping
+        vec3 max = vec3(-1e34f); ///< Initialized to negative infinity to ensure correct max-clamping
     };
 
     /**

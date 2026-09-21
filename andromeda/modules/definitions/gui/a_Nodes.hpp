@@ -7,4 +7,19 @@ namespace Andromeda::Gui::Node {
         Input<float> b;
         Output<float> result;
     };
+
+    struct [[ParticleNode]] IntVariable {
+        Param<i32> value;
+        Output<i32> out;
+    };
+
+    struct [[ParticleNode]] FloatVariable {
+        Param<float> value;
+        Output<float> out;
+    };
+
+    struct [[ParticleNode]] BoolVariable {
+        Param<bool> value;
+        Output<bool> out;
+    };
 }

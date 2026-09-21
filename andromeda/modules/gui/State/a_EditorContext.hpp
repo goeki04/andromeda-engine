@@ -65,7 +65,7 @@ namespace Andromeda::Gui
             bool hasLastHitpoint = false;
 
             /** @brief The world-space coordinates of the last valid interaction point. */
-            vec3 lastHitPoint{ 0.0f, 0.0f, 0.0f };
+            vec3 lastHitPoint = { 0.0f, 0.0f, 0.0f };
 
             /** @brief True if the viewport window is currently focused by the user. */
             bool viewportFocused = false;

@@ -51,8 +51,8 @@ namespace Andromeda::ECS::Component {
      *          and rotation changes in the editor.
      */
     struct [[Andromeda::Undo]] Transform {
-        vec3 position{ 0.0f, 0.0f, 0.0f }; ///< World-space position of the entity.
-        vec3 scale{ 1.0f, 1.0f, 1.0f };    ///< Per-axis scale factor of the entity.
+        vec3 position = { 0.0f, 0.0f, 0.0f }; ///< World-space position of the entity.
+        vec3 scale = { 1.0f, 1.0f, 1.0f };    ///< Per-axis scale factor of the entity.
         quat rotation = quat(1.0f,0.0f,0.0f,0.0f); ///< Orientation of the entity, stored as a quaternion (identity by default).
 
         /**
@@ -107,7 +107,7 @@ namespace Andromeda::ECS::Component {
      * @brief Component that holds multiple particle groups, each with its own constraints and properties. 
      */
     struct ParticleSystem {
-        u8 nextParticleGroupID = 1;                ///< Counter for generating unique IDs for new particle groups.
+        u32 nextParticleGroupID = 1;               ///< Counter for generating unique IDs for new particle groups.
         bool useParticleGroups = false;            ///< Flag indicating whether to use particle groups or not.
 
         ParticleSystem() {
