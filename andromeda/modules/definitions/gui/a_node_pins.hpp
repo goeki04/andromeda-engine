@@ -43,4 +43,45 @@ namespace Andromeda {
     static_assert(pinRole<Output<vec3>> == PinRole::Output);
     static_assert(pinRole<float> == PinRole::None);
     static_assert(std::is_same_v<PinTraits<Output<vec3>>::value_type, vec3>);
+
+    enum class ValueType : u8 { None, Int, Float, Bool, Vec2, Vec3 };
+
+    template<typename T>
+    struct ValueTypeOf {
+        static constexpr ValueType value = ValueType::None;
+    };
+
+    template<>
+    struct ValueTypeOf<i32> {
+        static constexpr ValueType value = ValueType::Int;
+    };
+
+    template<>
+    struct ValueTypeOf<float> {
+        static constexpr ValueType value = ValueType::Float;
+    };
+
+    template<>
+    struct ValueTypeOf<bool> {
+        static constexpr ValueType value = ValueType::Bool;
+    };
+
+    template<>
+    struct ValueTypeOf<vec2> {
+        static constexpr ValueType value = ValueType::Vec2;
+    };
+
+    template<>
+    struct ValueTypeOf<vec3> {
+        static constexpr ValueType value = ValueType::Vec3;
+    };
+
+    template<typename T>
+    inline constexpr ValueType valueTypeOf = ValueTypeOf<T>::value;
+
+    static_assert(valueTypeOf<float> == ValueType::Float);
+    static_assert(valueTypeOf<i32> == ValueType::Int);
+    static_assert(valueTypeOf<bool> == ValueType::Bool);
+    static_assert(valueTypeOf<vec2> == ValueType::Vec2);
+    static_assert(valueTypeOf<vec3> == ValueType::Vec3);
 }

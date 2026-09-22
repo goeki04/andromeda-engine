@@ -43,9 +43,11 @@ namespace Andromeda {
 
     using GraphValue = std::variant<i32, float, bool>;
 
+    /** @brief A named value shared by every particle group graph of one ParticleSystem. */
     struct GraphVariable {
-        std::string name;
-        GraphValue value;
+        u32 id = 0;       ///< Stable ID nodes refer to; survives renaming and reordering. 0 = unassigned.
+        std::string name; ///< Display name, freely editable.
+        GraphValue value; ///< Current value; its alternative is the variable's type.
     };
 
     /** @brief One "event drives field" connection of a particle group, as authored in the editor. */
@@ -65,7 +67,6 @@ namespace Andromeda {
         vec3 particleColor = {1.0f, 1.0f, 1.0f}; ///< Color of the particles (RGB).
         float minLifeTime = 0.0f;                ///< Minimum lifetime of the particles in seconds.
         std::vector<EventBinding> eventBindings; ///< List of event bindings for this particle group.
-        std::vector<GraphVariable> graphVariables; ///< List of graph variables for this particle group.
         ParticleGraph graph;                     ///< Node graph edited in the particle editor.
     };
 } // namespace Andromeda

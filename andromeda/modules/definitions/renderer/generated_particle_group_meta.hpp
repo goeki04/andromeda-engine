@@ -37,7 +37,7 @@ namespace Andromeda::Meta {
     };
 
     // ------------------------------------------------------------------------
-    // Andromeda::GraphVariable (2 fields) from modules/definitions/renderer/a_particle_group.hpp
+    // Andromeda::GraphVariable (3 fields) from modules/definitions/renderer/a_particle_group.hpp
     // ------------------------------------------------------------------------
     template <>
     struct StructInfo<::Andromeda::GraphVariable> {
@@ -47,14 +47,15 @@ namespace Andromeda::Meta {
         static constexpr std::string_view name = "GraphVariable";
         static constexpr std::string_view qualifiedName = "Andromeda::GraphVariable";
         static constexpr std::string_view header = "modules/definitions/renderer/a_particle_group.hpp";
-        static constexpr std::string_view doc = "";
+        static constexpr std::string_view doc = "A named value shared by every particle group graph of one ParticleSystem.";
 
         static constexpr auto fields = std::make_tuple(
-            makeField("name", "std::string", "", "", &type::name),
-            makeField("value", "GraphValue", "", "", &type::value)
+            makeField("id", "u32", "Stable ID nodes refer to; survives renaming and reordering. 0 = unassigned.", "0", &type::id),
+            makeField("name", "std::string", "Display name, freely editable.", "", &type::name),
+            makeField("value", "GraphValue", "Current value; its alternative is the variable's type.", "", &type::value)
         );
 
-        static constexpr std::array<std::string_view, 2> fieldNames = {"name", "value"};
+        static constexpr std::array<std::string_view, 3> fieldNames = {"id", "name", "value"};
         static constexpr std::size_t fieldCount = std::tuple_size_v<decltype(fields)>;
     };
 
@@ -83,7 +84,7 @@ namespace Andromeda::Meta {
     };
 
     // ------------------------------------------------------------------------
-    // Andromeda::ParticleGroup (9 fields) from modules/definitions/renderer/a_particle_group.hpp
+    // Andromeda::ParticleGroup (8 fields) from modules/definitions/renderer/a_particle_group.hpp
     // ------------------------------------------------------------------------
     template <>
     struct StructInfo<::Andromeda::ParticleGroup> {
@@ -103,11 +104,10 @@ namespace Andromeda::Meta {
             makeField("particleColor", "vec3", "Color of the particles (RGB).", "{1.0f, 1.0f, 1.0f}", &type::particleColor),
             makeField("minLifeTime", "float", "Minimum lifetime of the particles in seconds.", "0.0f", &type::minLifeTime),
             makeField("eventBindings", "std::vector<EventBinding>", "List of event bindings for this particle group.", "", &type::eventBindings),
-            makeField("graphVariables", "std::vector<GraphVariable>", "List of graph variables for this particle group.", "", &type::graphVariables),
             makeField("graph", "ParticleGraph", "Node graph edited in the particle editor.", "", &type::graph)
         );
 
-        static constexpr std::array<std::string_view, 9> fieldNames = {"groupName", "particleCount", "size", "velocity", "particleColor", "minLifeTime", "eventBindings", "graphVariables", "graph"};
+        static constexpr std::array<std::string_view, 8> fieldNames = {"groupName", "particleCount", "size", "velocity", "particleColor", "minLifeTime", "eventBindings", "graph"};
         static constexpr std::size_t fieldCount = std::tuple_size_v<decltype(fields)>;
     };
 

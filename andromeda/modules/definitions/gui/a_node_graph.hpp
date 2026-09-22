@@ -37,10 +37,23 @@ namespace Andromeda {
         NodeData data;              ///< The concrete node struct (AddNode, FloatVariable, ...).
     };
 
+    /**
+     * @brief A connection between an output pin and an input pin.
+     * @details Stores plain numbers, not ed::LinkId / ed::PinId: this data module must not depend on
+     *          the node editor. The GUI converts them, e.g. ed::PinId(link.sourceId).
+     */
+    struct PinLink {
+        u32 id = 0;       ///< Editor link ID; 0 is reserved ("no link") by imgui-node-editor.
+        u64 sourceId = 0; ///< Pin ID of the output the link starts at (see makePinId).
+        u64 targetId = 0; ///< Pin ID of the input the link ends at.
+    };
+
     /** @brief The node graph of one particle group: every NodeInstance in it and the ID counter. */
     struct ParticleGraph {
-        u32 nextNodeId = 1;           ///< Next free node ID. Never reused, so node and pin IDs stay stable.
+        u32 nextNodeId = 1;           ///< Next free node ID. Never reused, so node and pin IDs stay stable
+        u32 nextLinkId = 1;
         std::vector<NodeInstance> nodes; ///< Nodes in creation order.
+        std::vector<PinLink> links; ///< Links in creation order.
     };
 
     namespace Detail {
@@ -63,12 +76,18 @@ namespace Andromeda {
         return Detail::makeNodeData(typeIndex, std::make_index_sequence<std::variant_size_v<NodeData>>{});
     }
 
-    /** @brief Appends a node of type @p typeIndex at @p position and returns it. */
-    inline NodeInstance& addNode(ParticleGraph& graph, size_t typeIndex, vec2 position) {
+    /** @brief Appends a node holding @p data at @p position and returns it. */
+    inline NodeInstance& addNode(ParticleGraph& graph, NodeData data, vec2 position) {
         NodeInstance& node = graph.nodes.emplace_back();
         node.id = graph.nextNodeId++;
         node.position = position;
-        node.data = makeNodeData(typeIndex);
+        node.data = std::move(data);
         return node;
     }
+
+    /** @brief Appends a default-constructed node of type @p typeIndex at @p position and returns it. */
+    inline NodeInstance& addNode(ParticleGraph& graph, size_t typeIndex, vec2 position) {
+        return addNode(graph, makeNodeData(typeIndex), position);
+    }
+
 } // namespace Andromeda

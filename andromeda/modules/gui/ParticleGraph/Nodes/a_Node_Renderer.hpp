@@ -11,6 +11,7 @@
 #include "generated_particle_group_meta.hpp"
 #include "generated_node_meta.hpp"
 #include "a_meta_core.hpp"
+#include "IconsLucide.h"
 
 inline constexpr auto g_BindableFieldNames = Andromeda::makeBindableFieldNames<Andromeda::ParticleGroup>();
 inline constexpr auto g_BindableFieldChannels = Andromeda::makeBindableFieldChannels<Andromeda::ParticleGroup>();
@@ -47,8 +48,291 @@ namespace Andromeda::Gui::Node {
         ImGui::TextUnformatted(text.data(), text.data() + text.size());
     }
 
+    struct PinInfo {
+        u32 nodeId;
+        u32 fieldIndex;
+    };
+
+    inline PinInfo getPinInfo(ed::PinId pinId) {
+        u64 id = pinId.Get();
+        u32 nodeId = static_cast<u32>(id >> 32);
+        u32 fieldIndex = static_cast<u32>(id & 0xFFFFFFFF) - 1;
+        return PinInfo{nodeId, fieldIndex};
+    }
+    
+    inline NodeInstance* getNodeByPinId(ed::PinId pinId, ParticleGraph &graph) {
+        PinInfo info = getPinInfo(pinId);
+        auto it = std::find_if(graph.nodes.begin(), graph.nodes.end(), [info](const NodeInstance& node) {
+            return node.id == info.nodeId;
+        });
+        if (it != graph.nodes.end()) {
+            return &*it;
+        }
+        return nullptr;
+    }
+
+    inline ValueType getPinValueType(ParticleGraph& graph, ed::PinId pinId) {
+        auto node = getNodeByPinId(pinId, graph);
+        if (node == nullptr) {
+            return ValueType::None;
+        }
+        const u32 searchedIndex = getPinInfo(pinId).fieldIndex;
+        ValueType type = ValueType::None;
+        std::visit([&](auto& data) {
+                u32 index = 0;
+                Meta::forEachField(data, [&](auto const&, auto& member) {
+                    if (index == searchedIndex) {
+                        using PinT = std::decay_t<decltype(member)>; // e.x. Input<float>, Output<vec3>, Param<i32>
+                        using valueT = typename PinTraits<PinT>::value_type; // just the inner type, e.x. float, vec3, i32
+                        type = valueTypeOf<valueT>;
+                    }
+                    ++index;
+                });
+            }, node->data);
+        return type;
+    }
+
+    inline bool canConnect(ValueType from, ValueType to) {
+        if (from == ValueType::None || to == ValueType::None) {
+            return false;
+        }
+
+        if (from == ValueType::Int && to == ValueType::Float) {
+            return true;
+        }
+        return from == to;
+    }
+
+    inline PinRole getPinRole(ParticleGraph& graph, ed::PinId pinId) {
+        auto node = getNodeByPinId(pinId, graph);
+        if (node == nullptr) {
+            return PinRole::None;
+        }
+        const u32 searchedIndex = getPinInfo(pinId).fieldIndex;
+        PinRole role = PinRole::None;
+        std::visit([&](auto& data) {
+                u32 index = 0;
+                Meta::forEachField(data, [&](auto const&, auto& member) {
+                    if (index == searchedIndex) {
+                        role = pinRole<std::decay_t<decltype(member)>>;
+                    }
+                    ++index;
+                });
+            }, node->data);
+        return role;
+    }
+
     inline ed::PinId makePinId(u32 nodeId, u32 fieldIndex) {
         return ed::PinId((static_cast<u64>(nodeId) << 32) | (static_cast<u64>(fieldIndex) + 1));
+    }
+    
+    inline void drawLink(ParticleGraph& graph) {
+        for (const auto& link : graph.links) {
+            ed::Link(ed::LinkId(link.id),ed::PinId(link.sourceId),ed::PinId(link.targetId));
+        }
+    }
+
+    /** @brief "AddNode" -> "Add": the menu shows node names without the redundant suffix. */
+    inline std::string_view nodeDisplayName(std::string_view typeName) {
+        constexpr std::string_view suffix = "Node";
+        if (typeName.size() > suffix.size() && typeName.ends_with(suffix))
+            typeName.remove_suffix(suffix.size());
+        return typeName;
+    }
+
+    /**
+     * @brief Searchable "Add Node" popup.
+     * @param openedAt Receives the screen position the popup was opened at, where the new node goes.
+     * @return Index into Meta::ReflectedNodesNames of the picked node, or -1.
+     * @note Call between ed::Suspend() and ed::Resume().
+     */
+    inline i32 drawAddNodePopup(ImGuiTextFilter& filter, float rounding, ImVec2& openedAt) {
+        ImGui::SetNextWindowSizeConstraints(ImVec2(220.0f, 0.0f), ImVec2(FLT_MAX, 320.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, rounding);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, 8.0f));
+        const bool open = ImGui::BeginPopup("Add Node");
+        ImGui::PopStyleVar(2);
+        if (!open)
+            return -1;
+
+        // Only valid inside the popup, so it has to be read here rather than by the caller.
+        openedAt = ImGui::GetMousePosOnOpeningCurrentPopup();
+
+        if (ImGui::IsWindowAppearing()) {
+            filter.Clear();
+            ImGui::SetKeyboardFocusHere();
+        }
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        const bool enterPressed =
+            ImGui::InputTextWithHint("##nodeSearch", ICON_LC_SEARCH " Search nodes...", filter.InputBuf,
+                                     IM_ARRAYSIZE(filter.InputBuf), ImGuiInputTextFlags_EnterReturnsTrue);
+        filter.Build();
+        ImGui::Separator();
+
+        i32 picked = -1;
+        i32 firstMatch = -1;
+        for (i32 i = 0; i < static_cast<i32>(Meta::ReflectedNodesNames.size()); ++i) {
+            const std::string label(nodeDisplayName(Meta::ReflectedNodesNames[static_cast<size_t>(i)]));
+            if (!filter.PassFilter(label.c_str()))
+                continue;
+            if (firstMatch < 0)
+                firstMatch = i;
+            ImGui::PushID(i);
+            if (ImGui::Selectable(label.c_str()))
+                picked = i;
+            ImGui::PopID();
+        }
+        if (firstMatch < 0)
+            ImGui::TextDisabled("No matching nodes");
+
+        if (enterPressed && firstMatch >= 0)
+            picked = firstMatch;
+        if (picked >= 0)
+            ImGui::CloseCurrentPopup();
+
+        ImGui::EndPopup();
+        return picked;
+    }
+
+    /**
+     * @brief Stores a link from output @p source to input @p target.
+     * @details An input has at most one link, so an existing link into @p target is replaced - which is
+     *          what lets the user re-plug an input by simply dragging a new link onto it.
+     */
+    inline void addLink(ParticleGraph& graph, ed::PinId source, ed::PinId target) {
+        std::erase_if(graph.links, [target](const PinLink& link) { return link.targetId == target.Get(); });
+        graph.links.emplace_back(PinLink{graph.nextLinkId, source.Get(), target.Get()});
+        graph.nextLinkId++;
+    }
+
+    /**
+     * @brief Handles dragging links: connects pins, and reports a link dropped on empty canvas.
+     * @return The pin a link was dragged from and released over empty space - the caller opens the
+     *         "Add Node" popup and connects the new node to it. An invalid PinId otherwise.
+     * @note Call between ed::Begin() and ed::End(), after the nodes were drawn.
+     */
+    inline ed::PinId createLink(ParticleGraph& graph) {
+        ed::PinId droppedFrom;
+
+        if (ed::BeginCreate()) {
+            ed::PinId source;
+            ed::PinId target;
+
+            if (ed::QueryNewLink(&source, &target)) {
+                PinRole sourceRole = getPinRole(graph, source);
+                PinRole targetRole = getPinRole(graph, target);
+                bool isSameNode = getPinInfo(source).nodeId == getPinInfo(target).nodeId;
+
+                if (sourceRole == PinRole::Input && targetRole == PinRole::Output) {
+                    std::swap(source, target);
+                    std::swap(sourceRole, targetRole);
+                }
+
+                bool hasValidRoles = sourceRole == PinRole::Output && targetRole == PinRole::Input;
+                bool hasValidTypes = canConnect(getPinValueType(graph, source), getPinValueType(graph, target));
+                if (hasValidRoles && hasValidTypes && !isSameNode) {
+                    if (ed::AcceptNewItem())
+                        addLink(graph, source, target);
+                } else {
+                    ed::RejectNewItem();
+                }
+            }
+
+            // Same drag, but released over empty canvas instead of over a pin.
+            ed::PinId pin;
+            if (ed::QueryNewNode(&pin)) {
+                if (ed::AcceptNewItem())
+                    droppedFrom = pin;
+            }
+        }
+        ed::EndCreate();
+
+        return droppedFrom;
+    }
+
+    /**
+     * @brief Field index of the first pin with @p role in @p node, or -1 if it has none.
+     * @details Same field walk as getPinRole, searching by role instead of by index.
+     */
+    inline i32 findFirstPin(ValueType other,const NodeInstance& node, PinRole role) {
+        i32 found = -1;
+        std::visit([&](const auto& data) {
+            i32 index = 0;
+            Meta::forEachField(data, [&](auto const&, const auto& member) {
+                using PinT = std::decay_t<decltype(member)>;
+                using ValueT = typename PinTraits<PinT>::value_type;
+                const ValueType memberType = valueTypeOf<ValueT>;
+                bool hasWantedRole = pinRole<std::decay_t<decltype(member)>> == role;
+                bool hasMatchingType =
+                    role == PinRole::Input
+                        ? canConnect(other, memberType)
+                        : canConnect(memberType, other);
+                if (found < 0 && hasWantedRole && hasMatchingType)
+                    found = index;
+                ++index;
+            });
+        }, node.data);
+        return found;
+    }
+
+    /**
+     * @brief Links @p fromPin to the first matching pin of @p newNode: an output to its first input,
+     *        an input to its first output. Does nothing if the node has no such pin or @p fromPin's
+     *        node was deleted in the meantime.
+     */
+    inline void connectToNewNode(ParticleGraph& graph, ed::PinId fromPin, const NodeInstance& newNode) {
+        const PinRole fromRole = getPinRole(graph, fromPin);
+        if (fromRole != PinRole::Input && fromRole != PinRole::Output)
+            return;
+
+        const PinRole wantedRole = fromRole == PinRole::Output ? PinRole::Input : PinRole::Output;
+        const i32 fieldIndex = findFirstPin(getPinValueType(graph, fromPin), newNode, wantedRole);
+        if (fieldIndex < 0)
+            return;
+
+        const ed::PinId newPin = makePinId(newNode.id, static_cast<u32>(fieldIndex));
+        if (fromRole == PinRole::Output)
+            addLink(graph, fromPin, newPin);
+        else
+            addLink(graph, newPin, fromPin);
+    }
+
+    /** @brief Removes a node and every link attached to it from the graph data. */
+    inline void removeNode(ParticleGraph& graph, u32 nodeId) {
+        std::erase_if(graph.nodes, [nodeId](const NodeInstance& node) { return node.id == nodeId; });
+
+        // The editor reports a deleted node's links as well, but only the ones it drew. The graph data
+        // is what gets saved and evaluated, so it must never keep a link to a node that is gone.
+        std::erase_if(graph.links, [nodeId](const PinLink& link) {
+            return getPinInfo(ed::PinId(link.sourceId)).nodeId == nodeId ||
+                   getPinInfo(ed::PinId(link.targetId)).nodeId == nodeId;
+        });
+    }
+
+    /**
+     * @brief Handles the editor's delete action (Delete key on a selection) for nodes and links.
+     * @details Nodes are queried first: accepting a node makes the editor append that node's links to
+     *          the items still to delete, so the link loop afterwards reports them too. Querying links
+     *          first would miss them.
+     * @note Call between ed::Begin() and ed::End(), after the nodes and links were drawn.
+     */
+    inline void deleteSelection(ParticleGraph& graph) {
+        if (ed::BeginDelete()) {
+            ed::NodeId deletedNodeId;
+            while (ed::QueryDeletedNode(&deletedNodeId)) {
+                if (ed::AcceptDeletedItem())
+                    removeNode(graph, static_cast<u32>(deletedNodeId.Get()));
+            }
+
+            ed::LinkId deletedLinkId;
+            while (ed::QueryDeletedLink(&deletedLinkId)) {
+                if (ed::AcceptDeletedItem()) {
+                    const u32 linkId = static_cast<u32>(deletedLinkId.Get());
+                    std::erase_if(graph.links, [linkId](const PinLink& link) { return link.id == linkId; });
+                }
+            }
+        }
+        ed::EndDelete();
     }
 
     inline void drawPinIcon() {
@@ -330,16 +614,17 @@ namespace Andromeda::Gui::Node {
     /**
      * @brief Draws any reflected node. Uses the node's drawLayout() overload if one exists,
      *        otherwise NodeBuilder::defaultLayout().
+     * @param title Header text; empty uses the node type's name (e.g. a bound variable node shows the variable).
      */
     template<typename NodeT>
-    void drawNode(NodeT& node, u32 nodeID) {
+    void drawNode(NodeT& node, u32 nodeID, std::string_view title = {}) {
         static_assert(Meta::isReflected<NodeT>,
                       "No StructInfo for this node - is generated_node_meta.hpp included and the generator run?");
 
         ed::BeginNode(ed::NodeId(nodeID));
         ImGui::PushID(static_cast<int>(nodeID));
 
-        drawLabel(Meta::StructInfo<NodeT>::name);
+        drawLabel(title.empty() ? Meta::StructInfo<NodeT>::name : title);
 
         NodeBuilder<NodeT> builder(node, nodeID);
         if constexpr (requires { drawLayout(node, builder); })

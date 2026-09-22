@@ -109,6 +109,8 @@ namespace Andromeda::ECS::Component {
     struct ParticleSystem {
         u32 nextParticleGroupID = 1;               ///< Counter for generating unique IDs for new particle groups.
         bool useParticleGroups = false;            ///< Flag indicating whether to use particle groups or not.
+        u32 nextVariableId = 1;                    ///< Next free GraphVariable ID. Never reused.
+        std::vector<GraphVariable> graphVariables; ///< Variables shared by the graphs of all particle groups.
 
         ParticleSystem() {
             // Initialize with a default particle group
@@ -127,6 +129,11 @@ namespace Andromeda::ECS::Component {
             } else {
                 return std::span<ParticleGroup>(&particleGroups[0], 1);
             }
+        }
+
+        /** @brief Every group, also while useParticleGroups is off; for work that must reach all graphs. */
+        std::span<ParticleGroup> allParticleGroups() {
+            return particleGroups;
         }
 
         void addParticleGroup() {
