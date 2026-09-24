@@ -10,6 +10,7 @@
  */
 
 #include <cstddef>
+#include <string_view>
 #include <tuple>
 #include <utility>
 #include <variant>
@@ -88,6 +89,49 @@ namespace Andromeda {
     /** @brief Appends a default-constructed node of type @p typeIndex at @p position and returns it. */
     inline NodeInstance& addNode(ParticleGraph& graph, size_t typeIndex, vec2 position) {
         return addNode(graph, makeNodeData(typeIndex), position);
+    }
+
+    /** @brief The node with @p nodeId, or nullptr. */
+    inline const NodeInstance* findNode(const ParticleGraph& graph, u32 nodeId) {
+        for (const NodeInstance& node : graph.nodes) {
+            if (node.id == nodeId)
+                return &node;
+        }
+        return nullptr;
+    }
+
+    /** @brief Type name of the node in @p data, e.g. "AddNode". Variant order equals ReflectedNodesNames order. */
+    inline std::string_view nodeTypeName(const NodeData& data) {
+        return Meta::ReflectedNodesNames[data.index()];
+    }
+
+    /** @brief Variant index of the node type called @p name, or -1 if no such type exists (any more). */
+    inline i32 nodeTypeIndex(std::string_view name) {
+        for (size_t i = 0; i < Meta::ReflectedNodesNames.size(); ++i) {
+            if (Meta::ReflectedNodesNames[i] == name)
+                return static_cast<i32>(i);
+        }
+        return -1;
+    }
+
+    /** @brief Name of field @p fieldIndex of the node in @p data, or "" if there is no such field. */
+    inline std::string_view fieldNameAt(const NodeData& data, u32 fieldIndex) {
+        return std::visit([fieldIndex](const auto& node) -> std::string_view {
+            constexpr auto& names = Meta::StructInfo<std::decay_t<decltype(node)>>::fieldNames;
+            return fieldIndex < names.size() ? names[fieldIndex] : std::string_view{};
+        }, data);
+    }
+
+    /** @brief Index of the field called @p name in the node in @p data, or -1 if it has none by that name. */
+    inline i32 fieldIndexOf(const NodeData& data, std::string_view name) {
+        return std::visit([name](const auto& node) -> i32 {
+            constexpr auto& names = Meta::StructInfo<std::decay_t<decltype(node)>>::fieldNames;
+            for (size_t i = 0; i < names.size(); ++i) {
+                if (names[i] == name)
+                    return static_cast<i32>(i);
+            }
+            return -1;
+        }, data);
     }
 
 } // namespace Andromeda

@@ -151,7 +151,7 @@
 
        ImGui::Text("Min lifetime");
        ImGui::SameLine(100);
-       ImGui::DragFloat("##Minlifetime", &group[index].minLifeTime);
+       ImGui::DragFloat("##Minlifetime", &group[index].minLifetime);
 
        ImGui::Text("Velocity");
        ImGui::SameLine(100);

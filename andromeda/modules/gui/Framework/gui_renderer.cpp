@@ -145,6 +145,10 @@ namespace Andromeda::Gui {
         iconConfig.MergeMode = true;
         iconConfig.PixelSnapH = true;
         iconConfig.GlyphMinAdvanceX = 18.0f;
+        // Lucide's glyphs sit higher in the line than Roboto's letters: measured at 18 px, the icon centers
+        // lie around y = 7 while lowercase text centers at 10.5. Shifting every icon down by 3 px puts
+        // icons next to text (and inside buttons) on the text's middle. ImGui scales this for other sizes.
+        iconConfig.GlyphOffset = ImVec2(0.0f, 3.0f);
         io.Fonts->AddFontFromFileTTF(ASSET_PATH "fonts/lucide.ttf", 18.0f, &iconConfig, iconRanges);
 
         io.FontDefault = font;

@@ -16,6 +16,8 @@ add_library(gui STATIC
     Panels/a_ConsolePanel.cpp
     Panels/a_ViewportPanel.cpp
     Panels/a_ParticleEditor.cpp
+    ParticleGraph/Overlays/a_VariablesOverlay.cpp
+    ParticleGraph/Overlays/a_GroupsOverlay.cpp
     Widgets/a_MainMenuBar.cpp
     Widgets/Console.cpp
     ${CMAKE_SOURCE_DIR}/bindings/imgui_impl_sdl3.cpp
@@ -36,7 +38,9 @@ target_include_directories(gui PUBLIC
     Components
     Framework
     Panels
+    ParticleGraph
     ParticleGraph/Nodes
+    ParticleGraph/Overlays
     State
     Widgets
     ${CMAKE_SOURCE_DIR}/bindings/

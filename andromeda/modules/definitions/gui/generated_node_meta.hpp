@@ -42,6 +42,31 @@ namespace Andromeda::Meta {
     };
 
     // ------------------------------------------------------------------------
+    // Andromeda::Gui::Node::OutputNode (5 fields) from modules/definitions/gui/a_Nodes.hpp
+    // ------------------------------------------------------------------------
+    template <>
+    struct StructInfo<::Andromeda::Gui::Node::OutputNode> {
+        using type = ::Andromeda::Gui::Node::OutputNode;
+
+        static constexpr bool reflected = true;
+        static constexpr std::string_view name = "OutputNode";
+        static constexpr std::string_view qualifiedName = "Andromeda::Gui::Node::OutputNode";
+        static constexpr std::string_view header = "modules/definitions/gui/a_Nodes.hpp";
+        static constexpr std::string_view doc = "";
+
+        static constexpr auto fields = std::make_tuple(
+            makeField("particleCount", "Input<i32>", "", "", &type::particleCount),
+            makeField("size", "Input<float>", "", "", &type::size),
+            makeField("velocity", "Input<vec3>", "", "", &type::velocity),
+            makeField("particleColor", "Input<vec3>", "", "", &type::particleColor),
+            makeField("minLifetime", "Input<float>", "", "", &type::minLifetime)
+        );
+
+        static constexpr std::array<std::string_view, 5> fieldNames = {"particleCount", "size", "velocity", "particleColor", "minLifetime"};
+        static constexpr std::size_t fieldCount = std::tuple_size_v<decltype(fields)>;
+    };
+
+    // ------------------------------------------------------------------------
     // Andromeda::Gui::Node::IntVariable (3 fields) from modules/definitions/gui/a_Nodes.hpp
     // ------------------------------------------------------------------------
     template <>
@@ -113,12 +138,13 @@ namespace Andromeda::Meta {
     /** @brief Every struct this header carries metadata for. */
     using ReflectedNodes = std::tuple<
         ::Andromeda::Gui::Node::AddNode,
+        ::Andromeda::Gui::Node::OutputNode,
         ::Andromeda::Gui::Node::IntVariable,
         ::Andromeda::Gui::Node::FloatVariable,
         ::Andromeda::Gui::Node::BoolVariable
     >;
 
     /** @brief The same types as ReflectedNodes, as display names in declaration order. */
-    inline constexpr std::array<std::string_view, 4> ReflectedNodesNames = {"AddNode", "IntVariable", "FloatVariable", "BoolVariable"};
+    inline constexpr std::array<std::string_view, 5> ReflectedNodesNames = {"AddNode", "OutputNode", "IntVariable", "FloatVariable", "BoolVariable"};
 
 } // namespace Andromeda::Meta

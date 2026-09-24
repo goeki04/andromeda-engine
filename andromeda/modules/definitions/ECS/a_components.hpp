@@ -14,8 +14,10 @@
 
 #include "a_math.hpp"
 #include "a_model_record.hpp"
+#include <algorithm>
 #include <span>
 #include <string>
+#include <string_view>
 #include "a_particle_group.hpp"
 namespace Andromeda::ECS::Component {
 
@@ -114,7 +116,7 @@ namespace Andromeda::ECS::Component {
 
         ParticleSystem() {
             // Initialize with a default particle group
-            particleGroups.emplace_back();
+            particleGroups.emplace_back().id = nextParticleGroupID++;
         }
 
         // Defined out-of-line in a_component_parser.hpp (after ParticleGroup's own to_json/from_json),
@@ -138,14 +140,62 @@ namespace Andromeda::ECS::Component {
 
         void addParticleGroup() {
             auto& group = particleGroups.emplace_back();
-            nextParticleGroupID++;
-            group.groupName = "ParticleGroup_" + std::to_string(nextParticleGroupID);
+            group.id = nextParticleGroupID++; // Assign a unique ID to the new particle group
+            group.groupName = "ParticleGroup_" + std::to_string(group.id);
+        }
+
+        /**
+         * @brief Appends a copy of the group with @p id, graph included, under its own ID and free name.
+         * @return The new group, or nullptr if there is no group with @p id.
+         */
+        ParticleGroup* duplicateParticleGroup(u32 id) {
+            const ParticleGroup* source = findParticleGroup(id);
+            if (source == nullptr)
+                return nullptr;
+
+            // Copied before the push_back: growing the vector would move the source out from under us.
+            ParticleGroup copy = *source;
+            copy.id = nextParticleGroupID++;
+            copy.groupName = makeUniqueGroupName(source->groupName);
+            particleGroups.push_back(std::move(copy));
+            return &particleGroups.back();
         }
 
         void removeParticleGroup(i32 indexToRemove) {
             if (indexToRemove >= 0 && indexToRemove < static_cast<i32>(particleGroups.size()) && particleGroups.size() > 1) {
                 particleGroups.erase(particleGroups.begin() + indexToRemove);
             }
+        }
+
+        /** @brief Removes the group with @p id. The last group is never removed: there is always one. */
+        void removeParticleGroup(u32 id) {
+            if (particleGroups.size() <= 1)
+                return;
+            const auto it = std::find_if(particleGroups.begin(), particleGroups.end(),
+                                         [id](const ParticleGroup& group) { return group.id == id; });
+            if (it != particleGroups.end())
+                particleGroups.erase(it);
+        }
+
+        /** @brief The group with @p id, or nullptr; ids are unique inside one ParticleSystem. */
+        ParticleGroup* findParticleGroup(u32 id) {
+            for (ParticleGroup& group : particleGroups) {
+                if (group.id == id)
+                    return &group;
+            }
+            return nullptr;
+        }
+
+        /** @brief @p wanted, or "wanted (2)", "wanted (3)", ... if that name is already taken. */
+        std::string makeUniqueGroupName(std::string_view wanted) const {
+            const auto taken = [this](const std::string& name) {
+                return std::any_of(particleGroups.begin(), particleGroups.end(),
+                                   [&name](const ParticleGroup& group) { return group.groupName == name; });
+            };
+            std::string name(wanted);
+            for (u32 suffix = 2; taken(name); ++suffix)
+                name = std::string(wanted) + " (" + std::to_string(suffix) + ")";
+            return name;
         }
 
     private:

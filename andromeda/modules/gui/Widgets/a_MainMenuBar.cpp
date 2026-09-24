@@ -30,16 +30,19 @@ namespace Andromeda::Gui {
     {
         if (ImGui::BeginMenu("File"))
         {
+            // Failures are logged, not thrown: a failed save or a missing scene file must not end the editor.
+            const std::string scenePath = (std::filesystem::path(g_ProjectPath) / "scene.json").string();
             if (ImGui::MenuItem("Save")) {
-				A_INFO("Saving project: {}", g_ProjectPath);
-                if (!SceneSerializer::save((std::filesystem::path(g_ProjectPath) / "scene.json").string(), *ctx.registry, *ctx.resourceManager)) {
-                    throw std::runtime_error("saving the scene has failed!");
-                }
+                if (SceneSerializer::save(scenePath, *ctx.registry, *ctx.resourceManager))
+                    A_INFO("Scene saved to '{}'", scenePath);
+                else
+                    A_ERROR("Saving the scene to '{}' failed", scenePath);
             }
             if (ImGui::MenuItem("Load")) {
-                if (!SceneSerializer::load((std::filesystem::path(g_ProjectPath) / "scene.json").string(), *ctx.registry, *ctx.resourceManager)) {
-                    throw std::runtime_error("loading the scene has failed!");
-                }
+                if (SceneSerializer::load(scenePath, *ctx.registry, *ctx.resourceManager))
+                    A_INFO("Scene loaded from '{}'", scenePath);
+                else
+                    A_ERROR("Loading the scene from '{}' failed, current scene kept", scenePath);
             }
             if (ImGui::MenuItem("Exit")) {}
             ImGui::EndMenu();

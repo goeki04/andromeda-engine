@@ -1,5 +1,6 @@
 #pragma once
 #include <type_traits>
+#include <variant>
 #include "a_primitives.hpp"
 
 namespace Andromeda {
@@ -46,6 +47,26 @@ namespace Andromeda {
 
     enum class ValueType : u8 { None, Int, Float, Bool, Vec2, Vec3 };
 
+        /** @brief Node and field a pin belongs to - the two halves of a pin ID. */
+    struct PinAddress {
+        u32 nodeId = 0;
+        u32 fieldIndex = 0;
+    };
+
+    /**
+     * @brief Pin ID = node ID in the upper 32 bits, field index + 1 in the lower (so it is never 0).
+     * @details Plain numbers on purpose: loading a graph happens in this data module, which must not
+     *          depend on the node editor. The GUI wraps the result in an ed::PinId.
+     */
+    inline u64 encodePinId(u32 nodeId, u32 fieldIndex) {
+        return (static_cast<u64>(nodeId) << 32) | (static_cast<u64>(fieldIndex) + 1);
+    }
+
+    /** @brief Inverse of encodePinId. */
+    inline PinAddress decodePinId(u64 pinId) {
+        return PinAddress{static_cast<u32>(pinId >> 32), static_cast<u32>(pinId & 0xFFFFFFFF) - 1};
+    }
+    
     template<typename T>
     struct ValueTypeOf {
         static constexpr ValueType value = ValueType::None;
@@ -84,4 +105,43 @@ namespace Andromeda {
     static_assert(valueTypeOf<bool> == ValueType::Bool);
     static_assert(valueTypeOf<vec2> == ValueType::Vec2);
     static_assert(valueTypeOf<vec3> == ValueType::Vec3);
+
+    /** @brief A value travelling along a link; one alternative per ValueType except None. */
+    using NodeValue = std::variant<i32, float, bool, vec2, vec3>;
+
+    // ---------------------------------------------------------------------------------------------
+    // What may be plugged into what. The editor asks canConnect() before it accepts a link, evaluation
+    // asks readAs() when it moves a value along that link. Both answer from the same rules below, so a
+    // link the editor allows always carries its value through - a rule added to one without the other
+    // means either a link that cannot be drawn or one that silently delivers nothing.
+    // ---------------------------------------------------------------------------------------------
+
+    /** @brief True when an output of type @p from may feed an input of type @p to. */
+    inline constexpr bool canConnect(ValueType from, ValueType to) {
+        if (from == ValueType::None || to == ValueType::None)
+            return false;
+        if (from == ValueType::Int && to == ValueType::Float)
+            return true; // widening, no loss; see readAs()
+        return from == to;
+    }
+
+    /**
+     * @brief Reads @p value as ValueT, applying the conversions canConnect() allows.
+     * @param out Only written when the read succeeds, so a mismatch leaves the pin on its own value.
+     * @return false when a ValueT cannot be made from @p value.
+     */
+    template<typename ValueT>
+    bool readAs(const NodeValue& value, ValueT& out) {
+        if (const ValueT* exact = std::get_if<ValueT>(&value)) {
+            out = *exact;
+            return true;
+        }
+        if constexpr (std::is_same_v<ValueT, float>) {
+            if (const i32* whole = std::get_if<i32>(&value)) {
+                out = static_cast<float>(*whole);
+                return true;
+            }
+        }
+        return false;
+    }
 }

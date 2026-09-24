@@ -84,7 +84,7 @@ namespace Andromeda::Meta {
     };
 
     // ------------------------------------------------------------------------
-    // Andromeda::ParticleGroup (8 fields) from modules/definitions/renderer/a_particle_group.hpp
+    // Andromeda::ParticleGroup (9 fields) from modules/definitions/renderer/a_particle_group.hpp
     // ------------------------------------------------------------------------
     template <>
     struct StructInfo<::Andromeda::ParticleGroup> {
@@ -102,12 +102,13 @@ namespace Andromeda::Meta {
             makeField("size", "float", "Size of each particle in this group.", "1.0f", &type::size),
             makeField("velocity", "vec3", "Initial velocity of particles in this group.", "{1.0f, 1.0f, 1.0f}", &type::velocity),
             makeField("particleColor", "vec3", "Color of the particles (RGB).", "{1.0f, 1.0f, 1.0f}", &type::particleColor),
-            makeField("minLifeTime", "float", "Minimum lifetime of the particles in seconds.", "0.0f", &type::minLifeTime),
+            makeField("minLifetime", "float", "Minimum lifetime of the particles in seconds.", "0.0f", &type::minLifetime),
             makeField("eventBindings", "std::vector<EventBinding>", "List of event bindings for this particle group.", "", &type::eventBindings),
-            makeField("graph", "ParticleGraph", "Node graph edited in the particle editor.", "", &type::graph)
+            makeField("graph", "ParticleGraph", "Node graph edited in the particle editor.", "", &type::graph),
+            makeField("id", "u32", "Unique within its ParticleSystem, never reused; 0 = not assigned yet.", "0", &type::id)
         );
 
-        static constexpr std::array<std::string_view, 8> fieldNames = {"groupName", "particleCount", "size", "velocity", "particleColor", "minLifeTime", "eventBindings", "graph"};
+        static constexpr std::array<std::string_view, 9> fieldNames = {"groupName", "particleCount", "size", "velocity", "particleColor", "minLifetime", "eventBindings", "graph", "id"};
         static constexpr std::size_t fieldCount = std::tuple_size_v<decltype(fields)>;
     };
 
