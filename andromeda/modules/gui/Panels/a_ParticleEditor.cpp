@@ -16,7 +16,6 @@
 #include "a_SelectionContext.hpp"
 #include "a_VariablesOverlay.hpp"
 #include "a_components.hpp"
-#include "a_node_evaluation.hpp"
 #include "a_node_graph.hpp"
 #include "a_registry.hpp"
 
@@ -208,8 +207,9 @@ namespace Andromeda::Gui {
                 ParticleGroup& group = activeGroup(particleSystem, selectedEntity);
                 ParticleGraph& graph = group.graph;
 
+                // The graph itself is run by ParticleGraphSystem, every frame and for every group.
+                // The editor only shows the values it computed.
                 ed::SetCurrentEditor(m_NodeEditorContext);
-                evaluateGraph(graph, group, particleSystem.graphVariables);
                 ed::Begin("Particle Graph");
 
                 syncEditorToGraph(graph, selectedEntity, group.id);

@@ -25,6 +25,43 @@ namespace Andromeda::Gui::Node {
         Output<float> result;
     };
 
+    struct [[ParticleNode]] Subtract {
+        Input<float> a;
+        Input<float> b;
+        Output<float> result;
+    };
+
+    struct [[ParticleNode]] Multiply {
+        Input<float> a;
+        Input<float> b;
+        Output<float> result;
+    };
+
+    struct [[ParticleNode]] Divide {
+        Input<float> a;
+        Input<float> b;
+        Output<float> result;
+    };
+
+    struct [[ParticleNode]] Clamp {
+        Input<float> value;
+        Param<float> min;
+        Param<float> max;
+        Output<float> result;
+    };
+
+    struct [[ParticleNode]] Lerp {
+        Input<float> a;
+        Input<float> b;
+        Input<float> t;
+        Output<float> result;
+    };
+
+    struct [[ParticleNode]] Time {
+        Output<float> seconds;
+        Output<float> deltaTime;
+    };
+
     struct [[ParticleNode]] OutputNode {
         Input<i32> particleCount;
         Input<float> size;

@@ -11,6 +11,7 @@
 #include "scene/scene.hpp"
 #include "serialization/sceneSerializer.hpp"
 #include "particle_system/a_particle_binding_system.hpp"
+#include "particle_system/a_particle_graph_system.hpp"
 #include <cstdlib>
 #include "a_logger.hpp"
 #include "network/service/a_WeatherService.hpp"
@@ -24,6 +25,7 @@ Andromeda::Editor::Editor editor;
 Andromeda::SceneManager sceneManager;
 Andromeda::NetworkManager networkManager;
 Andromeda::ParticleBindingSystem particleBindingSystem;
+Andromeda::ParticleGraphSystem particleGraphSystem;
 SDL_AppResult SDL_Init() {
     SDL_SetAppMetadata("ESP32", "1.0", "ESP32.goeki.com");
     if (!SDL_Init(SDL_INIT_VIDEO)) {
@@ -76,6 +78,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
     Andromeda::SystemManager::getInstance().addSubsystem(&editor);
 	Andromeda::SystemManager::getInstance().addSubsystem(&networkManager);
 	Andromeda::SystemManager::getInstance().addSubsystem(&particleBindingSystem);
+	Andromeda::SystemManager::getInstance().addSubsystem(&particleGraphSystem);
 	Andromeda::WeatherService weatherService;
 	weatherService.getLiveWeatherData();
     Andromeda::SystemManager::getInstance().startSubsystems();

@@ -19,6 +19,18 @@
 #include "a_Nodes.hpp"
 namespace Andromeda {
 
+    /**
+     * @brief Everything a graph may read besides its own nodes. Grows with the node types.
+     * @details Passed in rather than fetched: this header is data only and must not reach into the
+     *          engine's subsystems. A node that needs one of these takes the context as a second
+     *          parameter of its evaluateNode() overload; evaluateGraph() picks that form when it exists.
+     */
+    struct GraphContext {
+        std::span<const GraphVariable> variables; ///< The variables of the node's ParticleSystem.
+        float time = 0.0f;      ///< Seconds the scene has been running; stands still while paused.
+        float deltaTime = 0.0f; ///< Seconds since the last frame; 0 while paused.
+    };
+
     // NodeValue, canConnect() and readAs() live in a_node_pins.hpp, next to ValueType.
 
     // What a node computes: reads its Input and Param fields, writes its Output fields. The graph takes
@@ -26,10 +38,41 @@ namespace Andromeda {
 
     /** @brief Fallback: a node type without its own rule is a mistake, not a node that does nothing. */
     template<typename T>
-    void evaluateNode(T& node) { static_assert(sizeof(T) == 0, "evaluateNode not implemented for this type"); }
+    void evaluateNode(T& node) {
+        static_assert(sizeof(T) == 0, "evaluateNode not implemented for this type");
+    }
 
     inline void evaluateNode(Gui::Node::AddNode& node) {
         node.result.value = node.a.value + node.b.value;
+    }
+
+    inline void evaluateNode(Gui::Node::Subtract& node) {
+        node.result.value = node.a.value - node.b.value;
+    }
+
+    inline void evaluateNode(Gui::Node::Multiply& node) {
+        node.result.value = node.a.value * node.b.value;
+    }
+
+    inline void evaluateNode(Gui::Node::Divide& node) {
+        // Dividing by zero would put inf or NaN into the particles, and NaN never washes out again.
+        if (node.b.value != 0.0f)
+            node.result.value = node.a.value / node.b.value;
+    }
+
+    inline void evaluateNode(Gui::Node::Lerp& node) {
+        node.result.value = std::lerp(node.a.value, node.b.value, node.t.value);
+    }
+
+    inline void evaluateNode(Gui::Node::Clamp& node) {
+        const float low = std::min(node.min.value, node.max.value);
+        const float high = std::max(node.min.value, node.max.value);
+        node.result.value = std::clamp(node.value.value, low, high);
+    }
+
+    inline void evaluateNode(Gui::Node::Time& node, const GraphContext& context) {
+        node.seconds.value = context.time;
+        node.deltaTime.value = context.deltaTime;
     }
 
     /** @brief End of the chain: computes nothing, evaluateGraph() copies its inputs into the group. */
@@ -94,10 +137,11 @@ namespace Andromeda {
      *          into a running order (Kahn's algorithm) and then evaluated in that order. Everything in
      *          here works on positions in graph.nodes, not on node IDs: IDs are never reused and so have
      *          gaps, positions are 0 .. n-1 and can index a plain vector.
-     * @param variables The ParticleSystem's variables, shared by the graphs of all its groups; bound
-     *        variable nodes read their value from here (see applyBoundVariable).
+     * @param context Everything the nodes may read besides the graph itself: the system's variables
+     *        (see applyBoundVariable) and the frame's time. Nodes that need it get an evaluateNode()
+     *        overload taking it as a second parameter.
      */
-    inline void evaluateGraph(ParticleGraph& graph, ParticleGroup& group, std::span<const GraphVariable> variables) {
+    inline void evaluateGraph(ParticleGraph& graph, ParticleGroup& group, const GraphContext& context) {
 
         size_t size = graph.nodes.size();
         
@@ -151,7 +195,7 @@ namespace Andromeda {
 
         for (size_t i = 0; i < order.size(); i++) {
             NodeInstance& node = graph.nodes[order[i]];
-            applyBoundVariable(node, variables);
+            applyBoundVariable(node, context.variables);
             u32 fieldIndex = 0;
             std::visit([&](auto& data) { 
                 Meta::forEachField(data, [&](auto const&, auto& member) { 
@@ -171,7 +215,11 @@ namespace Andromeda {
                         ++fieldIndex;
                     });
 
-                evaluateNode(data);
+                if constexpr (requires { evaluateNode(data, context); })
+                    evaluateNode(data, context);
+                else
+                    evaluateNode(data);
+
                 if constexpr (std::is_same_v<std::decay_t<decltype(data)>, Gui::Node::OutputNode>) {
                     // Only connected inputs are written: an unconnected one would push its fallback
                     // (0) over the value the user typed in the details panel.
@@ -182,13 +230,13 @@ namespace Andromeda {
 
                     if (isConnected("size"))
                         group.size = data.size.value;
-                    else if (isConnected("particleCount"))
+                    if (isConnected("particleCount"))
                         group.particleCount = data.particleCount.value;
-                    else if (isConnected("velocity"))
+                    if (isConnected("velocity"))
                         group.velocity = data.velocity.value;
-                    else if (isConnected("particleColor"))
+                    if (isConnected("particleColor"))
                         group.particleColor = data.particleColor.value;
-                    else if (isConnected("minLifetime"))
+                    if (isConnected("minLifetime"))
                         group.minLifetime = data.minLifetime.value;
                 }
                 fieldIndex = 0;
