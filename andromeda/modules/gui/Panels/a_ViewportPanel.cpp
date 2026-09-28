@@ -57,10 +57,14 @@ namespace Andromeda::Gui {
     {
         if (!m_SelectedEntity.has<ECS::Component::Transform>()) return;
 
+        // drawViewportImage() measures the rect this frame; without it ImGuizmo would
+        // divide by a zero-sized viewport when mapping the mouse.
+        if (m_ImageRect.size.x <= 0.0f || m_ImageRect.size.y <= 0.0f) return;
+
         auto& objectTransform = m_SelectedEntity.get<ECS::Component::Transform>();
         mat4 modelMatrix = objectTransform.modelMatrix();
 
-        prepareImGuizmo(ctx);
+        prepareImGuizmo();
         std::optional<ImGuizmo::OPERATION> operation = TransformIcons::getImGuizmoTool(m_ActiveTool);
         if (operation.has_value()) {
             ImGuizmo::Manipulate(
@@ -75,17 +79,22 @@ namespace Andromeda::Gui {
         handleGizmoInteraction(objectTransform, modelMatrix);
     }
 
-    void ViewportPanel::prepareImGuizmo(EditorContext& ctx)
+    void ViewportPanel::prepareImGuizmo()
     {
-        auto& framebufferSize = ctx.viewportDrawInfo->framebufferSize;
-        ImVec2 windowPos = ImGui::GetWindowPos();
-        ImVec2 minBound = ImGui::GetWindowContentRegionMin();
-
-        ImGuizmo::SetRect(windowPos.x + minBound.x, windowPos.y + minBound.y, framebufferSize.x, framebufferSize.y);
+        // ImGuizmo maps the mouse into NDC through this rect, so it has to be the rect the
+        // image really occupies on screen. ViewportDrawInfo::framebufferSize is unusable
+        // here: it travels through EditorContext::layout and so lags a frame behind, and
+        // the renderer resizes the FBO only after a delay (Renderer::processResizeTimer).
+        // A rect that disagrees with the drawn image gives a skewed picking ray.
+        ImGuizmo::SetRect(m_ImageRect.min.x, m_ImageRect.min.y, m_ImageRect.size.x, m_ImageRect.size.y);
         ImGuizmo::SetDrawlist();
+
+        // On by default: an axis pointing away from the camera is drawn flipped, and it can
+        // flip over mid-drag, which throws the object off in the opposite direction.
+        ImGuizmo::AllowAxisFlip(false);
     }
 
-    void ViewportPanel::handleGizmoInteraction(ECS::Component::Transform& transform, mat4& deltaMatrix)
+    void ViewportPanel::handleGizmoInteraction(ECS::Component::Transform& transform, const mat4& modelMatrix)
     {
         if (ImGuizmo::IsUsing())
         {
@@ -94,7 +103,7 @@ namespace Andromeda::Gui {
                 m_ActiveUndoState = transform;
             }
 
-            applyGizmoTransform(transform, deltaMatrix);
+            applyGizmoTransform(transform, modelMatrix);
         }
         else if (m_IsDraggingGizmo)
         {
@@ -102,19 +111,42 @@ namespace Andromeda::Gui {
         }
     }
 
-    void ViewportPanel::applyGizmoTransform(ECS::Component::Transform& transform, mat4& matrix)
+    void ViewportPanel::applyGizmoTransform(ECS::Component::Transform& transform, const mat4& matrix) const
     {
-        vec3 translation, rotationDegrees, scale;
-        ImGuizmo::DecomposeMatrixToComponents(
-            amath::glmValuePtr(matrix),
-            glm::value_ptr(translation),
-            glm::value_ptr(rotationDegrees),
-            glm::value_ptr(scale)
-        );
+        // Each basis vector's length is that axis' scale; dividing it out leaves a pure rotation.
+        const vec3 scale(glm::length(vec3(matrix[0])),
+                         glm::length(vec3(matrix[1])),
+                         glm::length(vec3(matrix[2])));
 
-        transform.position = translation;
-        transform.scale = scale;
-        transform.rotation = glm::quat(glm::radians(rotationDegrees));
+        // Only the field the active tool drives is written back. Feeding position, rotation
+        // and scale back every frame round-tripped the rotation through ImGuizmo's Euler
+        // angles, which its own header calls numerically unstable, and whose convention
+        // differs from the one glm::quat(vec3) assumes. The error accumulated while dragging
+        // until the Euler decomposition flipped - that was the jump.
+        switch (m_ActiveTool)
+        {
+        case TransformIcons::Translate:
+            transform.position = vec3(matrix[3]);
+            break;
+
+        case TransformIcons::Scale:
+            transform.scale = scale;
+            break;
+
+        case TransformIcons::Rotate:
+            // Taken off the normalized basis, so no Euler angles are involved at all.
+            if (scale.x > 0.0f && scale.y > 0.0f && scale.z > 0.0f)
+            {
+                const mat3 basis(vec3(matrix[0]) / scale.x,
+                                 vec3(matrix[1]) / scale.y,
+                                 vec3(matrix[2]) / scale.z);
+                transform.rotation = glm::normalize(glm::quat_cast(basis));
+            }
+            break;
+
+        default:
+            break;
+        }
     }
 
     void ViewportPanel::finalizeGizmoInteraction(ECS::Component::Transform& currentTransform)
@@ -206,7 +238,7 @@ namespace Andromeda::Gui {
             if (isHovered || isActive || m_ActiveTool == static_cast<TransformIcons::Type>(i)) {
                 const auto btnCenter = ImVec2(currentBtnScreenPos.x + buttonSize.x * 0.5f, currentBtnScreenPos.y + buttonSize.y * 0.5f);
 
-                constexpr float circleRadius = (28.0f * 0.5f) + 4.0f;
+                constexpr float circleRadius = 28.0f * 0.5f + 4.0f;
 
                 auto circleColorVec = ImVec4(0.25f, 0.25f, 0.25f, 0.7f);
                 if (isActive) circleColorVec = ImVec4(0.4f, 0.4f, 0.4f, 0.8f);
@@ -224,13 +256,13 @@ namespace Andromeda::Gui {
             }
         }
     }
-    void ViewportPanel::drawWireframeControl(const u32& textureID, const ImGuiWindowFlags flags) {
+    void ViewportPanel::drawWireframeControl(const u32& textureID) {
         const ImTextureID imguiID = static_cast<ImTextureID>(static_cast<intptr_t>(textureID));
         constexpr auto childSize = ImVec2(32, 32);
 
         const ImVec2 screenPos = ImGui::GetCursorScreenPos();
         const auto center = ImVec2(screenPos.x + childSize.x * 0.5f, screenPos.y + childSize.y * 0.5f);
-        constexpr float radius = (childSize.x * 0.5f) + 6.0f;
+        constexpr float radius = childSize.x * 0.5f + 6.0f;
 
         ImDrawList* drawList = ImGui::GetWindowDrawList();
 
@@ -259,7 +291,7 @@ namespace Andromeda::Gui {
         }
     }
 
-    void ViewportPanel::drawViewportOverlay(ImVec2 rectMax, ImVec2 rectMin, const u32& textureID, const TransformIcons& textureHandles) {
+    void ViewportPanel::drawViewportOverlay(const u32& textureID, const TransformIcons& textureHandles) {
         const ImVec2 startPos = ImGui::GetCursorStartPos();
 
         const float availableWidth = ImGui::GetContentRegionAvail().x;
@@ -278,11 +310,11 @@ namespace Andromeda::Gui {
             setOverlayStyle();
 
             ImGui::SetCursorPos(ImVec2(padding, 11.0f));
-            drawWireframeControl(textureID, overlayFlags);
+            drawWireframeControl(textureID);
 
             constexpr float btnSize = 28.0f;
             constexpr float btnSpacing = 10.0f;
-            constexpr float transformWidth = (btnSize * 4.0f) + (btnSpacing * 3.0f);
+            constexpr float transformWidth = btnSize * 4.0f + btnSpacing * 3.0f;
 
             const float centerPosX = (childWidth - transformWidth) * 0.5f;
 
@@ -295,7 +327,7 @@ namespace Andromeda::Gui {
         ImGui::PopStyleVar();
     }
 
-    void ViewportPanel::updateImGuiMousePos(const ViewportDimension& vpDimension, EditorContext& ctx, const Gui::ViewportDrawInfo& drawInfo) {
+    void ViewportPanel::updateImGuiMousePos(const ViewportDimension& vpDimension, EditorContext& ctx, const ViewportDrawInfo& drawInfo) {
         auto* cam = drawInfo.camData;
         cam->viewportSize = vec2(vpDimension.size.x, vpDimension.size.y);
         cam->viewportPos = vec2(vpDimension.min.x, vpDimension.min.y);
@@ -316,12 +348,12 @@ namespace Andromeda::Gui {
             cam->imGuiMouseX = cam->imGuiMouseY = -1.0f;
         }
     }
-    void ViewportPanel::drawViewportImage(EditorContext& ctx, const Gui::ViewportDrawInfo& drawInfo)
+    void ViewportPanel::drawViewportImage(EditorContext& ctx, const ViewportDrawInfo& drawInfo)
     {
         const ImVec2 currentSize = ImGui::GetContentRegionAvail();
         ctx.layout.viewportSize = vec2(currentSize.x, currentSize.y);
 
-        ImGui::Image((void*)static_cast<intptr_t>(drawInfo.postProcessingFboTexture.textureID),
+        ImGui::Image(drawInfo.postProcessingFboTexture.textureID,
             currentSize, ImVec2(0, 1), ImVec2(1, 0));
 
         const ImVec2 rectMin = ImGui::GetItemRectMin();
@@ -332,12 +364,13 @@ namespace Andromeda::Gui {
             rectMax,
             currentSize
         };
+        m_ImageRect = vpDimension;
         updateImGuiMousePos(vpDimension, ctx, drawInfo);
         const u32 id = ctx.resourceManager->getEditorIconID("box");
 
-        drawViewportOverlay(rectMax, rectMin, id, m_TextureHandles);
+        drawViewportOverlay(id, m_TextureHandles);
     }
-    void ViewportPanel::handleViewportInput(const Gui::ViewportDrawInfo& drawInfo)
+    void ViewportPanel::handleViewportInput(const ViewportDrawInfo& drawInfo)
     {
         if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Right))
         {

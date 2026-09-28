@@ -190,8 +190,8 @@ namespace Andromeda::Gui
 
         if (ImGui::MenuItem("Create Empty"))
         {
-            ECS::Component::Transform t;
-            ctx.sceneManager->addEntity(0, "GameObject", t);
+            // Transform and Tag only; components like a ParticleSystem are added in the details panel.
+            selectEntity(ctx, ctx.sceneManager->addEmptyEntity("GameObject"));
         }
 
         ImGui::EndPopup();

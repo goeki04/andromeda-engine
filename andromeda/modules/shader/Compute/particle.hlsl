@@ -1,9 +1,27 @@
 
+cbuffer EmitterSettings : register(b2)
+{
+    float3 emitterPosition;
+    float deltaTime;
+    
+    float3 boxExtents;
+    uint maxParticles;
+    float3 startVelocity;
+    float minLifetime;
+    
+    float4 color;
+    
+    float size;
+    uint activeParticleCount;
+    uint baseIndex;
+    float2 padding;
+};
+
 struct Particle
 {
     float4 position; // xyz = Position, w = remaining lifetime in seconds
     float4 velocity; // xyz = Velocity, w = max lifetime in seconds
-    float4 params; // x = size, yzw = freie Parameter (z.B. Rotation, TypeID)
+    float4 params; // x = size, yzw = free parameters (rotation, type id, ...)
 };
 
 RWStructuredBuffer<Particle> particles : register(u1);
@@ -38,7 +56,44 @@ float3 hash3(uint seed)
 [numthreads(256, 1, 1)]
 void BoxParticle(uint3 dispatchThreadId : SV_DispatchThreadID)
 {
+    uint local = dispatchThreadId.x;
+    if (local >= maxParticles)
+        return;
+    uint index = baseIndex + local;
+    Particle p = particles[index];
+    float remainingLife = p.position.w - deltaTime;
 
+    if (remainingLife <= 0.0f)
+    {
+        // params.y counts respawns so the seed changes every cycle: with a plain
+        // hash3(index) the particle would reappear at the exact same spot forever.
+        const bool firstSpawn = p.velocity.w <= 0.0f;
+        const uint cycle = uint(p.params.y) + 1u;
+        const uint seed = index * 9781u + cycle;
+
+        float3 random = hash3(seed) * 2.0f - 1.0f; // -1 .. 1 per axis
+        float life = max(minLifetime, 0.1f) * (0.5f + hash1(seed));
+
+        p.position.xyz = emitterPosition + random * boxExtents;
+        p.velocity = float4(startVelocity, life); // w = max lifetime, the fade reads it
+        p.params.x = size;
+        p.params.y = float(cycle);
+
+        // A zero-filled buffer spawns every slot in the same frame, so the first
+        // generation gets a random head start; later respawns start one frame old
+        // so the vertex shader's fade-in is never exactly zero.
+        // max() guards a frame spike longer than the lifetime: a negative value here
+        // would leave the slot dead and make it respawn again on the very next frame.
+        remainingLife = firstSpawn ? life * hash1(seed + 0x9E3779B9u)
+                                   : max(life - deltaTime, 0.0001f);
+    }
+    else
+    {
+        p.position.xyz += p.velocity.xyz * deltaTime;
+    }
+
+    p.position.w = remainingLife;
+    particles[index] = p;
 }
 
 // Uniform sampling on the sphere surface (Y-up pole axis): theta = azimuth

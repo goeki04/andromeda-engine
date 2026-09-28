@@ -20,6 +20,7 @@
 #include "a_bindable_fields.hpp"
 #include "a_particle_group.hpp"
 #include "generated_particle_group_meta.hpp"
+#include "a_Node_Layouts.hpp"
 
 // The ParticleGroup fields an event can be bound to, and how many channels each of them has.
 inline constexpr auto g_BindableFieldNames = Andromeda::makeBindableFieldNames<Andromeda::ParticleGroup>();

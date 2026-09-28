@@ -3,7 +3,7 @@
 #include "a_subsystem_manager.hpp"
 #include "a_shader_generated.hpp"
 #include "resource_manager.h"
-#include <algorithm>
+
 
 namespace Andromeda {
 	/**
@@ -32,9 +32,17 @@ namespace Andromeda {
 		std::string computePath = SHADER_SPV_PATH "particle.hlsl." + kernalName + ".spv";
 		m_ComputeShader = rm->loadComputeShaderRHI(&context, "Particle_Compute_" + kernalName, computePath, "Particle Compute(HLSL)");
 		m_RenderShader = rm->loadShaderRHI(&context, "Particle_Render", SHADER_PATH "Vfx/particle.vert", SHADER_PATH "Vfx/particle.frag");
-		//m_ParticleBuffer.create(BufferUsage::DynamicDraw,m_EmitterSettings.maxParticles  * sizeof(Generated::Compute::Particle), nullptr);
+        m_EmitterSettings.maxParticles = 1500;
+        m_EmitterSettings.emitterPosition = vec3(0.0f);
+        m_EmitterSettings.boxExtents = vec3(1.0f);
+        m_EmitterSettings.startVelocity = vec3(0.0f, 1.0f, 0.0f);
+        m_EmitterSettings.minLifetime = 2.0f;
+        m_EmitterSettings.size = 1.0f;
+        m_EmitterSettings.color = vec4(1.0f);
+		m_ParticleBuffer.create(BufferUsage::DynamicDraw,m_EmitterSettings.maxParticles  * sizeof(Generated::Compute::Particle), nullptr);
 		m_ParticleBuffer.clear();
-		//m_EmitterSettingsBuffer.initialize(sizeof(Generated::Compute::EmitterSettings));
+
+		m_EmitterSettingsBuffer.initialize(sizeof(Generated::Compute::EmitterSettings));
 		m_SceneCamera = &data;
 		m_CameraDataBuffer.initialize(sizeof(Generated::CameraData));
 	}
@@ -48,22 +56,20 @@ namespace Andromeda {
 	 *          Reads the frame's delta time from @c SystemManager::s_deltaTime.
 	 */
 	void ParticleEmitter::update() {
-		//if (m_EmitterSettings.maxParticles == 0) return;
+		if (m_EmitterSettings.maxParticles == 0) return;
 		if (m_IsInitialized == false) {
 			A_WARN("ParticleEmitter not initialized!");
 			return;
 		}
 		m_Context->bindShaderProgram(m_ComputeShader);
-		//m_ParticleBuffer.bind(1);
-		//m_EmitterSettingsBuffer.bind(2);
+		m_ParticleBuffer.bind(1);
+		m_EmitterSettingsBuffer.bind(2);
 		const float dt = SystemManager::s_paused ? 0.0f : SystemManager::s_deltaTime;
-		//m_EmitterSettings.deltaTime = dt;
-		//m_SpawnAccumulator += m_EmitterSettings.emissionRate * dt;
-		//m_EmitterSettings.activeParticleCount = static_cast<uint32_t>(std::min(m_SpawnAccumulator, static_cast<float>(m_EmitterSettings.maxParticles)));
-		//m_EmitterSettingsBuffer.setData(&m_EmitterSettings, sizeof(Generated::Compute::EmitterSettings));
+		m_EmitterSettings.deltaTime = dt;
+		m_EmitterSettingsBuffer.setData(&m_EmitterSettings, sizeof(Generated::Compute::EmitterSettings));
 
-		//u32 threadGroupsX = (m_EmitterSettings.maxParticles + 255) / 256;
-		//m_Context->dispatchCompute(m_ComputeShader, threadGroupsX, 1, 1);
+		u32 threadGroupsX = (m_EmitterSettings.maxParticles + 255) / 256;
+		m_Context->dispatchCompute(m_ComputeShader, threadGroupsX, 1, 1);
 	}
 
 	/**
@@ -78,20 +84,42 @@ namespace Andromeda {
 	 *          resets it back to the default afterwards.
 	 */
 	void ParticleEmitter::render() {
-        /* if (!m_IsInitialized || m_EmitterSettings.maxParticles == 0)
+        if (!m_IsInitialized || m_EmitterSettings.maxParticles == 0)
 		{
 			A_WARN("ParticleEmitter not initialized or maxParticles is zero. Cannot render.");
 			return;
-		}*/
+		}
 
 		m_Context->bindShaderProgram(m_RenderShader);
-		//m_ParticleBuffer.bind(1);
-		//m_CameraDataBuffer.bind(2);
+		m_ParticleBuffer.bind(1);
+		m_CameraDataBuffer.bind(2);
 		Generated::CameraData cameraData;
 		cameraData.view = m_SceneCamera->viewMatrix;
 		cameraData.proj = m_SceneCamera->projection;
-		//m_CameraDataBuffer.setData(&cameraData, sizeof(Generated::CameraData));
-		//m_Context->drawInstanced(DrawMode::Points, 1, m_EmitterSettings.maxParticles, 0);
+		m_CameraDataBuffer.setData(&cameraData, sizeof(Generated::CameraData));
+		m_Context->drawInstanced(DrawMode::Points, 1, m_EmitterSettings.maxParticles, 0);
+	}
+
+	void ParticleEmitter::applyGroup(const ParticleGroup& group, const vec3& worldPos, const GroupRange& range)
+	{
+		if (range.count != m_EmitterSettings.maxParticles) {
+			m_EmitterSettings.maxParticles = range.count;
+			m_ParticleBuffer.create(BufferUsage::DynamicDraw, range.count * sizeof(Generated::Compute::Particle), nullptr);
+			m_ParticleBuffer.clear();
+		}
+
+		m_EmitterSettings.size = group.size;
+		m_EmitterSettings.color = vec4(group.particleColor,1.0f);
+		m_EmitterSettings.emitterPosition = worldPos;
+		m_EmitterSettings.minLifetime = group.minLifetime;
+		m_EmitterSettings.startVelocity = group.velocity;
+		m_EmitterSettings.boxExtents = vec3(2.0f);
+		m_EmitterSettings.activeParticleCount = range.count;
+	}
+
+	bool ParticleEmitter::isInitialized()
+	{
+		return m_IsInitialized;
 	}
 
 	std::string ParticleEmitter::getComputeKernelName(std::variant<SphereShape, HemisphereShape, ConeShape, BoxShape, CylinderShape> shape)

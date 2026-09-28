@@ -9,7 +9,8 @@
 #include "imgui.h"
 #include "a_primitives.hpp"
 
-constexpr ImU32 PIN_ORANGE = IM_COL32(255, 152, 0, 255);
+constexpr ImU32 PIN_ORANGE = IM_COL32(255, 152, 0, 255); ///< Inputs and params: where values go in.
+constexpr ImU32 PIN_BLUE = IM_COL32(33, 150, 243, 255);  ///< Outputs: where values come out.
 
 namespace Andromeda::Gui::Node {
 
@@ -43,12 +44,16 @@ namespace Andromeda::Gui::Node {
         ImGui::TextUnformatted(text.data(), text.data() + text.size());
     }
 
-    /** @brief The dot a link attaches to. Drawn inside ed::BeginPin()/EndPin(), see NodeBuilder. */
-    inline void drawPinIcon() {
+    /**
+     * @brief The dot a link attaches to. Drawn inside ed::BeginPin()/EndPin(), see NodeBuilder.
+     * @param color PIN_ORANGE for inputs, PIN_BLUE for outputs, so the direction of a link is
+     *        readable from its ends alone.
+     */
+    inline void drawPinIcon(ImU32 color) {
         const float size = ImGui::GetFrameHeight();
         const ImVec2 pos = ImGui::GetCursorScreenPos();
         ImGui::Dummy(ImVec2(size, size));
         ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(pos.x + size * 0.5f, pos.y + size * 0.5f), size * 0.25f,
-                                                    PIN_ORANGE);
+                                                    color);
     }
 }

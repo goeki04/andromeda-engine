@@ -15,6 +15,14 @@ namespace Andromeda{
         handle.add<ECS::Component::AABB>(aabb);
     }
 
+    Entity SceneManager::addEmptyEntity(const std::string& name, ECS::Component::Transform transform)
+    {
+        auto handle = m_Registry.createHandle();
+        handle.add<ECS::Component::Transform>(transform);
+        handle.add<ECS::Component::Tag>({ name });
+        return handle.id;
+    }
+
     void SceneManager::deleteEntity(const Entity id)
     {
         m_Registry.destroyEntity(id);

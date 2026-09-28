@@ -88,10 +88,22 @@ namespace Andromeda {
 	RHIStorageBuffer& RHIStorageBuffer::operator=(RHIStorageBuffer&& other) noexcept = default;
 
 	void RHIStorageBuffer::bind(u32 bindingPoint) { m_Impl->bind(bindingPoint); }
-	void RHIStorageBuffer::setData(const void* data, u32 size, u32 offset) { m_Impl->setData(data, size, offset); }
+	void RHIStorageBuffer::setData(const void* data, u32 size, u32 offset) { 
+		if (size <= 0) {
+            A_WARN("Attempted to set data on a RHIStorageBuffer with size 0");
+            return;
+		}
+		m_Impl->setData(data, size, offset); 
+	}
 	void RHIStorageBuffer::clear() {
 		m_Impl->clear();
 	}
-	void RHIStorageBuffer::create(BufferUsage usage, u32 size, const void* initialData) { m_Impl->create(usage, size, initialData); }
+	void RHIStorageBuffer::create(BufferUsage usage, u32 size, const void* initialData) { 
+		if (size <= 0) {
+			A_WARN("Attempted to create a RHIStorageBuffer with size 0");
+			return;
+		}
+		m_Impl->create(usage, size, initialData); 
+	}
 	u32 RHIStorageBuffer::getSize() const { return m_Impl->getSize(); }
 }

@@ -11,7 +11,7 @@
 #include "a_shader_generated.hpp"
 #include "a_clearFlags.hpp"
 #include "a_logger.hpp"
-#include "a_rhi_storage_buffer.hpp"
+#include <algorithm>
 
 using namespace Andromeda::ECS;
 namespace Andromeda {
@@ -35,6 +35,52 @@ namespace Andromeda {
         m_OutlineUBO.initialize(sizeof(Generated::OutlineParamsBuffer));
         m_LightUBO.initialize(sizeof(Generated::lights));
         m_pbrMaterialUBO.initialize(sizeof(Generated::pbrMaterial));
+    }
+
+    u64 createEmitterKey(const Entity id, const u32 groupId)
+    {
+        return static_cast<u64>(id) << 32 | groupId;
+    }
+
+    void Renderer::particleUpdatePass()
+    {
+        m_UsedKeys.clear();
+        auto& registry = m_SceneManager->m_Registry;
+        auto& particleSystemPool = registry.getPool<Component::ParticleSystem>();
+        auto& transformPool = registry.getPool<Component::Transform>();
+        m_GroupRanges.clear();
+        u32 base = 0;
+        for (const Entity entity : particleSystemPool.getEntities())
+        {
+            auto& system = particleSystemPool.get(entity);
+            if (transformPool.has(entity))
+            {
+                auto& transform = transformPool.get(entity);
+
+                for (auto& group : system.getParticleGroups())
+                {
+                    const u32 count = static_cast<u32>(std::clamp(group.particleCount,0,kMaxParticlesPerGroup));
+
+                    auto& range = m_GroupRanges.emplace_back(entity, group.id, base, count);
+                    base += count;
+                    const u64 key = createEmitterKey(entity, group.id);
+                    m_UsedKeys.insert(key);
+                    auto &emitter = m_Emitters[key];
+                    if (!emitter.isInitialized())
+                    {
+                        emitter.initialize(*m_RenderContext, m_ResourceManager, *m_Cam);
+                    }
+                    emitter.applyGroup(group, transform.position, range);
+                    emitter.update();
+
+                }
+            }
+        }
+
+        std::erase_if(m_Emitters, [&](const auto& entry)
+        {
+            return !m_UsedKeys.contains(entry.first);
+        });
     }
 
     void Renderer::prefilterCubemapBaking(){
@@ -63,10 +109,10 @@ namespace Andromeda {
                 m_RenderContext->setParameter(prefilterMapHandle, "view", CubemapGL::cubeViews[i]);
                 m_RenderContext->framebufferTexture2D(i,m_PrefilterMap,mip);
                 m_RenderContext->clear(ClearFlags::Color);
-                m_RenderContext->drawIndexed(cubemapgpuHandle.vao, 36);
+                m_RenderContext->drawIndexed(cubemapGpuHandle.vao, 36);
             }
         }
-        m_RenderContext->bindFramebuffer(0);
+        m_RenderContext->bindFramebuffer(nullptr);
     }
 
     void Renderer::irradianceCubemapBaking()
@@ -103,7 +149,7 @@ namespace Andromeda {
             m_RenderContext->setParameter(irradianceShaderHandle, "view", CubemapGL::cubeViews[i]);
             m_RenderContext->attachCubemapFace(i, m_IrradianceCubemap.textureID);
             m_RenderContext->clear(ClearFlags::Color | ClearFlags::Depth, vec4(0.0f, 0.0f, 0.0f, 1.0f));
-            m_RenderContext->drawIndexed(cubemapgpuHandle.vao, 36);
+            m_RenderContext->drawIndexed(cubemapGpuHandle.vao, 36);
         }
         m_RenderContext->unbindFramebuffer();
         m_RenderContext->setViewport(0,0,512,512);
@@ -114,13 +160,13 @@ namespace Andromeda {
     /// <summary>
     /// TODO: remove this api specific function and add uvs to the mesh class
     /// </summary>
-    unsigned int quadVAO = 0; ///< VAO of the screen-space quad used for full-screen passes (e.g. BRDF LUT baking); lazily created on first renderQuad() call.
+    unsigned int quadVAO = 0; ///< VAO of the screen-space quad used for full-screen passes (e.g., BRDF LUT baking); lazily created on the first renderQuad () call.
     unsigned int quadVBO; ///< VBO backing quadVAO's position + UV vertex attributes.
 
     /**
      * @brief Draws a full-screen quad (position + UV) with a triangle strip, lazily creating its VAO/VBO on first call.
      * @details Used by passes that need to run a shader over every pixel of the current render
-     *          target without real scene geometry (e.g. the BRDF LUT integration pass in @c brdfLUTBaking()).
+     *          target without real scene geometry (e.g., the BRDF LUT integration pass in @c brdfLUTBaking()).
      */
     void renderQuad()
     {
@@ -138,9 +184,9 @@ namespace Andromeda {
             glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
             glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
             glEnableVertexAttribArray(0);
-            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), static_cast<void*>(nullptr));
             glEnableVertexAttribArray(1);
-            glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+            glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), reinterpret_cast<void*>(3 * sizeof(float)));
         }
         glBindVertexArray(quadVAO);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
@@ -175,7 +221,7 @@ namespace Andromeda {
         m_RenderContext->clear(ClearFlags::Color);
         renderQuad();
         m_RenderContext->unbindTexture();
-        m_RenderContext->bindFramebuffer(0);
+        m_RenderContext->bindFramebuffer(nullptr);
 
         RenderPassSpecs resetSpecs;
         m_RenderContext->setRenderPassSpecs(resetSpecs);
@@ -197,17 +243,17 @@ namespace Andromeda {
 
         m_EnvironmentCubemap.width = 512;
         m_EnvironmentCubemap.height = 512;
-        SamplerState environtmentSampler;
-        environtmentSampler.type = TextureType::Cubemap;
-        environtmentSampler.minFilter = FilterModeMin::Trillinear;
-        environtmentSampler.magFilter = FilterModeMag::Linear;
-        CubemapGL::AllocateCubemapTexture(m_RenderContext,&m_EnvironmentCubemap, environtmentSampler);
+        SamplerState environmentMap;
+        environmentMap.type = TextureType::Cubemap;
+        environmentMap.minFilter = FilterModeMin::Trillinear;
+        environmentMap.magFilter = FilterModeMag::Linear;
+        CubemapGL::AllocateCubemapTexture(m_RenderContext,&m_EnvironmentCubemap, environmentMap);
 
         u32 hdrMapID = m_ResourceManager->m_CubemapData["citrus_orchard_road_puresky_4k"].textureID;
         Mesh cubeMesh;
         PrimitiveGenerator::generateCube(cubeMesh);
 
-        createMesh(cubemapgpuHandle, cubeMesh);
+        createMesh(cubemapGpuHandle, cubeMesh);
 
         ShaderProgramHandle equirectangularHandle = m_ResourceManager->loadShaderRHI(m_RenderContext, "equirectangular_Shader", SHADER_PATH "equirect.vert", SHADER_PATH "equirect.frag");
         CubemapGL::ConvertEquiretangularToCubemap(
@@ -216,7 +262,7 @@ namespace Andromeda {
             m_BakingBuffer,
             m_EnvironmentCubemap.textureID,
             [&]() {
-                m_RenderContext->drawIndexed(cubemapgpuHandle.vao, 36);
+                m_RenderContext->drawIndexed(cubemapGpuHandle.vao, 36);
             }
         );
 
@@ -228,13 +274,12 @@ namespace Andromeda {
         m_CubeVao = m_RenderContext->createEmptyVAO();
         brdfLUTBaking();
         createMaterials();
-        m_Emitter.initialize(*m_RenderContext, m_ResourceManager, *m_Cam);
         RenderPassSpecs initSpecs;
         m_RenderContext->setRenderPassSpecs(initSpecs);
         registerEvents();
     }
 
-    std::shared_ptr<RHIFramebuffer> Renderer::helperCreateFBO(ivec2 size, std::vector<FramebufferTextureFormat> formats, u32 samples) {
+    std::shared_ptr<RHIFramebuffer> Renderer::helperCreateFBO(const ivec2 size, const std::vector<FramebufferTextureFormat>& formats, u32 samples) {
         FramebufferSpecification specs;
         specs.width = size.x;
         specs.height = size.y;
@@ -267,8 +312,7 @@ namespace Andromeda {
         auto skyboxMaterial = m_ResourceManager->createMaterial("SkyboxMaterial", skyboxShaderHandle, m_RenderContext);
 
         ShaderProgramHandle pbrShaderHandle = m_ResourceManager->loadShaderRHI(m_RenderContext, "PBR_Shader", SHADER_PATH "PBR/pbr.vert", SHADER_PATH "PBR/pbr.frag");
-        auto pbrMaterial = m_ResourceManager->createMaterial("PBRMaterial", pbrShaderHandle, m_RenderContext);
-        if (pbrMaterial) {
+        if (auto pbrMaterial = m_ResourceManager->createMaterial("PBRMaterial", pbrShaderHandle, m_RenderContext)) {
             Generated::pbrMaterial plasticData;
             plasticData.albedo = vec3(1.0f, 0.0f, 0.0f);
             plasticData.metallic = 0.0f;
@@ -303,7 +347,7 @@ namespace Andromeda {
         processResizeTimer();
         windowClearPass();
         scenePassBegin();
-        m_Emitter.update();
+        particleUpdatePass();
         geometryPass();
         proceduralPass();
         vfxPass();
@@ -358,7 +402,10 @@ namespace Andromeda {
         specs.blendMode = BlendMode::AlphaBlend;
         specs.depthWrite = false;
         m_RenderContext->setRenderPassSpecs(specs);
-		m_Emitter.render();
+		for (auto& val : m_Emitters | std::views::values)
+		{
+		    val.render();
+		}
         RenderPassSpecs resetSpecs;
         m_RenderContext->setRenderPassSpecs(resetSpecs);
 	}
@@ -421,12 +468,11 @@ namespace Andromeda {
         specs.blendMode = BlendMode::AlphaBlend;
         m_RenderContext->setRenderPassSpecs(specs);
 
-        auto skyboxMat = m_ResourceManager->getMaterial("SkyboxMaterial");
-        if (skyboxMat) [[likely]] {
+        if (auto skyboxMat = m_ResourceManager->getMaterial("SkyboxMaterial")) [[likely]] {
             skyboxMat->bind(m_RenderContext);
             m_RenderContext->bindTextureCube(0, m_EnvironmentCubemap);
 
-            m_RenderContext->drawIndexed(cubemapgpuHandle.vao, 36);
+            m_RenderContext->drawIndexed(cubemapGpuHandle.vao, 36);
         }
         RenderPassSpecs resetSpecs;
         m_RenderContext->setRenderPassSpecs(resetSpecs);
@@ -484,9 +530,7 @@ namespace Andromeda {
         specs.cullMode = CullMode::None;
         m_RenderContext->setRenderPassSpecs(specs);
 
-        auto outlineMat = m_ResourceManager->getMaterial("OutlineMaterial");
-
-        if (outlineMat) [[likely]] {
+        if (auto outlineMat = m_ResourceManager->getMaterial("OutlineMaterial")) [[likely]] {
             Generated::OutlineParamsBuffer outlineData;
             outlineData.texelSize = m_TexelSize;
 
@@ -517,7 +561,7 @@ namespace Andromeda {
     }
 
     void Renderer::createCubemapTexture(CubemapData& data) {
-        if (m_GXAPI == AndromedaGXAPI::OpenGL) {
+        if (m_Api == AndromedaGXAPI::OpenGL) {
             CubemapGL::CubemapTextureUploadGL(data);
         }
     }

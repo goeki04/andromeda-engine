@@ -3,6 +3,7 @@
 struct Particle{
     vec4 position; //xyz = position, w = remaining lifetime
     vec4 velocity; //xyz = velocity, w = max lifetime
+    vec4 params; // x = size, yzw = freie Parameter (z.B. Rotation, TypeID)
 };
 
 layout (std430, binding = 1) buffer particleBuffer{
@@ -26,11 +27,11 @@ void main(){
         gl_PointSize = 0.0;
         return;
     }
-
-    float age = maxLife - remainingLife;
-    float fadeIn  = clamp(age / (maxLife * 0.15), 0.0, 1.0);  
+ 
     float fadeOut = clamp(remainingLife / (maxLife * 0.25), 0.0, 1.0);
-    vLifeFade = min(fadeIn, fadeOut);
+    float age = maxLife - remainingLife;   // = 0
+    float fadeIn = clamp(age / (maxLife * 0.15), 0.0, 1.0);   // = 0
+    vLifeFade = min(fadeIn, fadeOut);      // = 0 → alpha 0
 
     vec4 viewPos = view * vec4(worldPos, 1.0);
     float dist = length(viewPos.xyz);

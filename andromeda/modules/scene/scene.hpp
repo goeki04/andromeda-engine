@@ -37,6 +37,15 @@ namespace Andromeda {
 		void addEntity(u32 meshID, const std::string& name, ECS::Component::Transform transform);
 
 		/**
+		 * @brief Creates an entity with nothing but a Transform and a Tag, like Unity's "Create Empty".
+		 * @details No MeshRenderer, no Material, no AABB: an empty entity is a place in the world that
+		 *          other components are added to, a particle system for instance. Adding a MeshRenderer
+		 *          with mesh ID 0 instead would make the renderer look up a mesh that does not exist.
+		 * @return The new entity, so the caller can select it right away.
+		 */
+		Entity addEmptyEntity(const std::string& name, ECS::Component::Transform transform = {});
+
+		/**
 		 * @brief Removes an entity and all of its components from the scene.
 		 * @param id The entity ID to destroy.
 		 */

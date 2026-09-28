@@ -14,10 +14,17 @@
 #include <span>
 #include <unordered_map>
 #include <vector>
-#include "a_Primitives.hpp"
+#include "a_primitives.hpp"
 #include "a_node_pins.hpp"
+#include <cmath>
+#include <algorithm>
 #include "a_Nodes.hpp"
 namespace Andromeda {
+
+    struct SensorChannel {
+        std::string_view name; ///< Field name of the telemetry struct, e.g. "pm2_5".
+        float value = 0.0f;    ///< A flag is carried as 0 or 1, so every channel has the same type.
+    };
 
     /**
      * @brief Everything a graph may read besides its own nodes. Grows with the node types.
@@ -26,6 +33,7 @@ namespace Andromeda {
      *          parameter of its evaluateNode() overload; evaluateGraph() picks that form when it exists.
      */
     struct GraphContext {
+        std::span<const SensorChannel> sensorChannels;
         std::span<const GraphVariable> variables; ///< The variables of the node's ParticleSystem.
         float time = 0.0f;      ///< Seconds the scene has been running; stands still while paused.
         float deltaTime = 0.0f; ///< Seconds since the last frame; 0 while paused.
@@ -55,13 +63,38 @@ namespace Andromeda {
     }
 
     inline void evaluateNode(Gui::Node::Divide& node) {
-        // Dividing by zero would put inf or NaN into the particles, and NaN never washes out again.
         if (node.b.value != 0.0f)
             node.result.value = node.a.value / node.b.value;
     }
 
     inline void evaluateNode(Gui::Node::Lerp& node) {
         node.result.value = std::lerp(node.a.value, node.b.value, node.t.value);
+    }
+
+    inline void evaluateNode(Gui::Node::Remap& node) {
+        const float span = node.inMax.value - node.inMin.value;
+        if (span == 0.0f) {
+            node.result.value = node.outMin.value;
+            return;
+        }
+        float t = (node.value.value - node.inMin.value) / span;
+        node.result.value = node.outMin.value + t * (node.outMax.value - node.outMin.value);
+    }
+
+    inline void evaluateNode(Gui::Node::MakeVec3& node) {
+        node.result.value = glm::vec3(node.x.value, node.y.value, node.z.value);
+    }
+
+    inline void evaluateNode(Gui::Node::Sin& node) {
+        node.result.value = std::sin(node.value.value);
+    }
+
+    inline void evaluateNode(Gui::Node::Abs& node) {
+        node.result.value = std::abs(node.value.value);
+    }
+
+    inline void evaluateNode(Gui::Node::Cos& node) {
+        node.result.value = std::cos(node.value.value);
     }
 
     inline void evaluateNode(Gui::Node::Clamp& node) {
@@ -73,6 +106,21 @@ namespace Andromeda {
     inline void evaluateNode(Gui::Node::Time& node, const GraphContext& context) {
         node.seconds.value = context.time;
         node.deltaTime.value = context.deltaTime;
+    }
+
+    /**
+     * @brief Reads one telemetry channel, picked by name in the node.
+     * @details Channel names come from the telemetry struct's own fields, so a new sensor type needs no
+     *          change here. An unknown name - nothing received yet, or a scene saved against an older
+     *          sensor - keeps the last value instead of dropping the output to zero every frame.
+     */
+    inline void evaluateNode(Gui::Node::Sensor& node, const GraphContext& context) {
+        for (const SensorChannel& channel : context.sensorChannels) {
+            if (channel.name == node.channel) {
+                node.value.value = channel.value;
+                return;
+            }
+        }
     }
 
     /** @brief End of the chain: computes nothing, evaluateGraph() copies its inputs into the group. */
@@ -137,6 +185,8 @@ namespace Andromeda {
      *          into a running order (Kahn's algorithm) and then evaluated in that order. Everything in
      *          here works on positions in graph.nodes, not on node IDs: IDs are never reused and so have
      *          gaps, positions are 0 .. n-1 and can index a plain vector.
+     * @param graph   The particle graph of the corresponding group
+     * @param group   The particle group which is going to be evaluated
      * @param context Everything the nodes may read besides the graph itself: the system's variables
      *        (see applyBoundVariable) and the frame's time. Nodes that need it get an evaluateNode()
      *        overload taking it as a second parameter.
@@ -197,9 +247,9 @@ namespace Andromeda {
             NodeInstance& node = graph.nodes[order[i]];
             applyBoundVariable(node, context.variables);
             u32 fieldIndex = 0;
-            std::visit([&](auto& data) { 
-                Meta::forEachField(data, [&](auto const&, auto& member) { 
-                    using PinT = std::decay_t<decltype(member)>;
+            std::visit([&]<typename NodeT>(NodeT& data) {
+                Meta::forEachField(data, [&]<typename MemberT>(auto const&, MemberT& member) {
+                    using PinT = std::decay_t<MemberT>;
                         u64 pinId = encodePinId(node.id, fieldIndex);
                         if constexpr (pinRole<PinT> == PinRole::Input) {
                             const auto link = incomingLink.find(pinId);
@@ -220,10 +270,10 @@ namespace Andromeda {
                 else
                     evaluateNode(data);
 
-                if constexpr (std::is_same_v<std::decay_t<decltype(data)>, Gui::Node::OutputNode>) {
+                if constexpr (std::is_same_v<std::decay_t<NodeT>, Gui::Node::OutputNode>) {
                     // Only connected inputs are written: an unconnected one would push its fallback
                     // (0) over the value the user typed in the details panel.
-                    const auto isConnected = [&](std::string_view fieldName) {
+                    const auto isConnected = [&](const std::string_view fieldName) {
                         const i32 field = fieldIndexOf(node.data, fieldName);
                         return field >= 0 && incomingLink.contains(encodePinId(node.id, static_cast<u32>(field)));
                     };
@@ -240,8 +290,8 @@ namespace Andromeda {
                         group.minLifetime = data.minLifetime.value;
                 }
                 fieldIndex = 0;
-                Meta::forEachField(data, [&](auto const&, auto& member) {
-                        using PinT = std::decay_t<decltype(member)>;
+                Meta::forEachField(data, [&]<typename MemberT>(auto const&, MemberT& member) {
+                        using PinT = std::decay_t<MemberT>;
                         if constexpr (pinRole<PinT> == PinRole::Output) {
                             input[encodePinId(node.id, fieldIndex)] = member.value;
                         }

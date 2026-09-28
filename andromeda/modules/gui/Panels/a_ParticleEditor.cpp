@@ -1,7 +1,4 @@
 #include "a_ParticleEditor.hpp"
-
-#include <cstdio>
-#include <cstring>
 #include <span>
 #include <string>
 #include <variant>
@@ -12,7 +9,6 @@
 #include "a_GraphOverlay.hpp"
 #include "a_GroupsOverlay.hpp"
 #include "a_Node_Renderer.hpp"
-#include "a_Nodes.hpp"
 #include "a_SelectionContext.hpp"
 #include "a_VariablesOverlay.hpp"
 #include "a_components.hpp"
@@ -40,6 +36,33 @@ namespace Andromeda::Gui {
         ImVec2 getOverlaySize() {
             return ImVec2(ImGui::GetContentRegionAvail().x * 0.25f, ImGui::GetContentRegionAvail().y * 0.5f);
         }
+
+        /**
+         * @brief Reads one "<prefix>x,y" line of the imgui.ini section into @p out.
+         * @details strtof instead of sscanf: sscanf is deprecated on MSVC, and its safe replacement
+         *          sscanf_s only exists there. @p out stays untouched unless the whole line parses, so a
+         *          hand-edited or older line leaves the default in place.
+         * @return true when the line matched and both numbers were read.
+         */
+        bool parseOffsetLine(const char* line, const char* prefix, ImVec2& out) {
+            const size_t prefixLength = std::strlen(prefix);
+            if (std::strncmp(line, prefix, prefixLength) != 0)
+                return false;
+
+            const char* numbers = line + prefixLength;
+            char* cursor = nullptr;
+            const float x = std::strtof(numbers, &cursor);
+            if (cursor == numbers || *cursor != ',')
+                return false;
+
+            const char* second = cursor + 1;
+            const float y = std::strtof(second, &cursor);
+            if (cursor == second)
+                return false;
+
+            out = ImVec2(x, y);
+            return true;
+        }
     } // namespace
 
     void ParticleEditor::registerSettingsHandler() {
@@ -52,15 +75,11 @@ namespace Andromeda::Gui {
         handler.ReadOpenFn = [](ImGuiContext*, ImGuiSettingsHandler*, const char* name) -> void* {
             return std::strcmp(name, "Overlays") == 0 ? reinterpret_cast<void*>(1) : nullptr;
         };
-        // Lines that do not parse (edited by hand, older format) are skipped and the default stays.
+        // Lines that do not parse (edited by hand, older format) are skipped, and the default stays.
         handler.ReadLineFn = [](ImGuiContext*, ImGuiSettingsHandler* h, void*, const char* line) {
             auto* self = static_cast<ParticleEditor*>(h->UserData);
-            float x = 0.0f;
-            float y = 0.0f;
-            if (std::sscanf(line, "Variables=%f,%f", &x, &y) == 2)
-                self->m_VariablesOffset = ImVec2(x, y);
-            else if (std::sscanf(line, "Groups=%f,%f", &x, &y) == 2)
-                self->m_GroupsOffset = ImVec2(x, y);
+            if (!parseOffsetLine(line, "Variables=", self->m_VariablesOffset))
+                parseOffsetLine(line, "Groups=", self->m_GroupsOffset);
         };
         handler.WriteAllFn = [](ImGuiContext*, ImGuiSettingsHandler* h, ImGuiTextBuffer* out) {
             const auto* self = static_cast<const ParticleEditor*>(h->UserData);
@@ -109,7 +128,7 @@ namespace Andromeda::Gui {
         return *active;
     }
 
-    void ParticleEditor::syncEditorToGraph(const ParticleGraph& graph, ECS::Entity entity, u32 groupId) {
+    void ParticleEditor::syncEditorToGraph(const ParticleGraph& graph, const ECS::Entity entity, const u32 groupId) {
         // Every graph numbers its nodes from 1, but all graphs share this one editor context, which keeps
         // positions per node ID. After switching entity or group, node 1 of the new graph would sit where
         // node 1 of the old one was - so push the stored positions back into the editor.

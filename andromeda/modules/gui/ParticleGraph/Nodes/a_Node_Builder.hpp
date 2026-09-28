@@ -23,7 +23,8 @@ namespace Andromeda::Gui::Node {
      *
      * @details A node can describe its own layout with an overload found next to the node struct:
      * @code
-     * inline void drawLayout(RemapNode& n, auto& b) {
+     * template<typename Builder>
+     * void drawLayout(RemapNode& n, Builder& b) {
      *     b.row(n.value, n.result); // the role of each field decides its column
      *     b.separator();
      *     b.row(n.inMin);
@@ -248,7 +249,7 @@ namespace Andromeda::Gui::Node {
                 ed::BeginPin(makePinId(m_NodeId, fieldIndex), ed::PinKind::Input);
                 ed::PinPivotAlignment(ImVec2(0.0f, 0.5f));
                 ed::PinPivotSize(ImVec2(0.0f, 0.0f));
-                drawPinIcon();
+                drawPinIcon(PIN_ORANGE);
                 ed::EndPin();
                 ImGui::SameLine();
                 drawLabel(name);
@@ -265,7 +266,7 @@ namespace Andromeda::Gui::Node {
                 ed::BeginPin(makePinId(m_NodeId, fieldIndex), ed::PinKind::Output);
                 ed::PinPivotAlignment(ImVec2(1.0f, 0.5f));
                 ed::PinPivotSize(ImVec2(0.0f, 0.0f));
-                drawPinIcon();
+                drawPinIcon(PIN_BLUE);
                 ed::EndPin();
             }
         }

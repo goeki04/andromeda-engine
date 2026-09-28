@@ -17,6 +17,7 @@
  */
 
 #include "a_node_pins.hpp"
+#include <string>
 namespace Andromeda::Gui::Node {
 
     struct [[ParticleNode]] AddNode {
@@ -50,6 +51,15 @@ namespace Andromeda::Gui::Node {
         Output<float> result;
     };
 
+    // One reading of the sensor: the channel is picked by name in the node. State flags such as the
+    // BMV080's is_obstructed are left out; they are 0 or 1 in the channel list and can be read like any
+    // other channel once a node needs them.
+
+    struct [[ParticleNode]] Sensor{
+        Output<float> value; ///< The channel below, e.g. pm2_5.
+        std::string channel; ///< Telemetry field this node reads.
+    };
+
     struct [[ParticleNode]] Lerp {
         Input<float> a;
         Input<float> b;
@@ -57,9 +67,40 @@ namespace Andromeda::Gui::Node {
         Output<float> result;
     };
 
+    struct [[ParticleNode]] Sin {
+        Input<float> value;
+        Output<float> result;
+    };
+
+    struct [[ParticleNode]] Cos {
+        Input<float> value;
+        Output<float> result;
+    };
+
+    struct [[ParticleNode]] Abs {
+        Input<float> value;
+        Output<float> result;
+    };
+
     struct [[ParticleNode]] Time {
         Output<float> seconds;
         Output<float> deltaTime;
+    };
+
+    struct [[ParticleNode]] MakeVec3 {
+        Input<float> x;
+        Input<float> y;
+        Input<float> z;
+        Output<vec3> result;
+    };
+
+    struct [[ParticleNode]] Remap {
+        Input<float> value;
+        Param<float> inMin = 0.0f;
+        Param<float> inMax = 1.0f;
+        Param<float> outMin = 0.0f;
+        Param<float> outMax = 1.0f;
+        Output<float> result;
     };
 
     struct [[ParticleNode]] OutputNode {

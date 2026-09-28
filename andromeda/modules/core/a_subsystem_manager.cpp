@@ -3,7 +3,7 @@
 #include "a_primitives.hpp"
 
 namespace Andromeda {
-	Uint64 SystemManager::lastCounter = SDL_GetPerformanceCounter();
+	u64 SystemManager::lastCounter = SDL_GetPerformanceCounter();
 	float SystemManager::s_deltaTime = 0.0f;
 	bool SystemManager::s_paused = false;
 	SystemManager& SystemManager::getInstance() {
@@ -29,8 +29,9 @@ namespace Andromeda {
 	}
 
 	void SystemManager::updateSubsystems() const {
-		const u32 currentCounter = SDL_GetPerformanceCounter();
+		const u64 currentCounter = SDL_GetPerformanceCounter();
 		s_deltaTime = static_cast<float>((currentCounter - lastCounter)) / static_cast<float>(SDL_GetPerformanceFrequency());
+        s_deltaTime = std::min(s_deltaTime, 0.1f); // clamp to avoid huge delta times when debugging
 		lastCounter = currentCounter;
 		for (auto& v : m_Subsystems) {
 			v->update();

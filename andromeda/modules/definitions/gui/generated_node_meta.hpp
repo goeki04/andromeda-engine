@@ -135,6 +135,28 @@ namespace Andromeda::Meta {
     };
 
     // ------------------------------------------------------------------------
+    // Andromeda::Gui::Node::Sensor (2 fields) from modules/definitions/gui/a_Nodes.hpp
+    // ------------------------------------------------------------------------
+    template <>
+    struct StructInfo<::Andromeda::Gui::Node::Sensor> {
+        using type = ::Andromeda::Gui::Node::Sensor;
+
+        static constexpr bool reflected = true;
+        static constexpr std::string_view name = "Sensor";
+        static constexpr std::string_view qualifiedName = "Andromeda::Gui::Node::Sensor";
+        static constexpr std::string_view header = "modules/definitions/gui/a_Nodes.hpp";
+        static constexpr std::string_view doc = "One reading of the sensor: the channel is picked by name in the node. State flags such as the BMV080's is_obstructed are left out; they are 0 or 1 in the channel list and can be read like any other channel once a node needs them.";
+
+        static constexpr auto fields = std::make_tuple(
+            makeField("value", "Output<float>", "The channel below, e.g. pm2_5.", "", &type::value),
+            makeField("channel", "std::string", "Telemetry field this node reads.", "", &type::channel)
+        );
+
+        static constexpr std::array<std::string_view, 2> fieldNames = {"value", "channel"};
+        static constexpr std::size_t fieldCount = std::tuple_size_v<decltype(fields)>;
+    };
+
+    // ------------------------------------------------------------------------
     // Andromeda::Gui::Node::Lerp (4 fields) from modules/definitions/gui/a_Nodes.hpp
     // ------------------------------------------------------------------------
     template <>
@@ -159,6 +181,72 @@ namespace Andromeda::Meta {
     };
 
     // ------------------------------------------------------------------------
+    // Andromeda::Gui::Node::Sin (2 fields) from modules/definitions/gui/a_Nodes.hpp
+    // ------------------------------------------------------------------------
+    template <>
+    struct StructInfo<::Andromeda::Gui::Node::Sin> {
+        using type = ::Andromeda::Gui::Node::Sin;
+
+        static constexpr bool reflected = true;
+        static constexpr std::string_view name = "Sin";
+        static constexpr std::string_view qualifiedName = "Andromeda::Gui::Node::Sin";
+        static constexpr std::string_view header = "modules/definitions/gui/a_Nodes.hpp";
+        static constexpr std::string_view doc = "";
+
+        static constexpr auto fields = std::make_tuple(
+            makeField("value", "Input<float>", "", "", &type::value),
+            makeField("result", "Output<float>", "", "", &type::result)
+        );
+
+        static constexpr std::array<std::string_view, 2> fieldNames = {"value", "result"};
+        static constexpr std::size_t fieldCount = std::tuple_size_v<decltype(fields)>;
+    };
+
+    // ------------------------------------------------------------------------
+    // Andromeda::Gui::Node::Cos (2 fields) from modules/definitions/gui/a_Nodes.hpp
+    // ------------------------------------------------------------------------
+    template <>
+    struct StructInfo<::Andromeda::Gui::Node::Cos> {
+        using type = ::Andromeda::Gui::Node::Cos;
+
+        static constexpr bool reflected = true;
+        static constexpr std::string_view name = "Cos";
+        static constexpr std::string_view qualifiedName = "Andromeda::Gui::Node::Cos";
+        static constexpr std::string_view header = "modules/definitions/gui/a_Nodes.hpp";
+        static constexpr std::string_view doc = "";
+
+        static constexpr auto fields = std::make_tuple(
+            makeField("value", "Input<float>", "", "", &type::value),
+            makeField("result", "Output<float>", "", "", &type::result)
+        );
+
+        static constexpr std::array<std::string_view, 2> fieldNames = {"value", "result"};
+        static constexpr std::size_t fieldCount = std::tuple_size_v<decltype(fields)>;
+    };
+
+    // ------------------------------------------------------------------------
+    // Andromeda::Gui::Node::Abs (2 fields) from modules/definitions/gui/a_Nodes.hpp
+    // ------------------------------------------------------------------------
+    template <>
+    struct StructInfo<::Andromeda::Gui::Node::Abs> {
+        using type = ::Andromeda::Gui::Node::Abs;
+
+        static constexpr bool reflected = true;
+        static constexpr std::string_view name = "Abs";
+        static constexpr std::string_view qualifiedName = "Andromeda::Gui::Node::Abs";
+        static constexpr std::string_view header = "modules/definitions/gui/a_Nodes.hpp";
+        static constexpr std::string_view doc = "";
+
+        static constexpr auto fields = std::make_tuple(
+            makeField("value", "Input<float>", "", "", &type::value),
+            makeField("result", "Output<float>", "", "", &type::result)
+        );
+
+        static constexpr std::array<std::string_view, 2> fieldNames = {"value", "result"};
+        static constexpr std::size_t fieldCount = std::tuple_size_v<decltype(fields)>;
+    };
+
+    // ------------------------------------------------------------------------
     // Andromeda::Gui::Node::Time (2 fields) from modules/definitions/gui/a_Nodes.hpp
     // ------------------------------------------------------------------------
     template <>
@@ -177,6 +265,56 @@ namespace Andromeda::Meta {
         );
 
         static constexpr std::array<std::string_view, 2> fieldNames = {"seconds", "deltaTime"};
+        static constexpr std::size_t fieldCount = std::tuple_size_v<decltype(fields)>;
+    };
+
+    // ------------------------------------------------------------------------
+    // Andromeda::Gui::Node::MakeVec3 (4 fields) from modules/definitions/gui/a_Nodes.hpp
+    // ------------------------------------------------------------------------
+    template <>
+    struct StructInfo<::Andromeda::Gui::Node::MakeVec3> {
+        using type = ::Andromeda::Gui::Node::MakeVec3;
+
+        static constexpr bool reflected = true;
+        static constexpr std::string_view name = "MakeVec3";
+        static constexpr std::string_view qualifiedName = "Andromeda::Gui::Node::MakeVec3";
+        static constexpr std::string_view header = "modules/definitions/gui/a_Nodes.hpp";
+        static constexpr std::string_view doc = "";
+
+        static constexpr auto fields = std::make_tuple(
+            makeField("x", "Input<float>", "", "", &type::x),
+            makeField("y", "Input<float>", "", "", &type::y),
+            makeField("z", "Input<float>", "", "", &type::z),
+            makeField("result", "Output<vec3>", "", "", &type::result)
+        );
+
+        static constexpr std::array<std::string_view, 4> fieldNames = {"x", "y", "z", "result"};
+        static constexpr std::size_t fieldCount = std::tuple_size_v<decltype(fields)>;
+    };
+
+    // ------------------------------------------------------------------------
+    // Andromeda::Gui::Node::Remap (6 fields) from modules/definitions/gui/a_Nodes.hpp
+    // ------------------------------------------------------------------------
+    template <>
+    struct StructInfo<::Andromeda::Gui::Node::Remap> {
+        using type = ::Andromeda::Gui::Node::Remap;
+
+        static constexpr bool reflected = true;
+        static constexpr std::string_view name = "Remap";
+        static constexpr std::string_view qualifiedName = "Andromeda::Gui::Node::Remap";
+        static constexpr std::string_view header = "modules/definitions/gui/a_Nodes.hpp";
+        static constexpr std::string_view doc = "";
+
+        static constexpr auto fields = std::make_tuple(
+            makeField("value", "Input<float>", "", "", &type::value),
+            makeField("inMin", "Param<float>", "", "0.0f", &type::inMin),
+            makeField("inMax", "Param<float>", "", "1.0f", &type::inMax),
+            makeField("outMin", "Param<float>", "", "0.0f", &type::outMin),
+            makeField("outMax", "Param<float>", "", "1.0f", &type::outMax),
+            makeField("result", "Output<float>", "", "", &type::result)
+        );
+
+        static constexpr std::array<std::string_view, 6> fieldNames = {"value", "inMin", "inMax", "outMin", "outMax", "result"};
         static constexpr std::size_t fieldCount = std::tuple_size_v<decltype(fields)>;
     };
 
@@ -281,8 +419,14 @@ namespace Andromeda::Meta {
         ::Andromeda::Gui::Node::Multiply,
         ::Andromeda::Gui::Node::Divide,
         ::Andromeda::Gui::Node::Clamp,
+        ::Andromeda::Gui::Node::Sensor,
         ::Andromeda::Gui::Node::Lerp,
+        ::Andromeda::Gui::Node::Sin,
+        ::Andromeda::Gui::Node::Cos,
+        ::Andromeda::Gui::Node::Abs,
         ::Andromeda::Gui::Node::Time,
+        ::Andromeda::Gui::Node::MakeVec3,
+        ::Andromeda::Gui::Node::Remap,
         ::Andromeda::Gui::Node::OutputNode,
         ::Andromeda::Gui::Node::IntVariable,
         ::Andromeda::Gui::Node::FloatVariable,
@@ -290,6 +434,6 @@ namespace Andromeda::Meta {
     >;
 
     /** @brief The same types as ReflectedNodes, as display names in declaration order. */
-    inline constexpr std::array<std::string_view, 11> ReflectedNodesNames = {"AddNode", "Subtract", "Multiply", "Divide", "Clamp", "Lerp", "Time", "OutputNode", "IntVariable", "FloatVariable", "BoolVariable"};
+    inline constexpr std::array<std::string_view, 17> ReflectedNodesNames = {"AddNode", "Subtract", "Multiply", "Divide", "Clamp", "Sensor", "Lerp", "Sin", "Cos", "Abs", "Time", "MakeVec3", "Remap", "OutputNode", "IntVariable", "FloatVariable", "BoolVariable"};
 
 } // namespace Andromeda::Meta

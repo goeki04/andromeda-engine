@@ -25,31 +25,37 @@ namespace Andromeda::Gui::Node {
     }
 
     // The menu's sections. Kept here rather than in the node structs because it is a question of
-    // presentation, and because the generator does not carry the [[ParticleNode]] marker's text into
+    // presentation and because the generator does not carry the [[ParticleNode]] marker's text into
     // the metadata. A node that is not listed shows up under kUncategorized, so a new node type is
     // never missing from the menu - it just lands in the last section until it is sorted in here.
 
     inline constexpr std::string_view kUncategorized = "Other";
 
     /** @brief Section order of the "Add Node" popup; kUncategorized is always drawn last. */
-    inline constexpr std::array<std::string_view, 4> kNodeCategoryOrder = {"Math", "Time", "Variables", "Output"};
+    inline constexpr std::array<std::string_view, 5> kNodeCategoryOrder = {"Sensor", "Math", "Time", "Variables", "Output"};
 
     /** @brief Which section a node type belongs to, by type name (not by display name). */
-    inline constexpr std::array<std::pair<std::string_view, std::string_view>, 11> kNodeCategories = {{
+    inline constexpr std::array<std::pair<std::string_view, std::string_view>, 17> kNodeCategories = {{
         {"AddNode", "Math"},
         {"Subtract", "Math"},
         {"Multiply", "Math"},
         {"Divide", "Math"},
+        {"MakeVec3", "Math"},
+        {"Remap", "Math"},
+        {"Sin", "Math"},
+        {"Abs", "Math"},
+        {"Cos", "Math"},
         {"Clamp", "Math"},
         {"Lerp", "Math"},
         {"Time", "Time"},
         {"OutputNode", "Output"},
+        {"Sensor", "Sensor"},
         {"IntVariable", "Variables"},
         {"FloatVariable", "Variables"},
         {"BoolVariable", "Variables"},
     }};
 
-    inline constexpr std::string_view nodeCategory(std::string_view typeName) {
+    constexpr std::string_view nodeCategory(std::string_view typeName) {
         for (const auto& [node, category] : kNodeCategories) {
             if (node == typeName)
                 return category;
@@ -59,11 +65,13 @@ namespace Andromeda::Gui::Node {
 
     /**
      * @brief Searchable "Add Node" popup.
+     * @param filter   filter which holds the user input
+     * @param rounding the rounding of the popup
      * @param openedAt Receives the screen position the popup was opened at, where the new node goes.
      * @return Index into Meta::ReflectedNodesNames of the picked node, or -1.
      * @note Call between ed::Suspend() and ed::Resume().
      */
-    inline i32 drawAddNodePopup(ImGuiTextFilter& filter, float rounding, ImVec2& openedAt) {
+    inline i32 drawAddNodePopup(ImGuiTextFilter& filter, const float rounding, ImVec2& openedAt) {
         ImGui::SetNextWindowSizeConstraints(ImVec2(220.0f, 0.0f), ImVec2(FLT_MAX, 320.0f));
         ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, rounding);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, 8.0f));

@@ -2,7 +2,7 @@
 
 /**
  * @file renderer.h
- * @brief The rendering subsystem: owns the graphics context, framebuffers and the multi-pass scene pipeline.
+ * @brief The rendering subsystem: owns the graphics context, framebuffers, and the multi-pass scene pipeline.
  */
 
 #include "a_graphics_base.hpp"
@@ -15,14 +15,13 @@
 #include "OpenGL/a_OpenGLContext.hpp"
 #include <a_CubemapData.hpp>
 #include "a_rhi_constant_buffer.hpp"
-#include "a_rhi_storage_buffer.hpp"
 #include "a_texture.hpp"
 #include "a_particle.hpp"
 namespace Andromeda {
 	namespace amath {
 		struct CameraData;
 	}
-	class CubemapData;
+	struct CubemapData;
 	class SceneManager;
 	enum class MaterialShaderType : int;
 	namespace Window { class WindowManager; }
@@ -43,26 +42,26 @@ namespace Andromeda {
 		OpenGL,    ///< OpenGL backend (the only implemented one).
 		Directx12, ///< Planned Direct3D 12 backend.
 		Vulkan,    ///< Planned Vulkan backend.
-		Metal      ///< Planned Metal backend (e.g. via MoltenVK on macOS).
+		Metal      ///< Planned Metal backend (e.g., via MoltenVK on macOS).
 	};
 
 	/**
 	 * @class Renderer
-	 * @brief Drives all frame rendering: PBR scene pass, selection/outline, post-processing and IBL baking.
+	 * @brief Drives all frame rendering: PBR scene pass, selection/outline, post-processing, and IBL baking.
 	 *
 	 * @details Owns the active @c IGraphicsContext (currently an @c OpenGLContext) and a set of
 	 *          framebuffers used for the multi-pass pipeline (MSAA scene buffer, resolve buffer,
-	 *          selection buffer, post-processing buffer and an offscreen baking buffer). At startup
+	 *          selection buffer, post-processing buffer, and an offscreen baking buffer). At startup
 	 *          it bakes the image-based-lighting resources (irradiance map, prefiltered environment
-	 *          map and BRDF LUT) from the environment cubemap. Per frame it renders the scene
+	 *          map, and BRDF LUT) from the environment cubemap. Per frame, it renders the scene
 	 *          geometry, applies selection highlighting and post-processing, and exposes the final
 	 *          texture for the editor viewport.
 	 */
 	class Renderer : public ISubsystem {
 	public:
 		ivec2 m_FramebufferSize = glm::ivec2(0, 0); ///< Current size of the main render target, in pixels.
-		static constexpr const char* glsl_version = "#version 460"; ///< GLSL version string used when initializing ImGui's GL backend.
-
+		static constexpr auto glsl_version = "#version 460"; ///< GLSL version string used when initializing ImGui's GL backend.
+		static constexpr auto kMaxParticlesPerGroup = 100000; // 100k * 48 byte = ~4.8 MB per group
 		/**
 		 * @brief Gets the static compile-time string identifier of the subsystem.
 		 * @return A string_view containing "Renderer".
@@ -96,7 +95,7 @@ namespace Andromeda {
 		 * @param samples MSAA sample count (1 = no multisampling).
 		 * @return A shared pointer to the created framebuffer.
 		 */
-		std::shared_ptr<RHIFramebuffer> helperCreateFBO(ivec2 size, std::vector<FramebufferTextureFormat> formats, u32 samples);
+		std::shared_ptr<RHIFramebuffer> helperCreateFBO(ivec2 size, const std::vector<FramebufferTextureFormat>& formats, u32 samples);
 
 		/** @brief Releases all GPU resources (framebuffers, context, materials). */
 		void destroy() override;
@@ -154,7 +153,7 @@ namespace Andromeda {
 		 */
 		void createCubemapTexture(CubemapData& data);
 	private:
-		AndromedaGXAPI m_GXAPI = AndromedaGXAPI::OpenGL;            ///< Active graphics backend.
+		AndromedaGXAPI m_Api = AndromedaGXAPI::OpenGL;            ///< Active graphics backend.
 		ResourceManager* m_ResourceManager = nullptr;              ///< Cached resource manager (meshes, textures, shaders).
 		SceneManager* m_SceneManager = nullptr;                    ///< Cached scene manager (entities to render).
 		std::unique_ptr<OpenGLContext> m_GLContext = nullptr;      ///< Owned concrete OpenGL graphics context.
@@ -166,7 +165,7 @@ namespace Andromeda {
 		u32 m_CubeVao = 0;                                         ///< VAO of the unit cube used for cubemap baking/skybox.
 
 		bool m_WireframeActive = false;                           ///< Whether geometry is currently drawn in wireframe mode.
-		MeshGPUHandle cubemapgpuHandle;                           ///< GPU buffers for the cube mesh used during IBL baking.
+		MeshGPUHandle cubemapGpuHandle;                           ///< GPU buffers for the cube mesh used during IBL baking.
 		float m_ResizeTimer = 0.0f;                               ///< Debounce countdown for pending viewport resizes.
 		bool m_ResizePending = false;                             ///< True while a viewport resize is queued.
 		ivec2 m_TargetSize = ivec2(0.0f);                         ///< The pending target size to resize to.
@@ -189,10 +188,13 @@ namespace Andromeda {
 		RHIConstantBuffer m_OutlineUBO;     ///< UBO holding selection-outline parameters.
 		RHIConstantBuffer m_LightUBO;       ///< UBO holding scene light data.
 		RHIConstantBuffer m_pbrMaterialUBO; ///< UBO holding PBR material parameters.
-		ParticleEmitter m_Emitter; ///< Particle emitter used for testing/debugging.
+		std::vector<GroupRange> m_GroupRanges;
+		std::unordered_set<u64> m_UsedKeys;
+        std::unordered_map<u64, ParticleEmitter> m_Emitters; ///< Map of particle emitters keyed by their unique IDs. key = entity << 32 | groupId
 		/** @brief Internal one-time setup of the render context and global GL state. */
 		void initRenderer();
-        /** @brief Bakes the prefiltered specular environment map (IBL precomputation). */
+		void particleUpdatePass();
+		/** @brief Bakes the prefiltered specular environment map (IBL precomputation). */
         void prefilterCubemapBaking();
         /** @brief Subscribes the renderer to relevant engine events (e.g. wireframe toggle, viewport resize). */
         void registerEvents();

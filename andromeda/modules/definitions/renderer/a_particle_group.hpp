@@ -65,7 +65,7 @@ namespace Andromeda {
         float size = 1.0f;                       ///< Size of each particle in this group.
         vec3 velocity = {1.0f, 1.0f, 1.0f};      ///< Initial velocity of particles in this group.
         vec3 particleColor = {1.0f, 1.0f, 1.0f}; ///< Color of the particles (RGB).
-        float minLifetime = 0.0f;                ///< Minimum lifetime of the particles in seconds.
+        float minLifetime = 3.0f;                ///< Minimum lifetime of the particles in seconds.
         std::vector<EventBinding> eventBindings; ///< List of event bindings for this particle group.
         ParticleGraph graph;                     ///< Node graph edited in the particle editor.
         // u32 on purpose: i32/float/bool/vec fields are offered as event-binding targets (ChannelTraits),

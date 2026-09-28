@@ -9,6 +9,7 @@
 #include "a_registry.hpp"
 #include <a_event_manager.hpp>
 #include "input_manager.hpp"
+#include "ImGuizmo.h"
 namespace Andromeda::Editor {
     void Editor::initEditorContext()
     {
@@ -137,6 +138,15 @@ namespace Andromeda::Editor {
     void Editor::editorPicking(const amath::CameraData* cam)
     {
         if (!m_EditorContext.state.viewportHovered) {
+            return;
+        }
+        // A gizmo handle sits beside the object, so a click on one misses the object's AABB
+        // and the miss below would clear the selection. The viewport panel drops the gizmo
+        // when nothing is selected, so the drag died a frame after it began and ImGuizmo
+        // applied the whole mouse travel at once as soon as the selection came back.
+        // ImGuizmo's state is the one from last frame here - picking runs before the GUI -
+        // which is exactly what we want to test: the mouse was over the handle when clicked.
+        if (ImGuizmo::IsOver() || ImGuizmo::IsUsing()) {
             return;
         }
         if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {

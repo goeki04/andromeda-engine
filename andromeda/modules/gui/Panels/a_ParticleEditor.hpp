@@ -4,11 +4,8 @@
 #include "a_EditorPanel.hpp"
 #include "a_EditorContext.hpp"
 #include "a_particle_group.hpp"
-#include <span>
-#include <string>
 #include <vector>
-#include "a_Primitives.hpp"
-#include "a_Nodes.hpp"
+#include "a_primitives.hpp"
 #include "a_GroupsOverlay.hpp"
 #include "a_node_graph.hpp"
 
@@ -60,7 +57,8 @@ namespace Andromeda::Gui {
         /** @copydoc EditorPanel::onGuiRender */
         void onGuiRender(EditorContext& ctx) override;
 
-        ~ParticleEditor() {
+        ~ParticleEditor() override
+        {
             // The handler points at this panel; if the ImGui context outlives it, it must not call back.
             if (ImGui::GetCurrentContext())
                 ImGui::RemoveSettingsHandler(kSettingsTypeName);
