@@ -28,6 +28,10 @@ namespace Andromeda {
                     return "float";
                 if constexpr (std::is_same_v<T, bool>)
                     return "bool";
+                if constexpr (std::is_same_v<T, vec3>)
+                    return "vec3";
+                if constexpr (std::is_same_v<T, vec2>)
+                    return "vec2";
             },
             value);
     }
@@ -52,6 +56,10 @@ namespace Andromeda {
             v.value = value.get<float>();
         else if (type == "bool")
             v.value = value.get<bool>();
+        else if (type == "vec2")
+            v.value = value.get<vec2>();
+        else if (type == "vec3")
+            v.value = value.get<vec3>();
         else
             throw std::runtime_error("Unknown GraphVariable type: " + type);
     }
@@ -229,7 +237,7 @@ namespace Andromeda {
         j = nlohmann::json{
             {"groupName", p.groupName}, {"particleCount", p.particleCount}, {"size", p.size},
             {"velocity", p.velocity},   {"particleColor", p.particleColor}, {"minLifeTime", p.minLifetime},
-            {"graph", p.graph}, {"id", p.id}
+            {"boxExtents", p.boxExtents}, {"graph", p.graph}, {"id", p.id}
         };
     }
 
@@ -240,6 +248,9 @@ namespace Andromeda {
         j.at("velocity").get_to(p.velocity);
         j.at("particleColor").get_to(p.particleColor);
         j.at("minLifeTime").get_to(p.minLifetime);
+        // value() instead of at(): scenes saved before the field existed have no entry, and
+        // loading them must keep working with the struct's default.
+        p.boxExtents = j.value("boxExtents", p.boxExtents);
         // Scenes saved before graphs were stored have no "graph" key; the group keeps an empty graph.
         if (j.contains("graph"))
             j.at("graph").get_to(p.graph);

@@ -319,7 +319,7 @@ namespace Andromeda::Meta {
     };
 
     // ------------------------------------------------------------------------
-    // Andromeda::Gui::Node::OutputNode (5 fields) from modules/definitions/gui/a_Nodes.hpp
+    // Andromeda::Gui::Node::OutputNode (6 fields) from modules/definitions/gui/a_Nodes.hpp
     // ------------------------------------------------------------------------
     template <>
     struct StructInfo<::Andromeda::Gui::Node::OutputNode> {
@@ -336,10 +336,11 @@ namespace Andromeda::Meta {
             makeField("size", "Input<float>", "", "", &type::size),
             makeField("velocity", "Input<vec3>", "", "", &type::velocity),
             makeField("particleColor", "Input<vec3>", "", "", &type::particleColor),
-            makeField("minLifetime", "Input<float>", "", "", &type::minLifetime)
+            makeField("minLifetime", "Input<float>", "", "", &type::minLifetime),
+            makeField("boxExtents", "Input<vec3>", "Appended, never inserted: a pin's ID is built from its field index, so moving an existing field would repoint the links of every already saved graph.", "", &type::boxExtents)
         );
 
-        static constexpr std::array<std::string_view, 5> fieldNames = {"particleCount", "size", "velocity", "particleColor", "minLifetime"};
+        static constexpr std::array<std::string_view, 6> fieldNames = {"particleCount", "size", "velocity", "particleColor", "minLifetime", "boxExtents"};
         static constexpr std::size_t fieldCount = std::tuple_size_v<decltype(fields)>;
     };
 
@@ -412,6 +413,74 @@ namespace Andromeda::Meta {
         static constexpr std::size_t fieldCount = std::tuple_size_v<decltype(fields)>;
     };
 
+    // ------------------------------------------------------------------------
+    // Andromeda::Gui::Node::ToInt (2 fields) from modules/definitions/gui/a_Nodes.hpp
+    // ------------------------------------------------------------------------
+    template <>
+    struct StructInfo<::Andromeda::Gui::Node::ToInt> {
+        using type = ::Andromeda::Gui::Node::ToInt;
+
+        static constexpr bool reflected = true;
+        static constexpr std::string_view name = "ToInt";
+        static constexpr std::string_view qualifiedName = "Andromeda::Gui::Node::ToInt";
+        static constexpr std::string_view header = "modules/definitions/gui/a_Nodes.hpp";
+        static constexpr std::string_view doc = "";
+
+        static constexpr auto fields = std::make_tuple(
+            makeField("value", "Input<float>", "", "", &type::value),
+            makeField("out", "Output<i32>", "", "", &type::out)
+        );
+
+        static constexpr std::array<std::string_view, 2> fieldNames = {"value", "out"};
+        static constexpr std::size_t fieldCount = std::tuple_size_v<decltype(fields)>;
+    };
+
+    // ------------------------------------------------------------------------
+    // Andromeda::Gui::Node::Vec3Variable (3 fields) from modules/definitions/gui/a_Nodes.hpp
+    // ------------------------------------------------------------------------
+    template <>
+    struct StructInfo<::Andromeda::Gui::Node::Vec3Variable> {
+        using type = ::Andromeda::Gui::Node::Vec3Variable;
+
+        static constexpr bool reflected = true;
+        static constexpr std::string_view name = "Vec3Variable";
+        static constexpr std::string_view qualifiedName = "Andromeda::Gui::Node::Vec3Variable";
+        static constexpr std::string_view header = "modules/definitions/gui/a_Nodes.hpp";
+        static constexpr std::string_view doc = "";
+
+        static constexpr auto fields = std::make_tuple(
+            makeField("value", "Param<vec3>", "", "", &type::value),
+            makeField("out", "Output<vec3>", "", "", &type::out),
+            makeField("variableId", "u32", "GraphVariable this node is bound to, 0 = unbound.", "0", &type::variableId)
+        );
+
+        static constexpr std::array<std::string_view, 3> fieldNames = {"value", "out", "variableId"};
+        static constexpr std::size_t fieldCount = std::tuple_size_v<decltype(fields)>;
+    };
+
+    // ------------------------------------------------------------------------
+    // Andromeda::Gui::Node::Vec2Variable (3 fields) from modules/definitions/gui/a_Nodes.hpp
+    // ------------------------------------------------------------------------
+    template <>
+    struct StructInfo<::Andromeda::Gui::Node::Vec2Variable> {
+        using type = ::Andromeda::Gui::Node::Vec2Variable;
+
+        static constexpr bool reflected = true;
+        static constexpr std::string_view name = "Vec2Variable";
+        static constexpr std::string_view qualifiedName = "Andromeda::Gui::Node::Vec2Variable";
+        static constexpr std::string_view header = "modules/definitions/gui/a_Nodes.hpp";
+        static constexpr std::string_view doc = "";
+
+        static constexpr auto fields = std::make_tuple(
+            makeField("value", "Param<vec2>", "", "", &type::value),
+            makeField("out", "Output<vec2>", "", "", &type::out),
+            makeField("variableId", "u32", "GraphVariable this node is bound to, 0 = unbound.", "0", &type::variableId)
+        );
+
+        static constexpr std::array<std::string_view, 3> fieldNames = {"value", "out", "variableId"};
+        static constexpr std::size_t fieldCount = std::tuple_size_v<decltype(fields)>;
+    };
+
     /** @brief Every struct this header carries metadata for. */
     using ReflectedNodes = std::tuple<
         ::Andromeda::Gui::Node::AddNode,
@@ -430,10 +499,13 @@ namespace Andromeda::Meta {
         ::Andromeda::Gui::Node::OutputNode,
         ::Andromeda::Gui::Node::IntVariable,
         ::Andromeda::Gui::Node::FloatVariable,
-        ::Andromeda::Gui::Node::BoolVariable
+        ::Andromeda::Gui::Node::BoolVariable,
+        ::Andromeda::Gui::Node::ToInt,
+        ::Andromeda::Gui::Node::Vec3Variable,
+        ::Andromeda::Gui::Node::Vec2Variable
     >;
 
     /** @brief The same types as ReflectedNodes, as display names in declaration order. */
-    inline constexpr std::array<std::string_view, 17> ReflectedNodesNames = {"AddNode", "Subtract", "Multiply", "Divide", "Clamp", "Sensor", "Lerp", "Sin", "Cos", "Abs", "Time", "MakeVec3", "Remap", "OutputNode", "IntVariable", "FloatVariable", "BoolVariable"};
+    inline constexpr std::array<std::string_view, 20> ReflectedNodesNames = {"AddNode", "Subtract", "Multiply", "Divide", "Clamp", "Sensor", "Lerp", "Sin", "Cos", "Abs", "Time", "MakeVec3", "Remap", "OutputNode", "IntVariable", "FloatVariable", "BoolVariable", "ToInt", "Vec3Variable", "Vec2Variable"};
 
 } // namespace Andromeda::Meta

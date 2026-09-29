@@ -14,7 +14,7 @@ using json = nlohmann::json;
 
 constexpr int32_t PORT = 8080;
 constexpr int BUFFER_SIZE = 1024;
-constexpr auto BROADCAST_INTERVAL = std::chrono::seconds(5);
+constexpr auto BROADCAST_INTERVAL = std::chrono::seconds(1);
 
 int main() {
     WSADATA wsaData;

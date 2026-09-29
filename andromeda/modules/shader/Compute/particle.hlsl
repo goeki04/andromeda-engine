@@ -65,20 +65,29 @@ void BoxParticle(uint3 dispatchThreadId : SV_DispatchThreadID)
 
     if (remainingLife <= 0.0f)
     {
+        if (local >= activeParticleCount)
+        {
+            p.position.w = 0.0f;
+            particles[index] = p;
+            return;
+        }
         // params.y counts respawns so the seed changes every cycle: with a plain
         // hash3(index) the particle would reappear at the exact same spot forever.
         const bool firstSpawn = p.velocity.w <= 0.0f;
-        const uint cycle = uint(p.params.y) + 1u;
-        const uint seed = index * 9781u + cycle;
+        const uint seed = index * 9781u + asuint(p.position.x) + asuint(p.position.z);
 
-        float3 random = hash3(seed) * 2.0f - 1.0f; // -1 .. 1 per axis
+        // The emitter marks the minimum corner of the spawn volume, not its centre, so the box
+        // only ever grows away from it. Raising the height therefore never pushes particles
+        // below the emitter - and with it below the mesh the emitter sits on.
+        float3 random = hash3(seed); // 0 .. 1 per axis
         float life = max(minLifetime, 0.1f) * (0.5f + hash1(seed));
 
-        p.position.xyz = emitterPosition + random * boxExtents;
+        float3 spawnOffset = float3((random.x - 0.5f) * boxExtents.x, random.y * boxExtents.y, (random.z - 0.5f) * boxExtents.z);
+
+        p.position.xyz = emitterPosition + spawnOffset;
         p.velocity = float4(startVelocity, life); // w = max lifetime, the fade reads it
         p.params.x = size;
-        p.params.y = float(cycle);
-
+        p.params.yzw = color.rgb;
         // A zero-filled buffer spawns every slot in the same frame, so the first
         // generation gets a random head start; later respawns start one frame old
         // so the vertex shader's fade-in is never exactly zero.

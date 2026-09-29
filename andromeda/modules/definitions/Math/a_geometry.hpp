@@ -1,5 +1,6 @@
 #pragma once
 #include <vector>
+#include <string>
 #include <glm/glm.hpp>
 #include "a_components.hpp"
 #include "a_primitives.hpp"
@@ -26,12 +27,44 @@ namespace Andromeda {
     };
 
     /**
+     * @brief One contiguous run of indices that shares a single material.
+     * @details An imported model usually carries several materials - a room has walls, a sofa,
+     *          a screen. All of them end up in the one index buffer of the Mesh, and a Submesh
+     *          records which slice belongs to which material so the renderer can switch
+     *          materials between draw calls instead of painting the whole model with one.
+     */
+    struct Submesh {
+        u32 indexOffset = 0;       ///< First index of this run inside Mesh::indexBuffer.
+        u32 indexCount = 0;        ///< Number of indices in this run.
+        std::string materialName;  ///< Material to bind, as named by the imported file.
+    };
+
+    /**
+     * @brief What an imported file states about one material, before it becomes a GPU material.
+     * @details The importer runs while only a file is available, the GPU material needs a shader
+     *          and a graphics context. So the import records the intent here and the renderer
+     *          turns it into a Material once it has both. Texture paths are absolute and may be
+     *          empty; an empty path means the file did not provide that map.
+     */
+    struct MaterialDef {
+        std::string name;              ///< Material name as written in the model file.
+        vec3 albedo = vec3(1.0f);      ///< Diffuse colour, used when there is no albedo map.
+        float metallic = 0.0f;
+        float roughness = 0.5f;
+        std::string albedoMap;         ///< map_Kd
+        std::string roughnessMap;      ///< map_Ns
+        std::string normalMap;         ///< map_Bump
+        std::string emissiveMap;       ///< map_Ke
+    };
+
+    /**
      * @brief CPU-side representation of a 3D model's geometry.
      * Manages vertex and index data and provides utility for bounds calculation.
      */
     struct Mesh {
         std::vector<Vertex> vertexbuffer; ///< Storage for all vertices in the mesh
         std::vector<u32> indexBuffer;     ///< Storage for the rendering order (indices)
+        std::vector<Submesh> submeshes;   ///< Material runs within indexBuffer; empty means "draw it all with one material"
 
         /**
          * @brief Move constructor for efficient data transfer.

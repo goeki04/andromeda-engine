@@ -47,6 +47,27 @@ namespace Andromeda {
         std::unordered_map<std::string, CubemapData> m_CubemapData;
 
         /**
+         * @brief What the imported model files declared about their materials, keyed by material name.
+         * @details Filled while importing, consumed by the renderer once it has a shader and a
+         *          context to build real Materials from. Submesh::materialName indexes into this.
+         */
+        std::unordered_map<std::string, MaterialDef> m_MaterialDefs;
+
+        /** @brief GPU textures loaded for model materials, keyed by absolute file path. */
+        std::unordered_map<std::string, GLtexture> m_ModelTextures;
+
+        /**
+         * @brief Loads a model texture once and returns its GPU id, 0 when it cannot be loaded.
+         * @details Repeated calls with the same path return the cached texture, so materials that
+         *          share a map do not upload it twice. Unlike the editor icons these are sampled
+         *          with wrapping and mipmaps, which is what surface textures need.
+         * @param srgb True for colour maps (albedo, emissive), which are authored in sRGB and have
+         *             to be converted to linear before lighting. False for data maps such as
+         *             roughness and normals - converting those would corrupt their values.
+         */
+        u32 loadModelTexture(const std::string& path, bool srgb);
+
+        /**
          * @brief Gets the static compile-time string identifier of the subsystem.
          * @return A string_view containing "ResourceManager".
          */
@@ -291,7 +312,14 @@ namespace Andromeda {
          * @param scene The parent Assimp scene.
          * @param node The current Assimp node being processed.
          */
-        void processNode(uint32_t meshId, const aiScene* scene, aiNode* node);
+        void processNode(uint32_t meshId, const aiScene* scene, aiNode* node, const std::string& modelDirectory);
+
+        /**
+         * @brief Records one imported material under its name and returns that name.
+         * @param material The Assimp material to read.
+         * @param modelDirectory Directory of the model file, the base for its relative texture paths.
+         */
+        std::string recordMaterial(const aiMaterial* material, const std::string& modelDirectory);
 
         /**
          * @brief Initiates the Assimp importer for a specific file and sets up the internal Mesh structure.

@@ -254,10 +254,15 @@ namespace Andromeda::Gui::Node {
                 ImGui::SameLine();
                 drawLabel(name);
             } else if constexpr (pinRole<V> == PinRole::Param) {
+                // A vec3 draws three drag fields inside one widget, so the width scales with the
+                // number of components - otherwise each field is a third as wide and cuts the number off.
+                using ValueT = typename PinTraits<V>::value_type;
+                constexpr u32 channels = ChannelTraits<ValueT>::count > 0 ? ChannelTraits<ValueT>::count : 1;
+
                 ImGui::PushID(name.data(), name.data() + name.size());
                 drawLabel(name);
                 ImGui::SameLine();
-                ImGui::SetNextItemWidth(kParamWidth);
+                ImGui::SetNextItemWidth(kParamWidth * static_cast<float>(channels));
                 drawField(member.value);
                 ImGui::PopID();
             } else if constexpr (pinRole<V> == PinRole::Output) {

@@ -361,6 +361,52 @@ void ResourceManager::loadAndStoreCubemap(const std::string& file) {
     }
 
 
+    u32 ResourceManager::loadModelTexture(const std::string& path, const bool srgb)
+    {
+        if (path.empty()) {
+            return 0;
+        }
+        if (const auto it = m_ModelTextures.find(path); it != m_ModelTextures.end()) {
+            return it->second.id;
+        }
+
+        GLtexture texture;
+        i32 w, h, channels;
+        unsigned char* pixels = stbi_load(path.c_str(), &w, &h, &channels, 4);
+        if (!pixels) {
+            A_WARN("Model texture could not be loaded ({}): {}", stbi_failure_reason(), path);
+            m_ModelTextures.emplace(path, GLtexture{}); // remember the failure, do not retry every frame
+            return 0;
+        }
+
+        texture.w = w;
+        texture.h = h;
+
+        glGenTextures(1, &texture.id);
+        glBindTexture(GL_TEXTURE_2D, texture.id);
+
+        // Surface textures repeat and are minified far more often than icons, so they need
+        // wrapping and mipmaps - without them distant geometry aliases badly.
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        glTexImage2D(GL_TEXTURE_2D, 0, srgb ? GL_SRGB8_ALPHA8 : GL_RGBA8, w, h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+        glGenerateMipmap(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        stbi_image_free(pixels);
+
+        // GLtexture owns its GL object and is move-only, so the id is read before handing it
+        // over - after the move the local copy is reset to 0.
+        const u32 id = texture.id;
+        m_ModelTextures.emplace(path, std::move(texture));
+        return id;
+    }
+
     void ResourceManager::setupMeshes()
     {
         for (auto& [id, mesh] : m_Meshes)
@@ -369,7 +415,64 @@ void ResourceManager::loadAndStoreCubemap(const std::string& file) {
             createMesh(gpuHandle, mesh);
         }
     }
-    void ResourceManager::processNode(const uint32_t meshId, const aiScene* scene, aiNode* node)
+    /**
+     * @brief Records what one imported material declares, so the renderer can build it later.
+     * @details Texture paths in a model file are relative to the file itself, so they are resolved
+     *          against its directory here - the renderer no longer knows where the model came from.
+     * @param material The Assimp material to read.
+     * @param modelDirectory Directory of the model file, used as the base for relative paths.
+     * @return The material name, which is also the key the submesh refers to.
+     */
+    std::string ResourceManager::recordMaterial(const aiMaterial* material, const std::string& modelDirectory)
+    {
+        aiString nameValue;
+        std::string name = (material->Get(AI_MATKEY_NAME, nameValue) == AI_SUCCESS)
+                               ? std::string(nameValue.C_Str())
+                               : std::string("UnnamedMaterial");
+
+        if (m_MaterialDefs.contains(name)) {
+            return name;
+        }
+
+        MaterialDef def;
+        def.name = name;
+
+        aiColor3D diffuse(1.0f, 1.0f, 1.0f);
+        if (material->Get(AI_MATKEY_COLOR_DIFFUSE, diffuse) == AI_SUCCESS) {
+            def.albedo = vec3(diffuse.r, diffuse.g, diffuse.b);
+        }
+
+        // Wavefront stores a specular exponent (Ns, 0..1000), the renderer wants roughness.
+        // Higher exponent means a tighter highlight, so the two run in opposite directions.
+        float shininess = 0.0f;
+        if (material->Get(AI_MATKEY_SHININESS, shininess) == AI_SUCCESS && shininess > 0.0f) {
+            def.roughness = std::clamp(1.0f - std::sqrt(shininess / 1000.0f), 0.05f, 1.0f);
+        }
+
+        // map_Kd, map_Ns, map_Ke and map_Bump in the order Assimp reports them for Wavefront.
+        // map_Bump arrives as HEIGHT rather than NORMALS, so both are tried.
+        const auto texturePath = [&](const aiTextureType type) -> std::string {
+            aiString relative;
+            if (material->GetTexture(type, 0, &relative) != AI_SUCCESS) {
+                return {};
+            }
+            return Filesystem::resolveRelativeTo(modelDirectory, relative.C_Str());
+        };
+
+        def.albedoMap = texturePath(aiTextureType_DIFFUSE);
+        def.roughnessMap = texturePath(aiTextureType_SHININESS);
+        def.emissiveMap = texturePath(aiTextureType_EMISSIVE);
+        def.normalMap = texturePath(aiTextureType_NORMALS);
+        if (def.normalMap.empty()) {
+            def.normalMap = texturePath(aiTextureType_HEIGHT);
+        }
+
+        m_MaterialDefs.emplace(name, std::move(def));
+        return name;
+    }
+
+    void ResourceManager::processNode(const uint32_t meshId, const aiScene* scene, aiNode* node,
+                                      const std::string& modelDirectory)
     {
         auto& newMesh = m_Meshes.at(meshId);
         for (unsigned int i = 0; i < node->mNumMeshes; i++) {
@@ -406,6 +509,7 @@ void ResourceManager::loadAndStoreCubemap(const std::string& file) {
             auto& ib = newMesh.indexBuffer;
 
             const uint32_t baseVertex = static_cast<uint32_t>(vb.size());
+            const uint32_t indexStart = static_cast<uint32_t>(ib.size());
 
             vb.insert(vb.end(), vertices.begin(), vertices.end());
 
@@ -415,9 +519,17 @@ void ResourceManager::loadAndStoreCubemap(const std::string& file) {
                     ib.push_back(baseVertex + f.mIndices[t]);
                 }
             }
+
+            // One submesh per imported mesh: they share the buffers above, but each keeps its
+            // own material, so a room does not end up painted in a single texture.
+            newMesh.submeshes.push_back(Submesh{
+                indexStart,
+                static_cast<uint32_t>(ib.size()) - indexStart,
+                recordMaterial(material, modelDirectory)
+            });
         }
-        for (int i = 0; i < node->mNumChildren; i++) {
-            processNode(meshId, scene, node->mChildren[i]);
+        for (unsigned int i = 0; i < node->mNumChildren; i++) {
+            processNode(meshId, scene, node->mChildren[i], modelDirectory);
         }
     }
 
@@ -452,7 +564,7 @@ void ResourceManager::loadAndStoreCubemap(const std::string& file) {
         m_MeshIDbyName.emplace(meshName, id);
 
         aiNode* rootNode = scene->mRootNode;
-        processNode(id, scene, rootNode);
+        processNode(id, scene, rootNode, Filesystem::getDirectory(path));
     }
 
 

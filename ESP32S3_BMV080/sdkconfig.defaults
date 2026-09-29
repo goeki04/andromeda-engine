@@ -1,0 +1,7 @@
+# Espressif IoT Development Framework (ESP-IDF) Project Minimal Configuration
+#
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_PM_ENABLE=y
+CONFIG_FREERTOS_USE_TICKLESS_IDLE=y
+# Bluetooth is not used, the data is transferred over Wi-Fi
+CONFIG_BT_ENABLED=n

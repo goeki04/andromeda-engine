@@ -86,6 +86,7 @@ namespace Andromeda {
 		RHIStorageBuffer m_ParticleBuffer; ///< GPU storage buffer that holds the particle pool.
 		RHIConstantBuffer m_EmitterSettingsBuffer; ///< Constant buffer that holds the emitter settings.
 		RHIConstantBuffer m_CameraDataBuffer; ///< Constant buffer that holds the camera data.
+        RHIConstantBuffer m_MaterialBuffer;   ///< Constant buffer that holds the material data for rendering.
         /// Emitter settings that control particle emission and behavior.
         /// Brace-initialized on purpose: the compute kernel reads baseIndex, which nothing
         /// assigns, and an indeterminate value there would index the SSBO out of bounds.
@@ -93,6 +94,7 @@ namespace Andromeda {
 		amath::CameraData* m_SceneCamera; ///< Pointer to the camera data used for rendering.
 		IGraphicsContext* m_Context = nullptr; ///< Pointer to the graphics context for rendering.
 		float m_SpawnAccumulator = 0.0f; ///< Accumulates time to determine when to spawn new particles.
+        u32 m_Capacity = 0;                    ///< Maximum number of particles that can be emitted.
 	};
 
 }

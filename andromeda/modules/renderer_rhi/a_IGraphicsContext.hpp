@@ -73,7 +73,8 @@ namespace Andromeda {
 		 * @param vaoID The vertex array to draw from.
 		 * @param indexCount Number of indices to render.
 		 */
-		virtual void drawIndexed(u32 vaoID, u32 indexCount) = 0;
+		/** @param indexOffset First index to draw, for rendering one Submesh out of a shared index buffer. */
+		virtual void drawIndexed(u32 vaoID, u32 indexCount, u32 indexOffset = 0) = 0;
 
 		/**
 		 * @brief Issues a non-indexed draw call.

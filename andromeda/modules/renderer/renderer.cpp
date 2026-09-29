@@ -318,6 +318,8 @@ namespace Andromeda {
             plasticData.metallic = 0.0f;
             plasticData.roughness = 0.8f;
             plasticData.ao = 1.0f;
+            // Must be zero: a stray value here would switch on samplers that hold no texture.
+            plasticData.textureFlags = 0;
 
             TextureBinding irradianceBinding, prefilterBinding;;
             irradianceBinding.apiID = m_IrradianceCubemap.textureID;
@@ -329,6 +331,55 @@ namespace Andromeda {
             pbrMaterial->addTexture({ m_BrdfLUTTexture.textureID, 2 });
         }
 
+        createImportedMaterials(pbrShaderHandle);
+    }
+
+    /**
+     * @brief Turns everything the model importer recorded into real GPU materials.
+     * @details The importer only sees files, so it stores intent in ResourceManager::m_MaterialDefs.
+     *          Here each definition becomes a Material on the shared PBR shader, with its maps
+     *          bound on top of the three IBL textures every PBR material needs. Submeshes find
+     *          them again by material name.
+     * @param pbrShaderHandle The PBR shader all imported materials share.
+     */
+    void Renderer::createImportedMaterials(const ShaderProgramHandle pbrShaderHandle)
+    {
+        for (const auto& [name, def] : m_ResourceManager->m_MaterialDefs) {
+            auto material = m_ResourceManager->createMaterial(name, pbrShaderHandle, m_RenderContext);
+            if (!material) {
+                A_WARN("Imported material '{}' could not be created", name);
+                continue;
+            }
+
+            // Colour maps are authored in sRGB and must be linearised, data maps must not be.
+            const u32 albedoTex = m_ResourceManager->loadModelTexture(def.albedoMap, true);
+            const u32 emissiveTex = m_ResourceManager->loadModelTexture(def.emissiveMap, true);
+            const u32 roughnessTex = m_ResourceManager->loadModelTexture(def.roughnessMap, false);
+            const u32 normalTex = m_ResourceManager->loadModelTexture(def.normalMap, false);
+
+            u32 flags = 0;
+            if (albedoTex != 0)    flags |= 1u;  // HAS_ALBEDO_MAP
+            if (roughnessTex != 0) flags |= 2u;  // HAS_ROUGHNESS_MAP
+            if (normalTex != 0)    flags |= 4u;  // HAS_NORMAL_MAP
+            if (emissiveTex != 0)  flags |= 8u;  // HAS_EMISSIVE_MAP
+
+            Generated::pbrMaterial data;
+            data.albedo = def.albedo;
+            data.metallic = def.metallic;
+            data.roughness = def.roughness;
+            data.ao = 1.0f;
+            // The reflector may type the flag word as signed, so convert to whatever it chose.
+            data.textureFlags = static_cast<decltype(data.textureFlags)>(flags);
+
+            material->setUBOData(data, 2, m_RenderContext);
+            material->addTexture({ m_IrradianceCubemap.textureID, 0 });
+            material->addTexture({ m_PrefilterMap.textureID, 1 });
+            material->addTexture({ m_BrdfLUTTexture.textureID, 2 });
+            if (albedoTex != 0)    material->addTexture({ albedoTex, 3 });
+            if (roughnessTex != 0) material->addTexture({ roughnessTex, 4 });
+            if (normalTex != 0)    material->addTexture({ normalTex, 5 });
+            if (emissiveTex != 0)  material->addTexture({ emissiveTex, 6 });
+        }
     }
 
     void Renderer::registerEvents()
@@ -448,8 +499,24 @@ namespace Andromeda {
                     objData.model = transform.modelMatrix();
                     mutableObjectUBO.setData(&objData, sizeof(Generated::ObjectBuffer));
                     mutableObjectUBO.bind(1);
-                    material->bind(m_RenderContext);
-                    m_RenderContext->drawIndexed(vao, indexCount);
+
+                    const auto& submeshes = m_ResourceManager->getMeshByID(meshComp.meshID).submeshes;
+                    if (submeshes.size() < 2) {
+                        // One material for the whole mesh: the component's material wins, which
+                        // keeps hand-placed objects and primitives editable from the editor.
+                        material->bind(m_RenderContext);
+                        m_RenderContext->drawIndexed(vao, indexCount);
+                    }
+                    else {
+                        // An imported model with several materials, one draw call per run. The
+                        // component's material stays the fallback for runs whose material is
+                        // missing, so a broken import still shows geometry instead of nothing.
+                        for (const auto& submesh : submeshes) {
+                            const auto submeshMaterial = m_ResourceManager->getMaterial(submesh.materialName);
+                            (submeshMaterial ? submeshMaterial : material)->bind(m_RenderContext);
+                            m_RenderContext->drawIndexed(vao, submesh.indexCount, submesh.indexOffset);
+                        }
+                    }
                 }
                 else {
                     A_WARN("material or vao missing for entity {}", e);

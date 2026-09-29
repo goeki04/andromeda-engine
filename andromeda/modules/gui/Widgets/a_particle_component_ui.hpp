@@ -157,6 +157,15 @@
        ImGui::SameLine(100);
        ImGui::DragFloat3("##Velocity", &group[index].velocity.x);
 
+       ImGui::Text("Spawn box");
+       ImGui::SameLine(100);
+       // Size per axis, measured from the emitter as the box's minimum corner. Clamped at zero:
+       // a negative size would place particles on the wrong side of the emitter.
+       ImGui::DragFloat3("##BoxExtents", &group[index].boxExtents.x, 0.05f, 0.0f, FLT_MAX);
+       if (ImGui::IsItemHovered()) {
+           ImGui::SetTooltip("Size of the spawn volume per axis.\nThe emitter is its lower corner, so the box grows upwards and never below the emitter.");
+       }
+
        ImGui::Text("Color");
        ImGui::SameLine(100);
        ImGui::DragFloat3("##ParticleColor", &group[index].particleColor.x);

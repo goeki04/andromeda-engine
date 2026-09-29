@@ -9,6 +9,7 @@
 #include <string_view>
 #include <string>
 #include <algorithm>
+#include <filesystem>
 #include <span>
 #include <vector>
 #include "a_model_record.hpp"
@@ -45,6 +46,33 @@ namespace Andromeda {
 		 * @brief Converts a string to lowercase in place (ASCII).
 		 * @param data The string to transform; modified directly.
 		 */
+		/**
+		 * @brief Returns the directory a file path points into, without the file name.
+		 * @return The directory, or "." when the path has no directory part at all.
+		 */
+		inline std::string getDirectory(const std::string& path) {
+			const std::filesystem::path parent = std::filesystem::path(path).parent_path();
+			return parent.empty() ? std::string(".") : parent.generic_string();
+		}
+
+		/**
+		 * @brief Resolves a path that a data file stated relative to its own location.
+		 * @details Model files name their textures relative to themselves. An already absolute
+		 *          path is returned unchanged, so files that hardcode one still work.
+		 * @param baseDirectory Directory the relative path is anchored to.
+		 * @param relative Path as written in the data file.
+		 */
+		inline std::string resolveRelativeTo(const std::string& baseDirectory, const std::string& relative) {
+			if (relative.empty()) {
+				return {};
+			}
+			std::filesystem::path candidate(relative);
+			if (candidate.is_absolute()) {
+				return candidate.generic_string();
+			}
+			return (std::filesystem::path(baseDirectory) / candidate).lexically_normal().generic_string();
+		}
+
 		inline void stringToLower(std::string& data) {
 				std::ranges::transform(data, data.begin(),
 				                       [](const unsigned char c) {return std::tolower(c);

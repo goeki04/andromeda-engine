@@ -36,12 +36,11 @@
 #include "a_node_graph.hpp"
 #include <variant>
 #include <vector>
-#include <functional>
 namespace Andromeda {
 
     enum class NodeType : u8 { ParticleGroup, Sensor };
 
-    using GraphValue = std::variant<i32, float, bool>;
+    using GraphValue = std::variant<i32, float, bool, vec2, vec3>;
 
     /** @brief A named value shared by every particle group graph of one ParticleSystem. */
     struct GraphVariable {
@@ -63,9 +62,10 @@ namespace Andromeda {
         std::string groupName = "ParticleGroup_1";  ///< Name of the particle group for identification.
         i32 particleCount = 1000;                ///< Maximum number of particles allowed in this group.
         float size = 1.0f;                       ///< Size of each particle in this group.
-        vec3 velocity = {1.0f, 1.0f, 1.0f};      ///< Initial velocity of particles in this group.
+        vec3 velocity = {0.0f, 1.0f, 0.0f};      ///< Initial velocity of particles in this group.
         vec3 particleColor = {1.0f, 1.0f, 1.0f}; ///< Color of the particles (RGB).
         float minLifetime = 3.0f;                ///< Minimum lifetime of the particles in seconds.
+        vec3 boxExtents = {2.0f, 2.0f, 2.0f};    ///< Size of the spawn volume per axis. The emitter is its minimum corner, so the box grows away from the emitter and never reaches below it.
         std::vector<EventBinding> eventBindings; ///< List of event bindings for this particle group.
         ParticleGraph graph;                     ///< Node graph edited in the particle editor.
         // u32 on purpose: i32/float/bool/vec fields are offered as event-binding targets (ChannelTraits),

@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ESP32-S3 Steuerung</title>
+<style>
+  body { font-family: "DejaVu Sans", Arial, Helvetica, sans-serif; background:#e9e9e9;
+         margin:0; padding:14px; color:#222; }
+  .wrap { max-width:1180px; margin:0 auto; }
+  h1 { font-size:18px; font-weight:normal; text-align:center; margin:2px 0 10px 0; }
+  .controls { display:flex; flex-wrap:wrap; gap:16px; align-items:center;
+              justify-content:center; font-size:13px; margin-bottom:10px; }
+  .controls button { font-size:13px; padding:4px 10px; border-radius:4px;
+                     border:1px solid #999; background:#fff; cursor:pointer; }
+  #info { text-align:center; font-size:12px; color:#555; margin-bottom:10px; min-height:16px; }
+  .figure { display:grid; grid-template-columns:1fr; gap:14px; }
+  .figure.two { grid-template-columns:1.1fr 1fr; }
+  .col { display:flex; flex-direction:column; gap:14px; }
+  .panel { background:#fff; border-radius:4px; padding:4px; box-shadow:0 1px 2px rgba(0,0,0,0.18); }
+  canvas { width:100%; display:block; }
+  .freq canvas { height:176px; }
+  #magChart, #dirChart { height:176px; }
+  #vecChart { height:380px; }
+  .hidden { display:none; }
+  #logPanel { margin-top:14px; }
+  #log, #statusText { background:#111; color:#0f0; font-size:12px; height:220px; overflow-y:auto;
+         padding:8px; border-radius:4px; white-space:pre; margin:0; }
+  @media (max-width: 820px) { .figure.two { grid-template-columns:1fr; } }
+  .drive { text-align:center; margin-bottom:18px; }
+  .drive h1 { font-size:22px; font-weight:bold; margin:2px 0 4px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="drive">
+<h1>ESP32-S3 &middot; BMV080</h1>
+</div>
+
+<h1>Doppler Velocity (live stream)</h1>
+
+<div class="controls">
+  <label>Time window
+    <select id="windowSel">
+      <option value="10">10 s</option>
+      <option value="30" selected>30 s</option>
+      <option value="60">60 s</option>
+    </select>
+  </label>
+  <label><input type="checkbox" id="showFreq"> Frequency plots</label>
+  <label><input type="checkbox" id="showKf" checked> Kalman</label>
+  <label><input type="checkbox" id="showLog"> Raw frames</label>
+  <label><input type="checkbox" id="showStatus"> Status</label>
+  <label><input type="checkbox" id="record" checked> Record</label>
+  <button id="saveButton" type="button">Save log (0)</button>
+</div>
+
+<div id="info">waiting for data ...</div>
+
+<div id="figure" class="figure">
+  <div id="freqCol" class="col freq hidden">
+    <div class="panel"><canvas id="freq1"></canvas></div>
+    <div class="panel"><canvas id="freq2"></canvas></div>
+    <div class="panel"><canvas id="freq3"></canvas></div>
+  </div>
+  <div class="col">
+    <div class="panel"><canvas id="magChart"></canvas></div>
+    <div class="panel"><canvas id="dirChart"></canvas></div>
+    <div class="panel"><canvas id="vecChart"></canvas></div>
+  </div>
+</div>
+
+<div id="statusPanel" class="panel hidden"><pre id="statusText">...</pre></div>
+
+<div id="logPanel" class="panel hidden"><pre id="log"></pre></div>
+
+</div>
+
+<script>
+"use strict";
+
+/* ======================================================================
+   Parameters, identical to pff_frequency_plotter.py
+   ====================================================================== */
+const CHANNELS    = [1, 2, 3];
+const GEOMETRY    = "30,0;30,120;30,240";
+const WAVELENGTH  = 850e-9;
+const SCALE       = 1.0;
+const DT          = 0.010;   // fixed grid step
+const DELAY       = 0.050;   // delayed interpolation
+const MA          = 0.500;   // trailing moving average
+const MAX_GAP     = 0.500;   // largest accepted gap
+const HOLD        = true;
+const HIGHEST_ABS = false;
+const KF_Q = 1e-3, KF_R = 1e-2, KF_P0 = 1.0, KF_MIN_VALID = 1;
+const HISTORY_SECONDS = 65;
+const POLL_MS = 250;
+const DRAW_MS = 100;
+
+const COLOR_RAW = "#1f77b4";   // tab:blue
+const COLOR_KF  = "#ff7f0e";   // tab:orange
+const BOX_FILL  = "rgba(245,222,179,0.5)";   // wheat, alpha 0.5
+
+/* ======================================================================
+   Vector and matrix helpers (3x3)
+   ====================================================================== */
+function sphVec(thetaDeg, phiDeg) {
+  const th = thetaDeg * Math.PI / 180, ph = phiDeg * Math.PI / 180;
+  return [Math.sin(th) * Math.cos(ph), Math.sin(th) * Math.sin(ph), Math.cos(th)];
+}
+
+function matrixFromSpherical(text) {
+  const cols = text.split(";").map(s => s.trim()).filter(s => s.length);
+  const m = [[0,0,0],[0,0,0],[0,0,0]];
+  cols.forEach((pair, c) => {
+    const parts = pair.split(",").map(Number);
+    const v = sphVec(parts[0], parts[1]);
+    for (let r = 0; r < 3; r++) m[r][c] = v[r];
+  });
+  return m;
+}
+
+const M = matrixFromSpherical(GEOMETRY);
+
+function matVec(m, v) {
+  return [m[0][0]*v[0] + m[0][1]*v[1] + m[0][2]*v[2],
+          m[1][0]*v[0] + m[1][1]*v[1] + m[1][2]*v[2],
+          m[2][0]*v[0] + m[2][1]*v[1] + m[2][2]*v[2]];
+}
+function matMul(a, b) {
+  const r = [[0,0,0],[0,0,0],[0,0,0]];
+  for (let i = 0; i < 3; i++)
+    for (let j = 0; j < 3; j++) {
+      let s = 0;
+      for (let k = 0; k < 3; k++) s += a[i][k] * b[k][j];
+      r[i][j] = s;
+    }
+  return r;
+}
+function matAdd(a, b) {
+  const r = [[0,0,0],[0,0,0],[0,0,0]];
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) r[i][j] = a[i][j] + b[i][j];
+  return r;
+}
+function matTranspose(a) {
+  return [[a[0][0],a[1][0],a[2][0]], [a[0][1],a[1][1],a[2][1]], [a[0][2],a[1][2],a[2][2]]];
+}
+function matScale(a, s) {
+  const r = [[0,0,0],[0,0,0],[0,0,0]];
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) r[i][j] = a[i][j] * s;
+  return r;
+}
+function eye(s) { return [[s,0,0],[0,s,0],[0,0,s]]; }
+function matInverse(a) {
+  const d = a[0][0]*(a[1][1]*a[2][2] - a[1][2]*a[2][1])
+          - a[0][1]*(a[1][0]*a[2][2] - a[1][2]*a[2][0])
+          + a[0][2]*(a[1][0]*a[2][1] - a[1][1]*a[2][0]);
+  if (Math.abs(d) < 1e-300) return eye(0);
+  const i = 1 / d;
+  return [
+    [ (a[1][1]*a[2][2] - a[1][2]*a[2][1]) * i, -(a[0][1]*a[2][2] - a[0][2]*a[2][1]) * i,  (a[0][1]*a[1][2] - a[0][2]*a[1][1]) * i],
+    [-(a[1][0]*a[2][2] - a[1][2]*a[2][0]) * i,  (a[0][0]*a[2][2] - a[0][2]*a[2][0]) * i, -(a[0][0]*a[1][2] - a[0][2]*a[1][0]) * i],
+    [ (a[1][0]*a[2][1] - a[1][1]*a[2][0]) * i, -(a[0][0]*a[2][1] - a[0][1]*a[2][0]) * i,  (a[0][0]*a[1][1] - a[0][1]*a[1][0]) * i]
+  ];
+}
+
+/* Return (vx', vy', magnitude, angle_deg) folded to an unoriented axis. */
+function canonicalMod180(vx, vy) {
+  const mag = Math.hypot(vx, vy);
+  let ang = Math.atan2(vy, vx) * 180 / Math.PI;
+  ang = ((ang % 180) + 180) % 180;
+  const a = ang * Math.PI / 180;
+  return { mx: mag * Math.cos(a), my: mag * Math.sin(a), mag: mag, ang: ang };
+}
+
+/* ======================================================================
+   Delayed interpolation of event samples onto target times
+   ====================================================================== */
+function lowerBound(arr, value) {           // first index with arr[i] >= value
+  let lo = 0, hi = arr.length;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (arr[mid] < value) lo = mid + 1; else hi = mid; }
+  return lo;
+}
+function upperBound(arr, value) {           // first index with arr[i] > value
+  let lo = 0, hi = arr.length;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (arr[mid] <= value) lo = mid + 1; else hi = mid; }
+  return lo;
+}
+
+function delayedInterp(et, ef, targets) {
+  const n = et.length, m = targets.length;
+  const vals = new Array(m).fill(NaN);
+  const valid = new Array(m).fill(false);
+
+  for (let i = 0; i < m; i++) {
+    const tt = targets[i];
+    if (n >= 2) {
+      const ri = lowerBound(et, tt);
+      const li = ri - 1;
+      if (li >= 0 && ri < n) {
+        const lt = et[li], rt = et[ri];
+        const seen = rt <= tt + DELAY + 1e-12;
+        const gapOk = (tt - lt) <= MAX_GAP && (rt - tt) <= MAX_GAP;
+        if (seen && gapOk) {
+          const alpha = (tt - lt) / Math.max(rt - lt, 1e-15);
+          vals[i] = ef[li] + alpha * (ef[ri] - ef[li]);
+          valid[i] = true;
+        }
+      }
+    } else if (n === 1) {
+      if (Math.abs(tt - et[0]) <= MAX_GAP) { vals[i] = ef[0]; valid[i] = true; }
+    }
+    if (HOLD && !valid[i] && n >= 1) {
+      const pi = upperBound(et, tt) - 1;
+      if (pi >= 0 && (tt - et[pi]) <= MAX_GAP) { vals[i] = ef[pi]; valid[i] = true; }
+    }
+  }
+  return { vals: vals, valid: valid };
+}
+
+/* ======================================================================
+   Reconstruction and Kalman filter
+   ====================================================================== */
+function reconstruct(fvals, vld) {
+  const fRaw = fvals.map((v, i) => (vld[i] && isFinite(v)) ? v : 0);
+  const fSigned = fRaw.slice();
+  let neg = -1, best = -1, bestVal = -Infinity;
+
+  for (let i = 0; i < fRaw.length; i++) {
+    if (!vld[i]) continue;
+    const s = HIGHEST_ABS ? Math.abs(fRaw[i]) : fRaw[i];
+    if (s > bestVal) { bestVal = s; best = i; }
+  }
+  if (best >= 0) {
+    fSigned[best] = -Math.abs(fSigned[best]);
+    neg = CHANNELS[best];
+  }
+
+  const axisV = fSigned.map(v => v * WAVELENGTH * SCALE);
+  const xyz = matVec(M, axisV);
+  const c = canonicalMod180(xyz[0], xyz[1]);
+  return { xyz: xyz, mx: c.mx, my: c.my, mag: c.mag, ang: c.ang, neg: neg };
+}
+
+/* Constant-velocity Kalman filter on the reconstructed xyz velocity. */
+class VelocityKF {
+  constructor() {
+    this.x = [0, 0, 0];
+    this.P = eye(KF_P0);
+    this.lastT = null;
+    this.initialized = false;
+  }
+  step(t, z, validCount) {
+    if (this.lastT === null) {
+      this.lastT = t;
+    } else {
+      const dt = Math.max(t - this.lastT, 0);
+      this.P = matAdd(this.P, eye(KF_Q * Math.max(dt, 1e-6)));
+      this.lastT = t;
+    }
+    if (validCount < KF_MIN_VALID) return { x: this.x.slice(), updated: false };
+
+    if (!this.initialized) {
+      this.x = z.slice();
+      this.initialized = true;
+      return { x: this.x.slice(), updated: true };
+    }
+
+    /* H is the identity matrix, so everything stays 3x3 */
+    const R = eye(KF_R);
+    const y = [z[0] - this.x[0], z[1] - this.x[1], z[2] - this.x[2]];
+    const S = matAdd(this.P, R);
+    const K = matMul(this.P, matInverse(S));
+    const Ky = matVec(K, y);
+    this.x = [this.x[0] + Ky[0], this.x[1] + Ky[1], this.x[2] + Ky[2]];
+
+    const IK = matAdd(eye(1), matScale(K, -1));
+    this.P = matAdd(matMul(matMul(IK, this.P), matTranspose(IK)),
+                    matMul(matMul(K, R), matTranspose(K)));
+    return { x: this.x.slice(), updated: true };
+  }
+}
+
+/* ======================================================================
+   Streaming front end
+   ====================================================================== */
+class Processor {
+  constructor() {
+    this.eventT = {}; this.eventF = {}; this.ma = {};
+    CHANNELS.forEach(ch => { this.eventT[ch] = []; this.eventF[ch] = []; this.ma[ch] = []; });
+    this.maWindow = Math.max(1, Math.round(MA / DT));
+    this.bufferSeconds = Math.max(2 * MA + DELAY + MAX_GAP + 1, 3);
+    this.maxCatchupSteps = 2000;
+    this.t0 = null;
+    this.lastT = 0;
+    this.kf = new VelocityKF();
+    this.history = [];
+    this.maxHistory = Math.max(10, Math.round(HISTORY_SECONDS / DT));
+  }
+
+  addEvent(ch, frequency, eventTime) {
+    if (!(ch in this.eventT)) return;
+    if (this.t0 === null) { this.t0 = eventTime; this.lastT = 0; }
+    this.eventT[ch].push(eventTime - this.t0);
+    this.eventF[ch].push(frequency);
+  }
+
+  advance(nowTime) {
+    if (this.t0 === null) return;
+    const nowRel = nowTime - this.t0;
+
+    const maxSpan = this.maxCatchupSteps * DT;
+    if (nowRel - this.lastT > maxSpan) this.lastT = nowRel - maxSpan;
+
+    const steps = Math.floor((nowRel - this.lastT) / DT + 1e-9);
+    if (steps <= 0) return;
+
+    const grid = new Array(steps);
+    const estimate = new Array(steps);
+    for (let i = 0; i < steps; i++) {
+      grid[i] = this.lastT + DT * (i + 1);
+      estimate[i] = Math.max(grid[i] - DELAY, 0);
+    }
+
+    /* drop stale events */
+    const cutoff = nowRel - this.bufferSeconds;
+    const interp = {};
+    CHANNELS.forEach(ch => {
+      const et = this.eventT[ch], ef = this.eventF[ch];
+      let drop = 0;
+      while (drop < et.length && et[drop] < cutoff) drop++;
+      if (drop > 0) { et.splice(0, drop); ef.splice(0, drop); }
+      interp[ch] = delayedInterp(et, ef, estimate);
+    });
+
+    for (let i = 0; i < steps; i++) {
+      const fvals = [0, 0, 0];
+      const vld = [false, false, false];
+
+      CHANNELS.forEach((ch, j) => {
+        const v = interp[ch].vals[i];
+        const ok = interp[ch].valid[i];
+        const dq = this.ma[ch];
+        dq.push(ok ? v : NaN);
+        if (dq.length > this.maWindow) dq.shift();
+        let sum = 0, count = 0;
+        for (let k = 0; k < dq.length; k++) if (isFinite(dq[k])) { sum += dq[k]; count++; }
+        if (count > 0) { fvals[j] = sum / count; vld[j] = ok; }
+      });
+
+      const r = reconstruct(fvals, vld);
+      const validCount = vld.reduce((a, b) => a + (b ? 1 : 0), 0);
+      const kf = this.kf.step(grid[i], r.xyz, validCount);
+      const kc = canonicalMod180(kf.x[0], kf.x[1]);
+
+      this.history.push({
+        t: grid[i],
+        rawMx: r.mx, rawMy: r.my, rawMag: r.mag, rawAng: r.ang, rawVz: r.xyz[2],
+        kfMx: kc.mx, kfMy: kc.my, kfMag: kc.mag, kfAng: kc.ang, kfVz: kf.x[2],
+        validCount: validCount, neg: r.neg
+      });
+    }
+    if (this.history.length > this.maxHistory) {
+      this.history.splice(0, this.history.length - this.maxHistory);
+    }
+    this.lastT = grid[steps - 1];
+  }
+}
+
+/* ======================================================================
+   Drawing, laid out like the matplotlib figure
+   ====================================================================== */
+function prepare(canvas) {
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const w = Math.max(1, Math.round(rect.width));
+  const h = Math.max(1, Math.round(rect.height));
+  if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+  }
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, w, h);
+  return { ctx: ctx, w: w, h: h };
+}
+
+function niceTicks(lo, hi, count) {
+  const span = hi - lo;
+  if (!(span > 0)) return [lo];
+  const raw = span / count;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const norm = raw / mag;
+  const step = (norm >= 5 ? 10 : norm >= 2 ? 5 : norm >= 1 ? 2 : 1) * mag;
+  const ticks = [];
+  for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) ticks.push(v);
+  return ticks;
+}
+
+/* Formatter for one tick row, the number of decimals follows the tick step. */
+function tickFormatter(ticks) {
+  if (ticks.length < 2) return v => String(v);
+  const step = Math.abs(ticks[1] - ticks[0]);
+  let largest = 0;
+  ticks.forEach(v => { if (Math.abs(v) > largest) largest = Math.abs(v); });
+  if (largest >= 1e4 || (step > 0 && step < 1e-3)) return v => v.toExponential(1);
+  const decimals = Math.max(0, Math.min(4, Math.ceil(-Math.log10(step) + 1e-9)));
+  return v => v.toFixed(decimals);
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+/* Draw a wheat coloured annotation box like the matplotlib text boxes. */
+function textBox(ctx, lines, x, y, anchor) {
+  ctx.font = "11px Arial";
+  let width = 0;
+  lines.forEach(l => { width = Math.max(width, ctx.measureText(l).width); });
+  const lineHeight = 14;
+  const boxW = width + 12;
+  const boxH = lines.length * lineHeight + 8;
+  const bx = x;
+  const by = (anchor === "bottom") ? (y - boxH) : y;
+
+  ctx.fillStyle = BOX_FILL;
+  ctx.strokeStyle = "rgba(0,0,0,0.25)";
+  ctx.lineWidth = 1;
+  roundRect(ctx, bx, by, boxW, boxH, 5);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = "#222";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  lines.forEach((l, i) => ctx.fillText(l, bx + 6, by + 4 + i * lineHeight));
+}
+
+function legend(ctx, entries, x, y, align) {
+  ctx.font = "10px Arial";
+  let width = 0;
+  entries.forEach(e => { width = Math.max(width, ctx.measureText(e.label).width); });
+  const boxW = width + 34;
+  const boxH = entries.length * 14 + 8;
+  const bx = (align === "right") ? (x - boxW) : x;
+
+  ctx.fillStyle = "rgba(255,255,255,0.85)";
+  ctx.strokeStyle = "rgba(0,0,0,0.3)";
+  ctx.lineWidth = 1;
+  roundRect(ctx, bx, y, boxW, boxH, 4);
+  ctx.fill();
+  ctx.stroke();
+
+  entries.forEach((e, i) => {
+    const ly = y + 11 + i * 14;
+    ctx.strokeStyle = e.color;
+    ctx.lineWidth = e.width || 1.4;
+    ctx.beginPath();
+    ctx.moveTo(bx + 5, ly);
+    ctx.lineTo(bx + 24, ly);
+    ctx.stroke();
+    ctx.fillStyle = "#222";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText(e.label, bx + 28, ly);
+  });
+}
+
+function drawChart(canvas, cfg) {
+  const p = prepare(canvas);
+  const ctx = p.ctx;
+  const pad = { l: 62, r: 14, t: 24, b: cfg.xlabel ? 38 : 24 };
+  const pw = p.w - pad.l - pad.r;
+  const ph = p.h - pad.t - pad.b;
+  if (pw <= 0 || ph <= 0) return;
+
+  let ymin = cfg.ymin, ymax = cfg.ymax;
+  if (ymin === undefined || ymax === undefined) {
+    let lo = Infinity, hi = -Infinity;
+    cfg.series.forEach(s => s.data.forEach(pt => {
+      if (isFinite(pt[1])) { if (pt[1] < lo) lo = pt[1]; if (pt[1] > hi) hi = pt[1]; }
+    }));
+    if (!isFinite(lo) || !isFinite(hi)) { lo = -0.1; hi = 0.1; }
+    const margin = (hi > lo) ? (hi - lo) * 0.1 : 0.1;
+    if (ymin === undefined) ymin = lo - margin;
+    if (ymax === undefined) ymax = hi + margin;
+  }
+
+  const xs = t => pad.l + (t - cfg.tmin) / Math.max(cfg.tmax - cfg.tmin, 1e-9) * pw;
+  const ys = v => pad.t + ph - (v - ymin) / Math.max(ymax - ymin, 1e-12) * ph;
+
+  /* grid, alpha 0.3 like matplotlib */
+  ctx.strokeStyle = "rgba(176,176,176,0.5)";
+  ctx.lineWidth = 1;
+  ctx.font = "10px Arial";
+  ctx.fillStyle = "#333";
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  const yTicks = niceTicks(ymin, ymax, 4);
+  const yFormat = tickFormatter(yTicks);
+  yTicks.forEach(v => {
+    const y = Math.round(ys(v)) + 0.5;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + pw, y); ctx.stroke();
+    ctx.fillText(yFormat(v), pad.l - 6, y);
+  });
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  const xTicks = niceTicks(cfg.tmin, cfg.tmax, 5);
+  const xFormat = tickFormatter(xTicks);
+  xTicks.forEach(v => {
+    const x = Math.round(xs(v)) + 0.5;
+    ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, pad.t + ph); ctx.stroke();
+    ctx.fillText(xFormat(v), x, pad.t + ph + 4);
+  });
+
+  /* series */
+  cfg.series.forEach(s => {
+    if (!s.data.length) return;
+    ctx.strokeStyle = s.color;
+    ctx.lineWidth = s.width || 1.4;
+    ctx.beginPath();
+    let pen = false;
+    for (let i = 0; i < s.data.length; i++) {
+      const t = s.data[i][0], v = s.data[i][1];
+      if (!isFinite(v) || t < cfg.tmin) { pen = false; continue; }
+      const x = xs(t), y = ys(v);
+      if (!pen) { ctx.moveTo(x, y); pen = true; } else { ctx.lineTo(x, y); }
+    }
+    ctx.stroke();
+
+    if (s.markers && s.data.length <= 600) {
+      ctx.fillStyle = s.color;
+      s.data.forEach(pt => {
+        if (!isFinite(pt[1]) || pt[0] < cfg.tmin) return;
+        ctx.beginPath();
+        ctx.arc(xs(pt[0]), ys(pt[1]), 1.5, 0, 2 * Math.PI);
+        ctx.fill();
+      });
+    }
+  });
+
+  /* spines */
+  ctx.strokeStyle = "#333";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(pad.l + 0.5, pad.t + 0.5, pw, ph);
+
+  /* title, axis labels */
+  ctx.fillStyle = "#000";
+  ctx.font = "bold 12px Arial";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.fillText(cfg.title, pad.l + pw / 2, 4);
+
+  ctx.font = "10px Arial";
+  ctx.save();
+  ctx.translate(12, pad.t + ph / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.fillText(cfg.ylabel, 0, 0);
+  ctx.restore();
+
+  if (cfg.xlabel) {
+    ctx.textAlign = "center";
+    ctx.textBaseline = "bottom";
+    ctx.fillText(cfg.xlabel, pad.l + pw / 2, p.h - 4);
+  }
+
+  if (cfg.legend) legend(ctx, cfg.legend, pad.l + 6, pad.t + 6, "left");
+  if (cfg.box) textBox(ctx, cfg.box, pad.l + 6, pad.t + 6, "top");
+}
+
+function drawVector(canvas, last, showKf) {
+  const p = prepare(canvas);
+  const ctx = p.ctx;
+  const pad = { l: 62, r: 14, t: 24, b: 38 };
+  const pw = p.w - pad.l - pad.r;
+  const ph = p.h - pad.t - pad.b;
+  if (pw <= 0 || ph <= 0) return;
+
+  /* equal aspect, like ax.set_aspect('equal') */
+  const size = Math.min(pw, ph);
+  const left = pad.l + (pw - size) / 2;
+  const top = pad.t + (ph - size) / 2;
+  const cx = left + size / 2, cy = top + size / 2;
+
+  let span = Math.max(Math.abs(last.rawMag), showKf ? Math.abs(last.kfMag) : 0) * 1.2;
+  if (!(span > 0)) span = 1e-6;
+  const sc = (size / 2) / span;
+
+  const xs = v => cx + v * sc;
+  const ys = v => cy - v * sc;
+
+  ctx.strokeStyle = "rgba(176,176,176,0.5)";
+  ctx.lineWidth = 1;
+  ctx.font = "10px Arial";
+  ctx.fillStyle = "#333";
+  const ticks = niceTicks(-span, span, 4);
+  const format = tickFormatter(ticks);
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  ticks.forEach(v => {
+    const y = Math.round(ys(v)) + 0.5;
+    ctx.beginPath(); ctx.moveTo(left, y); ctx.lineTo(left + size, y); ctx.stroke();
+    ctx.fillText(format(v), left - 6, y);
+  });
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ticks.forEach(v => {
+    const x = Math.round(xs(v)) + 0.5;
+    ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, top + size); ctx.stroke();
+    ctx.fillText(format(v), x, top + size + 4);
+  });
+
+  /* axhline / axvline */
+  ctx.strokeStyle = "#000";
+  ctx.lineWidth = 0.6;
+  ctx.beginPath();
+  ctx.moveTo(left, cy); ctx.lineTo(left + size, cy);
+  ctx.moveTo(cx, top); ctx.lineTo(cx, top + size);
+  ctx.stroke();
+
+  function axis(mx, my, color, width) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    ctx.moveTo(xs(-mx), ys(-my));
+    ctx.lineTo(xs(mx), ys(my));
+    ctx.stroke();
+    ctx.fillStyle = color;
+    [[mx, my], [-mx, -my]].forEach(pt => {
+      ctx.beginPath();
+      ctx.arc(xs(pt[0]), ys(pt[1]), 2.4, 0, 2 * Math.PI);
+      ctx.fill();
+    });
+  }
+
+  axis(last.rawMx, last.rawMy, COLOR_RAW, 1.4);
+  if (showKf) axis(last.kfMx, last.kfMy, COLOR_KF, 2.2);
+
+  ctx.strokeStyle = "#333";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(left + 0.5, top + 0.5, size, size);
+
+  ctx.fillStyle = "#000";
+  ctx.font = "bold 12px Arial";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.fillText("Current xy velocity axis", pad.l + pw / 2, 4);
+
+  ctx.font = "10px Arial";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "bottom";
+  ctx.fillText("vx (m/s)", pad.l + pw / 2, p.h - 4);
+  ctx.save();
+  ctx.translate(12, pad.t + ph / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.fillText("vy (m/s)", 0, 0);
+  ctx.restore();
+
+  const mag = showKf ? last.kfMag : last.rawMag;
+  const ang = showKf ? last.kfAng : last.rawAng;
+  textBox(ctx, ["|v|=" + mag.toPrecision(4) + " m/s",
+                "dir=" + ang.toFixed(1) + " deg",
+                "valid=" + last.validCount + "/3"],
+          left + 6, top + size - 6, "bottom");
+
+  const entries = [{ label: "raw", color: COLOR_RAW, width: 1.4 }];
+  if (showKf) entries.push({ label: "Kalman", color: COLOR_KF, width: 2.2 });
+  legend(ctx, entries, left + size - 6, top + 6, "right");
+}
+
+/* ======================================================================
+   Data stream from /pff
+   ====================================================================== */
+const processor = new Processor();
+const rawFreq = { 1: [], 2: [], 3: [] };
+const sampleCounts = { 1: 0, 2: 0, 3: 0 };
+const logLines = [];
+
+/* every frame is kept for the download, the same format the listener scripts write */
+const recordLines = [];
+const RECORD_MAX_LINES = 300000;
+const recordStart = new Date();
+
+let since = null;
+let busy = false;
+let latestEventTime = null;
+let lastEventWall = null;
+let rateStamps = [];
+let totalFrames = 0;
+let lostFrames = false;
+let startTime = null;
+
+function handleLine(line) {
+  const f = line.split(",");
+  if (f.length !== 5 || f[0] !== "PFF") return;
+  const uptime = parseFloat(f[1]);
+  const channel = parseInt(f[2], 10);
+  const frequency = parseFloat(f[3]);
+  if (!isFinite(uptime) || !isFinite(frequency) || !(channel in rawFreq)) return;
+
+  const now = performance.now() / 1000;
+  if (startTime === null) startTime = now;
+
+  /* The frequency plots use the local arrival time, like the python plotter. */
+  rawFreq[channel].push([now - startTime, frequency / 1000]);
+  sampleCounts[channel]++;
+
+  latestEventTime = (latestEventTime === null) ? uptime : Math.max(latestEventTime, uptime);
+  lastEventWall = now;
+
+  processor.addEvent(channel, frequency, uptime);
+
+  const text = formatFrame(uptime, channel, frequency, parseFloat(f[4]));
+
+  if (document.getElementById("record").checked && recordLines.length < RECORD_MAX_LINES) {
+    recordLines.push(text);
+  }
+
+  if (document.getElementById("showLog").checked) {
+    logLines.push(text);
+    if (logLines.length > 200) logLines.splice(0, logLines.length - 200);
+  }
+}
+
+/* same layout as pff_console_listener.py on the Raspberry Pi */
+function formatFrame(uptime, channel, frequency, snr) {
+  return "[" + uptime.toFixed(3).padStart(8) + "s] ch " + channel +
+         "  f " + frequency.toFixed(2).padStart(10) +
+         " Hz SNR " + snr.toFixed(2).padStart(7);
+}
+
+function twoDigits(value) {
+  return String(value).padStart(2, "0");
+}
+
+function saveLog() {
+  const now = new Date();
+  const name = "pff_log_" + now.getFullYear() + twoDigits(now.getMonth() + 1) + twoDigits(now.getDate())
+             + "_" + twoDigits(now.getHours()) + twoDigits(now.getMinutes()) + twoDigits(now.getSeconds())
+             + ".txt";
+
+  const header = "Connected to http://" + location.host + " at " + recordStart.toLocaleString() + "\n"
+               + recordLines.length + " frames, saved at " + now.toLocaleString() + "\n\n";
+
+  const blob = new Blob([header + recordLines.join("\n") + "\n"], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function poll() {
+  if (busy) return;
+  busy = true;
+  fetch("/pff" + (since === null ? "" : "?since=" + since))
+    .then(r => r.text())
+    .then(text => {
+      const rows = text.split("\n");
+      const head = rows.shift().split(" ");
+      since = parseInt(head[0], 10);
+      totalFrames = since;
+      if (head[1] === "1") lostFrames = true;
+      let count = 0;
+      for (let i = 0; i < rows.length; i++) {
+        if (rows[i].length === 0) continue;
+        handleLine(rows[i]);
+        count++;
+      }
+      const now = performance.now();
+      for (let i = 0; i < count; i++) rateStamps.push(now);
+      rateStamps = rateStamps.filter(t => now - t < 1000);
+    })
+    .catch(e => console.error("ERR:", e))
+    .finally(() => { busy = false; });
+}
+
+/* ======================================================================
+   Animation
+   ====================================================================== */
+const EMPTY = { t: 0, rawMx: 0, rawMy: 0, rawMag: 0, rawAng: 0, rawVz: 0,
+                kfMx: 0, kfMy: 0, kfMag: 0, kfAng: 0, kfVz: 0,
+                validCount: 0, neg: -1 };
+
+function draw() {
+  /* Advance using the estimated current sensor time, so the pipeline keeps
+     producing output even when no new events arrive. */
+  if (latestEventTime !== null) {
+    const wallDelta = (performance.now() / 1000) - lastEventWall;
+    processor.advance(latestEventTime + wallDelta);
+  }
+
+  const timeWindow = parseFloat(document.getElementById("windowSel").value);
+  const showKf = document.getElementById("showKf").checked;
+  const showFreq = document.getElementById("showFreq").checked;
+  const hist = processor.history;
+  const last = hist.length ? hist[hist.length - 1] : EMPTY;
+
+  const tmax = hist.length ? last.t : 1;
+  const tmin = Math.max(0, tmax - timeWindow);
+
+  const rawMag = [], kfMag = [], rawAng = [], kfAng = [];
+  for (let i = 0; i < hist.length; i++) {
+    const h = hist[i];
+    if (h.t < tmin) continue;
+    rawMag.push([h.t, h.rawMag]); kfMag.push([h.t, h.kfMag]);
+    rawAng.push([h.t, h.rawAng]); kfAng.push([h.t, h.kfAng]);
+  }
+
+  const magSeries = [{ data: rawMag, color: COLOR_RAW, width: 1.2 }];
+  const dirSeries = [{ data: rawAng, color: COLOR_RAW, width: 1.2 }];
+  const entries = [{ label: "raw", color: COLOR_RAW, width: 1.2 }];
+  if (showKf) {
+    magSeries.push({ data: kfMag, color: COLOR_KF, width: 1.6 });
+    dirSeries.push({ data: kfAng, color: COLOR_KF, width: 1.6 });
+    entries.push({ label: "Kalman", color: COLOR_KF, width: 1.6 });
+  }
+
+  let magHi = 0;
+  magSeries.forEach(s => s.data.forEach(pt => { if (isFinite(pt[1]) && pt[1] > magHi) magHi = pt[1]; }));
+  if (!(magHi > 0)) magHi = 1e-6;
+
+  drawChart(document.getElementById("magChart"), {
+    title: "xy speed |v_xy|", ylabel: "m/s",
+    tmin: tmin, tmax: Math.max(tmax, tmin + 1), ymin: 0, ymax: magHi * 1.2,
+    series: magSeries, legend: entries
+  });
+  drawChart(document.getElementById("dirChart"), {
+    title: "Direction (mod 180 deg)", ylabel: "deg", xlabel: "Time (s)",
+    tmin: tmin, tmax: Math.max(tmax, tmin + 1), ymin: -5, ymax: 185,
+    series: dirSeries, legend: entries
+  });
+  drawVector(document.getElementById("vecChart"), last, showKf);
+
+  if (showFreq) {
+    const elapsed = (startTime === null) ? 1 : (performance.now() / 1000 - startTime);
+    const fmin = Math.max(0, elapsed - timeWindow);
+    CHANNELS.forEach((ch, index) => {
+      const dq = rawFreq[ch];
+      let drop = 0;
+      while (drop < dq.length && dq[drop][0] < fmin) drop++;
+      if (drop > 0) dq.splice(0, drop);
+      const lastValue = dq.length ? dq[dq.length - 1][1] : 0;
+      drawChart(document.getElementById("freq" + ch), {
+        title: "Channel " + ch, ylabel: "Frequency (kHz)",
+        xlabel: (index === CHANNELS.length - 1) ? "Time (s)" : null,
+        tmin: fmin, tmax: Math.max(elapsed, fmin + 1),
+        series: [{ data: dq, color: COLOR_RAW, width: 1.0, markers: true }],
+        box: ["Samples: " + sampleCounts[ch] + " | Last: " + lastValue.toFixed(2) + " kHz"]
+      });
+    });
+  }
+
+  if (document.getElementById("showLog").checked) {
+    const el = document.getElementById("log");
+    el.textContent = logLines.join("\n");
+    el.scrollTop = el.scrollHeight;
+  }
+
+  document.getElementById("info").textContent =
+    "frames/s: " + rateStamps.length +
+    "   total: " + totalFrames +
+    "   valid: " + last.validCount + "/3" +
+    (lostFrames ? "   (frames dropped)" : "");
+
+  document.getElementById("saveButton").textContent =
+    "Save log (" + recordLines.length + ")"
+    + (recordLines.length >= RECORD_MAX_LINES ? " full" : "");
+}
+
+document.getElementById("showFreq").addEventListener("change", e => {
+  document.getElementById("freqCol").classList.toggle("hidden", !e.target.checked);
+  document.getElementById("figure").classList.toggle("two", e.target.checked);
+});
+document.getElementById("showLog").addEventListener("change", e => {
+  document.getElementById("logPanel").classList.toggle("hidden", !e.target.checked);
+});
+document.getElementById("showStatus").addEventListener("change", e => {
+  document.getElementById("statusPanel").classList.toggle("hidden", !e.target.checked);
+  if (e.target.checked) pollStatus();
+});
+
+/* the board usually runs without a USB cable, this replaces the serial monitor */
+function pollStatus() {
+  if (!document.getElementById("showStatus").checked) return;
+  fetch("/status")
+    .then(r => r.text())
+    .then(text => { document.getElementById("statusText").textContent = text; })
+    .catch(e => console.error("ERR:", e));
+}
+
+document.getElementById("saveButton").addEventListener("click", saveLog);
+
+setInterval(pollStatus, 2000);
+
+setInterval(poll, POLL_MS);
+setInterval(draw, DRAW_MS);
+poll();
+</script>
+</body>
+</html>

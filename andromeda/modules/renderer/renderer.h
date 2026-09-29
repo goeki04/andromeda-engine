@@ -202,5 +202,11 @@ namespace Andromeda {
         void createFramebuffers();
 		/** @brief Creates and registers the default materials/shaders used by the renderer. */
 		void createMaterials();
+
+		/**
+		 * @brief Builds a Material for every material the model importer recorded.
+		 * @param pbrShaderHandle The PBR shader the imported materials share.
+		 */
+		void createImportedMaterials(ShaderProgramHandle pbrShaderHandle);
 	};
 }

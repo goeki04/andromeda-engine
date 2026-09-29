@@ -18,6 +18,7 @@
 #include "a_node_pins.hpp"
 #include <cmath>
 #include <algorithm>
+#include <cmath>
 #include "a_Nodes.hpp"
 namespace Andromeda {
 
@@ -83,6 +84,10 @@ namespace Andromeda {
 
     inline void evaluateNode(Gui::Node::MakeVec3& node) {
         node.result.value = glm::vec3(node.x.value, node.y.value, node.z.value);
+    }
+
+    inline void evaluateNode(Gui::Node::ToInt& node) {
+        node.out.value = static_cast<i32>(std::lround(node.value.value));
     }
 
     inline void evaluateNode(Gui::Node::Sin& node) {
@@ -288,6 +293,8 @@ namespace Andromeda {
                         group.particleColor = data.particleColor.value;
                     if (isConnected("minLifetime"))
                         group.minLifetime = data.minLifetime.value;
+                    if (isConnected("boxExtents"))
+                        group.boxExtents = data.boxExtents.value;
                 }
                 fieldIndex = 0;
                 Meta::forEachField(data, [&]<typename MemberT>(auto const&, MemberT& member) {

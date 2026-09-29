@@ -35,7 +35,7 @@ namespace Andromeda::Gui::Node {
     inline constexpr std::array<std::string_view, 5> kNodeCategoryOrder = {"Sensor", "Math", "Time", "Variables", "Output"};
 
     /** @brief Which section a node type belongs to, by type name (not by display name). */
-    inline constexpr std::array<std::pair<std::string_view, std::string_view>, 17> kNodeCategories = {{
+    inline constexpr std::array<std::pair<std::string_view, std::string_view>, 20> kNodeCategories = {{
         {"AddNode", "Math"},
         {"Subtract", "Math"},
         {"Multiply", "Math"},
@@ -46,6 +46,7 @@ namespace Andromeda::Gui::Node {
         {"Abs", "Math"},
         {"Cos", "Math"},
         {"Clamp", "Math"},
+        {"ToInt", "Math"},
         {"Lerp", "Math"},
         {"Time", "Time"},
         {"OutputNode", "Output"},
@@ -53,6 +54,8 @@ namespace Andromeda::Gui::Node {
         {"IntVariable", "Variables"},
         {"FloatVariable", "Variables"},
         {"BoolVariable", "Variables"},
+        {"Vec2Variable", "Variables"},
+        {"Vec3Variable", "Variables"},
     }};
 
     constexpr std::string_view nodeCategory(std::string_view typeName) {

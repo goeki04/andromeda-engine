@@ -1,0 +1,207 @@
+# Blender 4.5.2 LTS MTL File: 'Room 2.1.blend'
+# www.blender.org
+
+newmtl Bg
+Ns 250.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.000000 0.014892 0.015716
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+
+newmtl Book
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd ../textures/room/Book_diffuse.png
+map_Ns ../textures/room/Book_roughness.png
+
+newmtl Building
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd ../textures/room/Building_diffuse.png
+map_Ns ../textures/room/Building_roughness.png
+map_Bump -bm 1.000000 ../textures/room/Building_nrml.png
+
+newmtl Cabinet
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd ../textures/room/Cabinet_diffuse.png
+map_Ns ../textures/room/Cabinet_roughness.png
+map_Bump -bm 1.000000 ../textures/room/Cabinet_normal.png
+
+newmtl Clock
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd ../textures/room/Clock_diffuse.png
+map_Ns ../textures/room/Clock_roughness.png
+map_Ke ../textures/room/Clock_emit.png
+
+newmtl Dvd
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd ../textures/room/Dvd_diffuse.png
+map_Ns ../textures/room/Dvd_roughness.png
+
+newmtl Guitar
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd ../textures/room/Guitar_diffuse.png
+map_Ns ../textures/room/Guitar_roughness.png
+
+newmtl Lamp
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd ../textures/room/Lamp_diffuse.png
+map_Ns ../textures/room/Lamp_roughness.png
+map_Ke ../textures/room/Lamp_emission.png
+
+newmtl Mug
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd ../textures/room/Mug_diffuse.png
+map_Ns ../textures/room/Mug_roughness.png
+
+newmtl Phone
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd ../textures/room/Phone_diffuse.png
+map_Ns ../textures/room/Phone_roughness.png
+map_Ke ../textures/room/Phone_emission.png
+
+newmtl Plant
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd ../textures/room/Plant_diffuse.png
+map_Ns ../textures/room/Plant_roughness.png
+map_Bump -bm 1.000000 ../textures/room/Plant_normal.png
+
+newmtl Pokeball
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd ../textures/room/Pokeball_diffuse.png
+map_Ns ../textures/room/Pokeball_roughness.png
+
+newmtl Remote
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd ../textures/room/Remote_diffuse.png
+map_Ns ../textures/room/Remote_roughness.png
+
+newmtl Sofa
+Ns 490.000000
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd ../textures/room/Sofa_diffuse.png
+map_Bump -bm 1.000000 ../textures/room/Sofa_normal.png
+
+newmtl Soundbar
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd ../textures/room/Soundbar_diffuse.png
+map_Ns ../textures/room/Soundbar_roughness.png
+map_Bump -bm 1.000000 ../textures/room/Soundbar_normal.png
+
+newmtl Switch
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd ../textures/room/Switch_diffuse.png
+map_Ns ../textures/room/Switch_roughness.png
+map_Ke ../textures/room/Switch_emission.png
+
+newmtl TV
+Ka 1.000000 1.000000 1.000000
+Ks 0.374016 0.374016 0.374016
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd ../textures/room/Tv_diffuse.png
+map_Ns ../textures/room/Tv_roughness.png
+map_Ke ../textures/room/Tv_emit.png
+
+newmtl TVBacklight
+Ns 360.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.800000 0.800000 0.800000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 2
+
+newmtl Table
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd ../textures/room/Table_diffuse.png
+map_Ns ../textures/room/Table_roughness.png
+
+newmtl Wall_Frame
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd ../textures/room/Wall frame_diffuse.png
+map_Ns ../textures/room/Wall frame_roughness.png

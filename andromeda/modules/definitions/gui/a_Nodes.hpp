@@ -109,6 +109,9 @@ namespace Andromeda::Gui::Node {
         Input<vec3> velocity;
         Input<vec3> particleColor;
         Input<float> minLifetime;
+        // Appended, never inserted: a pin's ID is built from its field index, so moving an
+        // existing field would repoint the links of every already saved graph.
+        Input<vec3> boxExtents;
     };
 
     // Variable nodes: with variableId == 0 (added from the menu) the value is the node's own constant.
@@ -131,6 +134,23 @@ namespace Andromeda::Gui::Node {
     struct [[ParticleNode]] BoolVariable {
         Param<bool> value;
         Output<bool> out;
+        u32 variableId = 0; ///< GraphVariable this node is bound to, 0 = unbound.
+    };
+
+    struct [[ParticleNode]] ToInt {
+        Input<float> value;
+        Output<i32> out;
+    };
+
+    struct [[ParticleNode]] Vec3Variable {
+        Param<vec3> value;
+        Output<vec3> out;
+        u32 variableId = 0; ///< GraphVariable this node is bound to, 0 = unbound.
+    };
+
+    struct [[ParticleNode]] Vec2Variable {
+        Param<vec2> value;
+        Output<vec2> out;
         u32 variableId = 0; ///< GraphVariable this node is bound to, 0 = unbound.
     };
 }

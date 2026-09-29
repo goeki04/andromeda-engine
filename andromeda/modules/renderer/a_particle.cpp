@@ -45,6 +45,7 @@ namespace Andromeda {
 		m_EmitterSettingsBuffer.initialize(sizeof(Generated::Compute::EmitterSettings));
 		m_SceneCamera = &data;
 		m_CameraDataBuffer.initialize(sizeof(Generated::CameraData));
+        m_MaterialBuffer.initialize(sizeof(Generated::ParticleMaterial));
 	}
 	/**
 	 * @brief Advances the particle simulation by dispatching the compute shader for this frame.
@@ -97,24 +98,30 @@ namespace Andromeda {
 		cameraData.view = m_SceneCamera->viewMatrix;
 		cameraData.proj = m_SceneCamera->projection;
 		m_CameraDataBuffer.setData(&cameraData, sizeof(Generated::CameraData));
+        Generated::ParticleMaterial material;
+        material.particleColor = m_EmitterSettings.color;
+        m_MaterialBuffer.setData(&material, sizeof(Generated::ParticleMaterial));
+        m_MaterialBuffer.bind(4);
 		m_Context->drawInstanced(DrawMode::Points, 1, m_EmitterSettings.maxParticles, 0);
 	}
 
 	void ParticleEmitter::applyGroup(const ParticleGroup& group, const vec3& worldPos, const GroupRange& range)
 	{
-		if (range.count != m_EmitterSettings.maxParticles) {
-			m_EmitterSettings.maxParticles = range.count;
-			m_ParticleBuffer.create(BufferUsage::DynamicDraw, range.count * sizeof(Generated::Compute::Particle), nullptr);
-			m_ParticleBuffer.clear();
-		}
-
+        const u32 desired = range.count;
+        m_EmitterSettings.activeParticleCount = desired;
+        if (desired > m_Capacity) { 
+            m_Capacity = desired;
+            m_ParticleBuffer.create(BufferUsage::DynamicDraw, m_Capacity * sizeof(Generated::Compute::Particle),
+                                    nullptr);
+            m_ParticleBuffer.clear();
+        }
+        m_EmitterSettings.maxParticles = m_Capacity;
 		m_EmitterSettings.size = group.size;
 		m_EmitterSettings.color = vec4(group.particleColor,1.0f);
 		m_EmitterSettings.emitterPosition = worldPos;
 		m_EmitterSettings.minLifetime = group.minLifetime;
 		m_EmitterSettings.startVelocity = group.velocity;
-		m_EmitterSettings.boxExtents = vec3(2.0f);
-		m_EmitterSettings.activeParticleCount = range.count;
+		m_EmitterSettings.boxExtents = group.boxExtents;
 	}
 
 	bool ParticleEmitter::isInitialized()

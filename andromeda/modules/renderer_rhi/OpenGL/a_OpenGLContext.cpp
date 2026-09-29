@@ -342,10 +342,13 @@ namespace Andromeda {
 
         m_IsFirstContextInit = false;
     }
-    void OpenGLContext::drawIndexed(u32 vao, u32 indexCount)
+    void OpenGLContext::drawIndexed(u32 vao, u32 indexCount, u32 indexOffset)
     {
         glBindVertexArray(vao);
-        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(indexCount), GL_UNSIGNED_INT, nullptr);
+        // The offset is a byte offset into the bound element buffer, not an index count.
+        const auto byteOffset = static_cast<GLintptr>(indexOffset) * static_cast<GLintptr>(sizeof(u32));
+        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(indexCount), GL_UNSIGNED_INT,
+                       reinterpret_cast<const void*>(byteOffset));
         glBindVertexArray(0);
     }
 

@@ -122,7 +122,7 @@ namespace Andromeda {
          * @param vao The ID of the vertex array object.
          * @param indexCount The number of indices to render.
          */
-        void drawIndexed(u32 vao, u32 indexCount) override;
+        void drawIndexed(u32 vao, u32 indexCount, u32 indexOffset = 0) override;
 
         /**
          * @brief Executes a non-indexed draw command using the specified vertex array.

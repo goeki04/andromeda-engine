@@ -15,7 +15,7 @@ namespace Andromeda::Gui::Overlay {
 
     namespace {
         /** @brief Type dropdown labels, in the order of the GraphValue alternatives (value.index()). */
-        constexpr std::array<const char*, 3> kGraphValueTypeNames = {"Int", "Float", "Bool"};
+        constexpr std::array<const char*, 5> kGraphValueTypeNames = {"Int", "Float", "Bool", "Vec2", "Vec3"};
         static_assert(kGraphValueTypeNames.size() == std::variant_size_v<GraphValue>,
                       "kGraphValueTypeNames and makeDefaultGraphValue must list every GraphValue alternative");
 
@@ -32,6 +32,12 @@ namespace Andromeda::Gui::Overlay {
                 return i32{0};
             case 1:
                 return 0.0f;
+            case 2:
+                return false;
+            case 3:
+                return vec2{0.0f, 0.0f};
+            case 4:
+                return vec3{0.0f, 0.0f, 0.0f};
             default:
                 return false;
             }
@@ -64,6 +70,19 @@ namespace Andromeda::Gui::Overlay {
                     {system.nextVariableId++, makeUniqueVariableName(system.graphVariables), 0.0f});
             if (ImGui::IsItemHovered())
                 ImGui::SetTooltip("Add variable");
+        }
+
+        /** @brief How many drag fields a value draws: 1 for a scalar, 2 for a vec2, 3 for a vec3. */
+        size_t componentCount(const GraphValue& value) {
+            return std::visit([](const auto& v) -> size_t {
+                using T = std::decay_t<decltype(v)>;
+                if constexpr (std::is_same_v<T, vec3>)
+                    return 3;
+                else if constexpr (std::is_same_v<T, vec2>)
+                    return 2;
+                else
+                    return 1;
+            }, value);
         }
 
         /** @brief @p color with its RGB scaled by @p factor; below 1 darkens, alpha stays. */
@@ -107,6 +126,14 @@ namespace Andromeda::Gui::Overlay {
             const float innerWidth = rowWidth - kRowPadding * 2.0f;
             const float fixedWidth = frameHeight * 2.0f + style.ItemSpacing.x * 4.0f; // remove button + grip + gaps
             const float flexibleWidth = std::max(innerWidth - fixedWidth, 0.0f);
+
+            // A vec3 shows three drag fields in the space a single float needs, so the value column
+            // grows with the number of components and name and type give that width up.
+            const float components = static_cast<float>(componentCount(variable.value));
+            const float valueShare = std::min(0.35f + 0.18f * (components - 1.0f), 0.7f);
+            const float nameShare = (1.0f - valueShare) * 0.6f;
+            const float typeShare = (1.0f - valueShare) * 0.4f;
+
             ImGui::SetCursorScreenPos(ImVec2(rowMin.x + kRowPadding, rowMin.y + kRowPadding));
 
             const bool removePressed = ImGui::Button(ICON_LC_X, ImVec2(frameHeight, frameHeight));
@@ -115,21 +142,21 @@ namespace Andromeda::Gui::Overlay {
             char nameBuffer[64];
             const size_t length = variable.name.copy(nameBuffer, sizeof(nameBuffer) - 1);
             nameBuffer[length] = '\0';
-            ImGui::SetNextItemWidth(flexibleWidth * 0.4f);
+            ImGui::SetNextItemWidth(flexibleWidth * nameShare);
             if (ImGui::InputText("##name", nameBuffer, sizeof(nameBuffer)))
                 variable.name = nameBuffer;
 
             ImGui::SameLine();
             const int currentType = static_cast<int>(variable.value.index());
             int selectedType = currentType;
-            ImGui::SetNextItemWidth(flexibleWidth * 0.25f);
+            ImGui::SetNextItemWidth(flexibleWidth * typeShare);
             if (ImGui::Combo("##type", &selectedType, kGraphValueTypeNames.data(),
                              static_cast<int>(kGraphValueTypeNames.size())) &&
                 selectedType != currentType)
                 variable.value = makeDefaultGraphValue(static_cast<size_t>(selectedType));
 
             ImGui::SameLine();
-            ImGui::SetNextItemWidth(flexibleWidth * 0.35f);
+            ImGui::SetNextItemWidth(flexibleWidth * valueShare);
             std::visit([](auto& value) { Node::drawField(value); }, variable.value);
 
             // Right-aligned grip. Plain text has no ID, so clicks on it reach the drag area underneath.
@@ -224,9 +251,21 @@ namespace Andromeda::Gui::Overlay {
             using T = std::decay_t<decltype(value)>;
             if constexpr (std::is_same_v<T, i32>) {
                 return Node::IntVariable{.value = value, .variableId = variable.id};
-            } else if constexpr (std::is_same_v<T, float>) {
+            } 
+            else if constexpr (std::is_same_v<T, float>) 
+            {
                 return Node::FloatVariable{.value = value, .variableId = variable.id};
-            } else {
+            } 
+            else if constexpr (std::is_same_v<T, vec2>) 
+            {
+                return Node::Vec2Variable{.value = value, .variableId = variable.id};
+            }
+            else if constexpr (std::is_same_v<T, vec3>) 
+            {
+                return Node::Vec3Variable{.value = value, .variableId = variable.id};
+            }
+            else 
+            {
                 static_assert(std::is_same_v<T, bool>, "New GraphValue type: add its node here");
                 return Node::BoolVariable{.value = value, .variableId = variable.id};
             }
