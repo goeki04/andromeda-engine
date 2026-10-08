@@ -130,7 +130,7 @@ namespace Andromeda {
 		 * @param textureTarget The GL texture target (e.g. GL_TEXTURE_2D or the multisample target).
 		 * @param colorSpecs The color attachment specifications to create.
 		 */
-		void attachColorAttachments(GLenum textureTarget, const std::vector<FramebufferTextureSpecification>& colorSpecs)
+		void attachColorAttachments(const GLenum textureTarget, const std::vector<FramebufferTextureSpecification>& colorSpecs)
 		{
 			if (colorSpecs.empty()) return;
 
@@ -186,7 +186,7 @@ namespace Andromeda {
 		 * @param depthSpec The depth attachment specification.
 		 * @param hasDepth Whether a depth attachment is required at all.
 		 */
-		void attachDepthAttachment(bool isMultisampled, const FramebufferTextureSpecification& depthSpec, bool hasDepth)
+		void attachDepthAttachment(const bool isMultisampled, const FramebufferTextureSpecification& depthSpec, bool hasDepth)
 		{
 			if (!hasDepth) return;
 
@@ -240,6 +240,6 @@ namespace Andromeda {
 
 	void RHIFramebuffer::resize(const ivec2& newSize) { m_Impl->resize(newSize); }
 	const FramebufferSpecification& RHIFramebuffer::getSpecification() const { return m_Impl->getSpecification(); }
-	const Texture& RHIFramebuffer::getColorAttachmentTexture(i32 index) const { return m_Impl->getColorAttachmentTexture(index); }
+	const Texture& RHIFramebuffer::getColorAttachmentTexture(const i32 index) const { return m_Impl->getColorAttachmentTexture(index); }
 	u32 RHIFramebuffer::getFramebufferID() const { return m_Impl->getFramebufferID(); }
 }

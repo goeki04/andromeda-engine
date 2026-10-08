@@ -133,9 +133,9 @@ namespace Andromeda {
 
         /**
          * @brief Binds a framebuffer for rendering.
-         * @param framebuffer A shared pointer to the framebuffer object.
+         * @param framebuffer The framebuffer to bind (pass nullptr for the default framebuffer).
          */
-        void bindFramebuffer(std::shared_ptr<RHIFramebuffer> framebuffer) override;
+        void bindFramebuffer(const RHIFramebuffer* framebuffer) override;
 
         /**
          * @brief Unbinds the currently bound framebuffer, reverting to the default framebuffer.
@@ -148,7 +148,7 @@ namespace Andromeda {
          * @param target The target framebuffer (pass nullptr to target the default framebuffer).
          * @param copyDepth Whether to include the depth buffer in the blit operation.
          */
-        void blitFramebuffer(std::shared_ptr<RHIFramebuffer> source, std::shared_ptr<RHIFramebuffer> target, bool copyDepth = false) override;
+        void blitFramebuffer(const RHIFramebuffer* source, const RHIFramebuffer* target, bool copyDepth = false) override;
 
         /**
          * @brief Generates an empty Vertex Array Object (VAO).
@@ -193,9 +193,9 @@ namespace Andromeda {
         /**
          * @brief Creates a framebuffer object based on the provided specifications.
          * @param specs The framebuffer requirements.
-         * @return A shared pointer to the RHIFramebuffer object.
+         * @return The created RHIFramebuffer; convertible to a shared_ptr where shared ownership is wanted.
          */
-        std::shared_ptr<RHIFramebuffer> createFramebuffer(const FramebufferSpecification& specs) override;
+        std::unique_ptr<RHIFramebuffer> createFramebuffer(const FramebufferSpecification& specs) override;
 
         /**
          * @brief Deletes a vertex array object from the GPU.

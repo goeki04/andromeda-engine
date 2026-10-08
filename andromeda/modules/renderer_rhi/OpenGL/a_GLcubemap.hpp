@@ -162,7 +162,7 @@ namespace Andromeda {
 		 * @param envCubemap The destination cubemap texture ID to render the faces into.
 		 * @param renderCube Callback that draws the unit cube geometry for each face.
 		 */
-		static void ConvertEquiretangularToCubemap(IGraphicsContext* context,ShaderProgramHandle shaderHandle, GLuint& hdrTexture,std::shared_ptr<RHIFramebuffer> bakingFBO ,u32 envCubemap, std::function<void()> renderCube) {
+		static void ConvertEquiretangularToCubemap(IGraphicsContext* context,ShaderProgramHandle shaderHandle, GLuint& hdrTexture,const RHIFramebuffer* bakingFBO ,u32 envCubemap, std::function<void()> renderCube) {
 
 			RenderPassSpecs specs;
 			specs.rasterizerMode = RasterizerMode::Fill;

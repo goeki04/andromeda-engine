@@ -98,6 +98,7 @@ add_subdirectory(modules/editor)
 add_subdirectory(modules/input)
 add_subdirectory(modules/resource)
 add_subdirectory(modules/filesystem)
+add_subdirectory(modules/os)
 add_subdirectory(modules/serialization)
 add_subdirectory(modules/renderer_rhi)
 add_subdirectory(modules/data)
@@ -192,6 +193,7 @@ target_link_libraries(Andromeda PRIVATE
     particle_system
     serialization
     filesystem
+    os
     resource
     definitions
 )

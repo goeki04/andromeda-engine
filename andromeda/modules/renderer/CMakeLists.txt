@@ -5,6 +5,8 @@ find_package(imgui REQUIRED)
 add_library(renderer STATIC
     a_particle.cpp
     renderer.cpp
+        a_AssetPreviewRenderer.cpp
+        a_FrameConstants.cpp
 )
 
 target_include_directories(renderer PUBLIC 

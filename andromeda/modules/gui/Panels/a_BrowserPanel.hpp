@@ -37,8 +37,18 @@ namespace Andromeda::Gui {
          */
         struct Tile {
             const ModelRecord& blueprint;   ///< Reference to the underlying device data.
-            u32 texID;         ///< GPU texture handle for the device icon.
+            u32 texID;         ///< GPU texture handle of the image to draw: a rendered model preview, or the device icon as a fallback.
             i32 index;              ///< Unique index of the device in the provider list.
+
+            /**
+             * @brief Whether the texture has to be drawn with its V axis flipped.
+             *
+             * @details True for a rendered preview and false for a device icon, because the two
+             *          arrive with opposite row order: a render target has its origin at the
+             *          bottom left, while an icon loaded from an image file starts at the top left.
+             *          Drawing both with the same UVs leaves one of them upside down.
+             */
+            bool flipV = false;
 
             bool hovered = false;   ///< Is the mouse currently over this tile?
             bool active = false;    ///< Is the mouse button currently held down on this tile?

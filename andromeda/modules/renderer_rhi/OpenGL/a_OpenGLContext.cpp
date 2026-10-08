@@ -352,7 +352,7 @@ namespace Andromeda {
         glBindVertexArray(0);
     }
 
-    void OpenGLContext::bindFramebuffer(std::shared_ptr<RHIFramebuffer> framebuffer)
+    void OpenGLContext::bindFramebuffer(const RHIFramebuffer* framebuffer)
     {
         if (!framebuffer) {
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -370,9 +370,9 @@ namespace Andromeda {
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 
-    std::shared_ptr<RHIFramebuffer> OpenGLContext::createFramebuffer(const FramebufferSpecification& specs)
+    std::unique_ptr<RHIFramebuffer> OpenGLContext::createFramebuffer(const FramebufferSpecification& specs)
     {
-        return std::make_shared<RHIFramebuffer>(specs);
+        return std::make_unique<RHIFramebuffer>(specs);
     }
 
     void OpenGLContext::deleteVertexArrays(u32 vao)
@@ -399,7 +399,7 @@ namespace Andromeda {
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + faceIndex, cubemapTexID, 0);
     }
 
-    void OpenGLContext::blitFramebuffer(std::shared_ptr<RHIFramebuffer> source, std::shared_ptr<RHIFramebuffer> target, bool copyDepth)
+    void OpenGLContext::blitFramebuffer(const RHIFramebuffer* source, const RHIFramebuffer* target, bool copyDepth)
     {
         assert(source && "RHI Error: Source Framebuffer for blit is null!");
 

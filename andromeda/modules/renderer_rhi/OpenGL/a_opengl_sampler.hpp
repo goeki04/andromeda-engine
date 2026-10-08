@@ -36,6 +36,7 @@ namespace Andromeda {
             return (type == TextureType::Texture2D) ? GL_TEXTURE_2D : GL_TEXTURE_CUBE_MAP;
         }
 
+        // ReSharper disable once CppDoxygenUnresolvedReference
         /**
          * @brief Explicitly applies the stored sampler state to the currently bound OpenGL texture.
          * * This method issues the necessary glTexParameteri calls to configure the

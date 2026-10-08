@@ -10,13 +10,15 @@
 #include "OpenGL/a_opengl_upload.hpp"
 #include "a_shader_generated.hpp"
 #include "a_clearFlags.hpp"
+#include "a_colors.hpp"
 #include "a_logger.hpp"
 #include <algorithm>
+#include "a_AssetPreviewRenderer.hpp"
 
 using namespace Andromeda::ECS;
 namespace Andromeda {
 
-    void Renderer::initRenderer()
+    auto Renderer::initRenderer() -> void
     {
         m_GLContext = std::make_unique<OpenGLContext>();
         m_RenderContext = m_GLContext.get();
@@ -27,14 +29,15 @@ namespace Andromeda {
         assert(m_SceneManager && "SceneManager is nullptr in Renderer::Start()");
         m_Cam = &m_SceneManager->m_EditorCamData;
 
-        m_CameraUBO.initialize(sizeof(Generated::CameraBuffer));
-        m_ObjectUBO.initialize(sizeof(Generated::ObjectBuffer));
+        m_FrameConstants.initialize();
+
         m_ColorUBO.initialize(sizeof(Generated::ColorBuffer));
         m_GridUBO.initialize(sizeof(Generated::GridBuffer));
         m_GridParamsUBO.initialize(sizeof(Generated::GridParamsBuffer));
         m_OutlineUBO.initialize(sizeof(Generated::OutlineParamsBuffer));
-        m_LightUBO.initialize(sizeof(Generated::lights));
+
         m_pbrMaterialUBO.initialize(sizeof(Generated::pbrMaterial));
+        m_AssetPreviewRenderer = std::make_unique<AssetPreviewRenderer>(m_ResourceManager, m_RenderContext,m_ResourceManager, &m_FrameConstants);
     }
 
     u64 createEmitterKey(const Entity id, const u32 groupId)
@@ -94,7 +97,7 @@ namespace Andromeda {
         m_RenderContext->setParameter(prefilterMapHandle, "environmentMap", 0);
         m_RenderContext->setParameter(prefilterMapHandle, "proj", CubemapGL::cubeProjection);
         m_RenderContext->bindTextureCube(0, m_EnvironmentCubemap);
-        m_RenderContext->bindFramebuffer(m_BakingBuffer);
+        m_RenderContext->bindFramebuffer(m_BakingBuffer.get());
         u32 maxMipLevels = 5;
 
         for (u32 mip = 0; mip < maxMipLevels; ++mip) {
@@ -144,7 +147,7 @@ namespace Andromeda {
 
         m_RenderContext->setParameter(irradianceShaderHandle, "proj", CubemapGL::cubeProjection);
         m_RenderContext->setViewport(0,0,32,32);
-        m_RenderContext->bindFramebuffer(m_BakingBuffer);
+        m_RenderContext->bindFramebuffer(m_BakingBuffer.get());
         for (u32 i = 0; i < 6; ++i) {
             m_RenderContext->setParameter(irradianceShaderHandle, "view", CubemapGL::cubeViews[i]);
             m_RenderContext->attachCubemapFace(i, m_IrradianceCubemap.textureID);
@@ -213,7 +216,7 @@ namespace Andromeda {
         m_RenderContext->bindSamplerState(m_BrdfLUTTexture.textureID, brdfSampler);
 
         m_RenderContext->setViewport(0, 0, 512, 512);
-        m_RenderContext->bindFramebuffer(m_BakingBuffer);
+        m_RenderContext->bindFramebuffer(m_BakingBuffer.get());
 
         m_RenderContext->bindToTarget(m_BrdfLUTTexture);
         m_RenderContext->framebufferTexture2D(m_BrdfLUTTexture, 0);
@@ -225,7 +228,6 @@ namespace Andromeda {
 
         RenderPassSpecs resetSpecs;
         m_RenderContext->setRenderPassSpecs(resetSpecs);
-
     }
 
     void Renderer::start()
@@ -240,7 +242,6 @@ namespace Andromeda {
         m_TexelSize = 1.0f / vec2(m_FramebufferSize.x, m_FramebufferSize.y);
 
         createFramebuffers();
-
         m_EnvironmentCubemap.width = 512;
         m_EnvironmentCubemap.height = 512;
         SamplerState environmentMap;
@@ -259,7 +260,7 @@ namespace Andromeda {
         CubemapGL::ConvertEquiretangularToCubemap(
             m_RenderContext, equirectangularHandle,
             hdrMapID,
-            m_BakingBuffer,
+            m_BakingBuffer.get(),
             m_EnvironmentCubemap.textureID,
             [&]() {
                 m_RenderContext->drawIndexed(cubemapGpuHandle.vao, 36);
@@ -274,6 +275,7 @@ namespace Andromeda {
         m_CubeVao = m_RenderContext->createEmptyVAO();
         brdfLUTBaking();
         createMaterials();
+        m_AssetPreviewRenderer->initialize();
         RenderPassSpecs initSpecs;
         m_RenderContext->setRenderPassSpecs(initSpecs);
         registerEvents();
@@ -314,7 +316,8 @@ namespace Andromeda {
         ShaderProgramHandle pbrShaderHandle = m_ResourceManager->loadShaderRHI(m_RenderContext, "PBR_Shader", SHADER_PATH "PBR/pbr.vert", SHADER_PATH "PBR/pbr.frag");
         if (auto pbrMaterial = m_ResourceManager->createMaterial("PBRMaterial", pbrShaderHandle, m_RenderContext)) {
             Generated::pbrMaterial plasticData;
-            plasticData.albedo = vec3(1.0f, 0.0f, 0.0f);
+            // Linearized: the palette holds display-space values, the shader works in linear space.
+            plasticData.albedo = vec3(srgbToLinear(Colors::LightGrey));
             plasticData.metallic = 0.0f;
             plasticData.roughness = 0.8f;
             plasticData.ao = 1.0f;
@@ -420,14 +423,14 @@ namespace Andromeda {
     void Renderer::scenePassBegin() const {
         if (!m_Cam) return;
 
-        m_RenderContext->bindFramebuffer(m_MsaaBuffer);
+        m_RenderContext->bindFramebuffer(m_MsaaBuffer.get());
         m_RenderContext->clear(ClearFlags::Color | ClearFlags::Depth, vec4(0.2f, 0.2f, 0.35f, 1.0f));
 
         Generated::CameraBuffer camData;
         camData.viewMatrix = m_Cam->viewMatrix;
         camData.projMatrix = m_Cam->projection;
         camData.camPos = m_Cam->cameraPos;
-        auto& mutableCamUBO = const_cast<RHIConstantBuffer&>(m_CameraUBO);
+        auto& mutableCamUBO = const_cast<RHIConstantBuffer&>(m_FrameConstants.cameraUBO);
         mutableCamUBO.setData(&camData, sizeof(Generated::CameraBuffer));
         mutableCamUBO.bind(0);
 
@@ -443,7 +446,7 @@ namespace Andromeda {
         lightData.lightColors[2] = vec4(300.0f, 300.0f, 300.0f, 1.0f);
         lightData.lightColors[3] = vec4(300.0f, 300.0f, 300.0f, 1.0f);
 
-        auto& mutableLightUBO = const_cast<RHIConstantBuffer&>(m_LightUBO);
+        auto& mutableLightUBO = const_cast<RHIConstantBuffer&>(m_FrameConstants.lightUBO);
         mutableLightUBO.setData(&lightData, sizeof(Generated::lights));
         mutableLightUBO.bind(3);
     }
@@ -480,7 +483,7 @@ namespace Andromeda {
         const auto& entitiesWithMesh = meshPool.getEntities();
         const auto& meshData = meshPool.data();
 
-        auto& mutableObjectUBO = const_cast<RHIConstantBuffer&>(m_ObjectUBO);
+        auto& mutableObjectUBO = const_cast<RHIConstantBuffer&>(m_FrameConstants.modelUBO);
 
         for (size_t i = 0; i < entitiesWithMesh.size(); ++i) {
             Entity e = entitiesWithMesh[i];
@@ -546,7 +549,7 @@ namespace Andromeda {
     }
 
     void Renderer::selectionPass(Entity selectedEntity) const {
-        m_RenderContext->bindFramebuffer(m_SelectionBuffer);
+        m_RenderContext->bindFramebuffer(m_SelectionBuffer.get());
         m_RenderContext->clear(ClearFlags::Color | ClearFlags::Depth, vec4(0.0f, 0.0f, 0.0f, 0.0f));
 
         if (selectedEntity == ECS::INVALID_ENTITY_ID) {
@@ -574,7 +577,7 @@ namespace Andromeda {
 
                 Generated::ObjectBuffer objData;
                 objData.model = transform.modelMatrix();
-                auto& mutableObjectUBO = const_cast<RHIConstantBuffer&>(m_ObjectUBO);
+                auto& mutableObjectUBO = const_cast<RHIConstantBuffer&>(m_FrameConstants.modelUBO);
                 mutableObjectUBO.setData(&objData, sizeof(Generated::ObjectBuffer));
                 mutableObjectUBO.bind(1);
 
@@ -589,7 +592,7 @@ namespace Andromeda {
     }
 
     void Renderer::postprocessingPass() const {
-        m_RenderContext->bindFramebuffer(m_PostprocessBuffer);
+        m_RenderContext->bindFramebuffer(m_PostprocessBuffer.get());
 
         RenderPassSpecs specs;
         specs.depthTest = false;
@@ -617,7 +620,7 @@ namespace Andromeda {
     }
 
     void Renderer::scenePassEndResolve() const {
-        m_RenderContext->blitFramebuffer(m_MsaaBuffer, m_SceneBuffer, false);
+        m_RenderContext->blitFramebuffer(m_MsaaBuffer.get(), m_SceneBuffer.get(), false);
         m_RenderContext->unbindFramebuffer();
     }
 

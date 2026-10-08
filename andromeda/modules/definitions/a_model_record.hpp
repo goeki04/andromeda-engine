@@ -43,6 +43,12 @@ namespace Andromeda {
 		virtual u32 getModelCount() const = 0;
 
 		/**
+		 * @brief Returns the rendered preview texture for a model, or 0 if none was baked.
+		 * @param meshID The model's mesh identifier.
+		 */
+		virtual u32 getPreviewTextureID(u32 meshID) const = 0;
+
+		/**
 		 * @brief Retrieves the metadata for a specific model.
 		 * @param index Zero-based index into the model catalogue, must be less than @c getModelCount().
 		 * @return Reference to the requested model's metadata.

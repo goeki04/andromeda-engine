@@ -280,7 +280,12 @@ void ResourceManager::loadAndStoreCubemap(const std::string& file) {
 
     const Mesh& ResourceManager::getMeshByID(const u32 meshID) const
     {
+        if (!m_Meshes.contains(meshID))
+        {
+            A_WARN("m_Meshes doesn't contain the specified meshID");
+        }
         return m_Meshes.at(meshID);
+
     }
 
     std::string ResourceManager::getMeshNameByID(const u32 id) const
@@ -640,10 +645,21 @@ void ResourceManager::loadAndStoreCubemap(const std::string& file) {
     }
 
     void ResourceManager::destroyRHIResources(IGraphicsContext* ctx) {
-        for (auto& [name, handle] : m_RhiShaders) {
+        for (auto& handle : m_RhiShaders | std::views::values) {
             ctx->destroyShaderProgram(handle);
         }
         m_RhiShaders.clear();
         m_Materials.clear();
+    }
+
+    u32 ResourceManager::getPreviewTextureID(const u32 meshID) const
+    {
+        const auto it = m_PreviewTextureIDs.find(meshID);
+        return it != m_PreviewTextureIDs.end() ? it->second : 0;
+    }
+
+    void ResourceManager::setPreviewTextureID(const u32 meshID, const u32 textureID)
+    {
+        m_PreviewTextureIDs[meshID] = textureID;
     }
 }

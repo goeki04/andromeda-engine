@@ -273,6 +273,8 @@ namespace Andromeda {
          */
         void destroyRHIResources(IGraphicsContext* ctx);
 
+        u32 getPreviewTextureID(const u32 meshID) const override;
+        void setPreviewTextureID(const u32 meshID,const u32 textureID);
     private:
         /**
          * @brief Decodes image data from disk into CPU memory using stb_image.
@@ -291,7 +293,7 @@ namespace Andromeda {
         std::unordered_map<i32, MeshGPUHandle> m_GPUMeshes;      /**< Stores OpenGL VAO/VBO/EBO handles for loaded meshes. */
         std::vector<u32> m_ModelIndexList;                       /**< Sequential list of model IDs for UI iteration. */
         std::unordered_map<std::string, u32> m_MeshIDbyName;     /**< Maps string names to internal Mesh IDs to prevent duplicates. */
-
+        std::unordered_map<u32,u32> m_PreviewTextureIDs;
 
         /** @brief Cached RHI shader programs, keyed by their registration name. */
         std::unordered_map<std::string, ShaderProgramHandle> m_RhiShaders;

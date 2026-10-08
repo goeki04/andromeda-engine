@@ -17,6 +17,8 @@
 #include "a_rhi_constant_buffer.hpp"
 #include "a_texture.hpp"
 #include "a_particle.hpp"
+#include "a_FrameConstants.hpp"
+#include "a_AssetPreviewRenderer.hpp"
 namespace Andromeda {
 	namespace amath {
 		struct CameraData;
@@ -44,6 +46,8 @@ namespace Andromeda {
 		Vulkan,    ///< Planned Vulkan backend.
 		Metal      ///< Planned Metal backend (e.g., via MoltenVK on macOS).
 	};
+
+
 
 	/**
 	 * @class Renderer
@@ -169,7 +173,7 @@ namespace Andromeda {
 		float m_ResizeTimer = 0.0f;                               ///< Debounce countdown for pending viewport resizes.
 		bool m_ResizePending = false;                             ///< True while a viewport resize is queued.
 		ivec2 m_TargetSize = ivec2(0.0f);                         ///< The pending target size to resize to.
-
+		std::unique_ptr<AssetPreviewRenderer> m_AssetPreviewRenderer;
 		CubemapData m_EnvironmentCubemap; ///< Source environment cubemap (skybox / IBL input).
 		CubemapData m_IrradianceCubemap;  ///< Baked diffuse irradiance map for IBL.
 		CubemapData m_PrefilterMap;       ///< Baked prefiltered specular environment map (mip chain) for IBL.
@@ -180,13 +184,11 @@ namespace Andromeda {
 		std::shared_ptr<RHIFramebuffer> m_PostprocessBuffer; ///< Target for the post-processing pass.
 		std::shared_ptr<RHIFramebuffer> m_BakingBuffer;      ///< Offscreen buffer used during IBL baking.
 
-		RHIConstantBuffer m_CameraUBO;      ///< UBO holding camera matrices (view/projection).
-		RHIConstantBuffer m_ObjectUBO;      ///< UBO holding per-object data (model matrix, etc.).
+		FrameConstants m_FrameConstants;	/// < Different UBO's (model,camera,light)
 		RHIConstantBuffer m_ColorUBO;       ///< UBO holding color parameters.
 		RHIConstantBuffer m_GridUBO;        ///< UBO holding ground-grid transform data.
 		RHIConstantBuffer m_GridParamsUBO;  ///< UBO holding ground-grid appearance parameters.
 		RHIConstantBuffer m_OutlineUBO;     ///< UBO holding selection-outline parameters.
-		RHIConstantBuffer m_LightUBO;       ///< UBO holding scene light data.
 		RHIConstantBuffer m_pbrMaterialUBO; ///< UBO holding PBR material parameters.
 		std::vector<GroupRange> m_GroupRanges;
 		std::unordered_set<u64> m_UsedKeys;

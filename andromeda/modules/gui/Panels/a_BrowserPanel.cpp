@@ -6,6 +6,13 @@
 #include "scene.hpp"
 namespace Andromeda::Gui {
 
+    namespace {
+        // A rendered preview comes out of a framebuffer, whose first row is the bottom one, while an
+        // icon loaded from a file starts at the top. Flipping V for the former draws both upright.
+        ImVec2 tileUV0(const bool flipV) { return flipV ? ImVec2(0.0f, 1.0f) : ImVec2(0.0f, 0.0f); }
+        ImVec2 tileUV1(const bool flipV) { return flipV ? ImVec2(1.0f, 0.0f) : ImVec2(1.0f, 1.0f); }
+    }
+
     void BrowserPanel::onGuiRender(EditorContext& ctx) {
         if (ImGui::Begin(m_Name, &m_IsOpen)) {
             renderSearch(ctx);
@@ -55,7 +62,12 @@ namespace Andromeda::Gui {
         ImGui::PushID(idx);
         ImGui::BeginGroup();
 
-        Tile tile{ device, ctx.modelProvider->getDeviceIconID(device.type), idx };
+        u32 texID = ctx.modelProvider->getPreviewTextureID(device.meshID);
+        const bool isPreview = texID != 0;
+        if (!isPreview) {
+            texID = ctx.modelProvider->getDeviceIconID(device.type);
+        }
+        Tile tile{ device, texID, idx, isPreview };
         ImVec2 labelSize = ImGui::CalcTextSize(device.name.c_str());
         tile.pMin = ImGui::GetCursorScreenPos();
         tile.totalSize = { Tile::getIconSize().x, Tile::getIconSize().y + ImGui::GetStyle().ItemSpacing.y + labelSize.y };
@@ -82,11 +94,12 @@ namespace Andromeda::Gui {
     }
 
     void BrowserPanel::drawTileVisuals(ImDrawList* dl, const Tile& tile) {
-        if (tile.blueprint.type == deviceType::DEFAULT) {
+        if (tile.texID == 0) {
             dl->AddRectFilled(tile.pMin, tile.pMax, IM_COL32(45, 50, 70, 255), 4.0f);
         }
         else {
-            dl->AddImage(static_cast<ImTextureID>(static_cast<intptr_t>(tile.texID)), tile.pMin, tile.pMax);
+            dl->AddImage(static_cast<ImTextureID>(static_cast<intptr_t>(tile.texID)),
+              tile.pMin, tile.pMax, tileUV0(tile.flipV), tileUV1(tile.flipV));
         }
 
         if (tile.selected) {
@@ -116,7 +129,7 @@ namespace Andromeda::Gui {
             ImGui::GetForegroundDrawList()->AddImage(static_cast<ImTextureID>(static_cast<intptr_t>(tile.texID)),
                 ImGui::GetMousePos() - (previewSize * 0.5f),
                 ImGui::GetMousePos() + (previewSize * 0.5f),
-                { 0,0 }, { 1,1 }, IM_COL32(255, 255, 255, 150));
+                tileUV0(tile.flipV), tileUV1(tile.flipV), IM_COL32(255, 255, 255, 150));
         }
 
         if (tile.dragEnded && ctx.cameraData->hasValidPickRay && ctx.state.hasLastHitpoint) {
