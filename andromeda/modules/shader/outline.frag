@@ -10,6 +10,13 @@ layout(binding = 0) uniform OutlineParamsBuffer {
     vec2 texelSize;
 };
 
+// Scales linear scene radiance into the range the tonemapper expects, the way a camera's exposure
+// does. Without it the scene arrives far above 1.0 - the four point lights plus the bright sky
+// irradiance add up to roughly 2-3 on a lit mid-grey surface - and ACES flattens everything to
+// white. Tuned by eye; it has to stay in step with the same constant in preview_post.frag, or a
+// thumbnail no longer matches its object in the viewport.
+const float kExposure = 0.35;
+
 vec3 ACESFilm(vec3 x) {
     float a = 2.51;
     float b = 0.03;
@@ -24,7 +31,9 @@ void main() {
     float mask = texture(maskSampler, TexCoords).r;
     
 
-    vec3 finalDisplayColor = sceneColor.rgb;
+    // Exposure applies to scene radiance only - the outline colour below is a UI colour and is
+    // meant to come out exactly as written.
+    vec3 finalDisplayColor = sceneColor.rgb * kExposure;
 
     if (mask < 0.5) {
         float radius = 2.0; 

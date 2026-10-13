@@ -23,6 +23,11 @@ layout(location = 0) in vec2 TexCoords;
 
 layout(binding = 10) uniform sampler2D fboSampler;
 
+// Scales linear scene radiance into the range the tonemapper expects, the way a camera's exposure
+// does. Must stay identical to the same constant in outline.frag, otherwise a thumbnail no longer
+// matches its object in the viewport.
+const float kExposure = 0.35;
+
 // Neutral greys, in display space. Lighter in the middle so the model reads against it, darker
 // towards the corners so the tiles stay separable on the panel background.
 const vec3 kBgCenter = vec3(0.30);
@@ -40,7 +45,7 @@ vec3 ACESFilm(vec3 x) {
 void main() {
     vec4 scene = texture(fboSampler, TexCoords);
 
-    vec3 lit = ACESFilm(scene.rgb);
+    vec3 lit = ACESFilm(scene.rgb * kExposure);
     lit = pow(lit, vec3(1.0 / 2.2));
 
     // 0 at the centre of the tile, 1 in its corners.

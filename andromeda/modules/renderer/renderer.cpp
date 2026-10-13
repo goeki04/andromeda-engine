@@ -14,7 +14,6 @@
 #include "a_logger.hpp"
 #include <algorithm>
 #include "a_AssetPreviewRenderer.hpp"
-
 using namespace Andromeda::ECS;
 namespace Andromeda {
 
@@ -38,7 +37,63 @@ namespace Andromeda {
 
         m_pbrMaterialUBO.initialize(sizeof(Generated::pbrMaterial));
         m_AssetPreviewRenderer = std::make_unique<AssetPreviewRenderer>(m_ResourceManager, m_RenderContext,m_ResourceManager, &m_FrameConstants);
+        m_FileChangedListerID = EventManager::getInstance().AddEventListener<MeshReloaded>([this](const MeshReloaded& event)
+        {
+            m_AssetPreviewRenderer->refresh(event);
+        });
     }
+
+    void Renderer::start()
+    {
+        initRenderer();
+        m_FramebufferSize = ivec2(Window::g_WindowWidth, Window::g_WindowHeight);
+
+        if (m_FramebufferSize.x == 0 || m_FramebufferSize.y == 0) {
+            throw std::runtime_error("Framebuffer has an start value of 0!!!");
+        }
+        m_Cam->framebufferSize = m_FramebufferSize;
+        m_TexelSize = 1.0f / vec2(m_FramebufferSize.x, m_FramebufferSize.y);
+
+        createFramebuffers();
+        m_EnvironmentCubemap.width = 512;
+        m_EnvironmentCubemap.height = 512;
+        SamplerState environmentMap;
+        environmentMap.type = TextureType::Cubemap;
+        environmentMap.minFilter = FilterModeMin::Trillinear;
+        environmentMap.magFilter = FilterModeMag::Linear;
+        CubemapGL::AllocateCubemapTexture(m_RenderContext,&m_EnvironmentCubemap, environmentMap);
+
+        u32 hdrMapID = m_ResourceManager->m_CubemapData["citrus_orchard_road_puresky_4k"].textureID;
+        Mesh cubeMesh;
+        PrimitiveGenerator::generateCube(cubeMesh);
+
+        createMesh(cubemapGpuHandle, cubeMesh);
+
+        ShaderProgramHandle equirectangularHandle = m_ResourceManager->loadShaderRHI(m_RenderContext, "equirectangular_Shader", SHADER_PATH "equirect.vert", SHADER_PATH "equirect.frag");
+        CubemapGL::ConvertEquiretangularToCubemap(
+            m_RenderContext, equirectangularHandle,
+            hdrMapID,
+            m_BakingBuffer.get(),
+            m_EnvironmentCubemap.textureID,
+            [&]() {
+                m_RenderContext->drawIndexed(cubemapGpuHandle.vao, 36);
+            }
+        );
+
+        m_RenderContext->bindTextureCube(0,m_EnvironmentCubemap);
+        m_RenderContext->generateMipmap(TextureType::Cubemap);
+
+        irradianceCubemapBaking();
+        prefilterCubemapBaking();
+        m_CubeVao = m_RenderContext->createEmptyVAO();
+        brdfLUTBaking();
+        createMaterials();
+        m_AssetPreviewRenderer->initialize();
+        RenderPassSpecs initSpecs;
+        m_RenderContext->setRenderPassSpecs(initSpecs);
+        registerEvents();
+    }
+
 
     u64 createEmitterKey(const Entity id, const u32 groupId)
     {
@@ -229,58 +284,6 @@ namespace Andromeda {
         RenderPassSpecs resetSpecs;
         m_RenderContext->setRenderPassSpecs(resetSpecs);
     }
-
-    void Renderer::start()
-    {
-        initRenderer();
-        m_FramebufferSize = ivec2(Window::g_WindowWidth, Window::g_WindowHeight);
-
-        if (m_FramebufferSize.x == 0 || m_FramebufferSize.y == 0) {
-            throw std::runtime_error("Framebuffer has an start value of 0!!!");
-        }
-        m_Cam->framebufferSize = m_FramebufferSize;
-        m_TexelSize = 1.0f / vec2(m_FramebufferSize.x, m_FramebufferSize.y);
-
-        createFramebuffers();
-        m_EnvironmentCubemap.width = 512;
-        m_EnvironmentCubemap.height = 512;
-        SamplerState environmentMap;
-        environmentMap.type = TextureType::Cubemap;
-        environmentMap.minFilter = FilterModeMin::Trillinear;
-        environmentMap.magFilter = FilterModeMag::Linear;
-        CubemapGL::AllocateCubemapTexture(m_RenderContext,&m_EnvironmentCubemap, environmentMap);
-
-        u32 hdrMapID = m_ResourceManager->m_CubemapData["citrus_orchard_road_puresky_4k"].textureID;
-        Mesh cubeMesh;
-        PrimitiveGenerator::generateCube(cubeMesh);
-
-        createMesh(cubemapGpuHandle, cubeMesh);
-
-        ShaderProgramHandle equirectangularHandle = m_ResourceManager->loadShaderRHI(m_RenderContext, "equirectangular_Shader", SHADER_PATH "equirect.vert", SHADER_PATH "equirect.frag");
-        CubemapGL::ConvertEquiretangularToCubemap(
-            m_RenderContext, equirectangularHandle,
-            hdrMapID,
-            m_BakingBuffer.get(),
-            m_EnvironmentCubemap.textureID,
-            [&]() {
-                m_RenderContext->drawIndexed(cubemapGpuHandle.vao, 36);
-            }
-        );
-
-        m_RenderContext->bindTextureCube(0,m_EnvironmentCubemap);
-        m_RenderContext->generateMipmap(TextureType::Cubemap);
-
-        irradianceCubemapBaking();
-        prefilterCubemapBaking();
-        m_CubeVao = m_RenderContext->createEmptyVAO();
-        brdfLUTBaking();
-        createMaterials();
-        m_AssetPreviewRenderer->initialize();
-        RenderPassSpecs initSpecs;
-        m_RenderContext->setRenderPassSpecs(initSpecs);
-        registerEvents();
-    }
-
     std::shared_ptr<RHIFramebuffer> Renderer::helperCreateFBO(const ivec2 size, const std::vector<FramebufferTextureFormat>& formats, u32 samples) {
         FramebufferSpecification specs;
         specs.width = size.x;
@@ -295,8 +298,12 @@ namespace Andromeda {
     }
     void Renderer::createFramebuffers()
     {
-        m_MsaaBuffer = helperCreateFBO(m_FramebufferSize, { FramebufferTextureFormat::RGBA8, FramebufferTextureFormat::DEPTH24Stencil8 }, 4);
-        m_SceneBuffer = helperCreateFBO(m_FramebufferSize, { FramebufferTextureFormat::RGBA8 }, 1);
+        // RGBA16F, not RGBA8: the PBR shader writes linear radiance well above 1.0, and a normalized
+        // 8-bit target would clamp it on write - the tonemapper would then only ever see already
+        // clipped values and could not roll highlights off at all. The post-processing target below
+        // stays RGBA8 because by then ACES and the gamma encoding have produced display values.
+        m_MsaaBuffer = helperCreateFBO(m_FramebufferSize, { FramebufferTextureFormat::RGBA16F, FramebufferTextureFormat::DEPTH24Stencil8 }, 4);
+        m_SceneBuffer = helperCreateFBO(m_FramebufferSize, { FramebufferTextureFormat::RGBA16F }, 1);
         m_SelectionBuffer = helperCreateFBO(m_FramebufferSize, { FramebufferTextureFormat::None, FramebufferTextureFormat::DEPTH24Stencil8 }, 1);
         m_PostprocessBuffer = helperCreateFBO(m_FramebufferSize, { FramebufferTextureFormat::RGBA8 }, 1);
         m_BakingBuffer = helperCreateFBO(ivec2(512, 512), { FramebufferTextureFormat::DEPTH32F, FramebufferTextureFormat::RGBA16F }, 1);
@@ -412,6 +419,10 @@ namespace Andromeda {
     }
 
     void Renderer::destroy() {
+        EventManager::getInstance().RemoveEventListener(m_FileChangedListerID);
+        if (m_AssetPreviewRenderer) {
+            m_AssetPreviewRenderer->destroyRHIResources();
+        }
         m_RenderContext->deleteVertexArrays(m_CubeVao);
     }
 
@@ -631,7 +642,7 @@ namespace Andromeda {
     }
 
     void Renderer::createCubemapTexture(CubemapData& data) {
-        if (m_Api == AndromedaGXAPI::OpenGL) {
+        if (AndromedaGXAPI::OpenGL == m_Api) {
             CubemapGL::CubemapTextureUploadGL(data);
         }
     }

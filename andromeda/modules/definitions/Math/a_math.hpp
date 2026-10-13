@@ -143,6 +143,10 @@
         return glm::translate(m, value);
     }
 
+    [[nodiscard]] inline float max(float x, float y) noexcept {
+        return glm::max(x,y);
+    }
+
     /**
      * @brief Builds a scale matrix by applying a 3D vector to an existing matrix.
      * * @param m The source matrix to be scaled.

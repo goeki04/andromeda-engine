@@ -77,6 +77,12 @@ namespace Andromeda {
 
         Mesh() = default;
 
+        void clear() {
+            vertexbuffer.clear();
+            indexBuffer.clear();
+            submeshes.clear();
+        }
+
         /**
          * @brief Calculates the Axis-Aligned Bounding Box (AABB) for this mesh.
          * Iterates through all vertices to find the min/max bounds.

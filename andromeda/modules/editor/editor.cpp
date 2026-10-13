@@ -7,9 +7,12 @@
 #include "a_subsystem_manager.hpp"
 #include "a_guiTypes.hpp"
 #include "a_registry.hpp"
+#include "sceneSerializer.hpp"
 #include <a_event_manager.hpp>
 #include "input_manager.hpp"
+#include <algorithm>
 #include "ImGuizmo.h"
+extern std::string g_ProjectPath;
 namespace Andromeda::Editor {
     void Editor::initEditorContext()
     {
@@ -58,15 +61,21 @@ namespace Andromeda::Editor {
                 m_UndoBuffer.pushCommand(Undo::CommandType::UpdateTransform, undoData);
             }
         );
-        m_UndoListenerId = EventManager::getInstance().AddEventListener<KeyDown>([this](const KeyDown& keyEvent) {
+        m_KeyDownListenerID = EventManager::getInstance().AddEventListener<KeyDown>([this](const KeyDown& keyEvent) {
+            bool isCtrlDown =
+                InputSystem::isKeyHeld(Keycode::LeftControl) || InputSystem::isKeyHeld(Keycode::RightControl);
             if (keyEvent.keycode == Keycode::Z) {
-                bool isCtrlDown = InputSystem::isKeyHeld(Keycode::LeftControl) ||
-                    InputSystem::isKeyHeld(Keycode::RightControl);
-
                 if (isCtrlDown) {
                     if (m_SceneManager) {
                         m_UndoBuffer.undo(*m_EditorContext.registry);
                     }
+                }
+            }
+
+            if (keyEvent.keycode == Keycode::S) {
+                if (isCtrlDown) {
+                    const std::string scenePath = (std::filesystem::path(g_ProjectPath) / "scene.json").string();
+                    SceneSerializer::save(scenePath, *m_EditorContext.registry, *m_EditorContext.resourceManager);
                 }
             }
         });
@@ -97,12 +106,12 @@ namespace Andromeda::Editor {
     void Editor::destroy()
     {
         m_GuiRenderer.destroy();
-        EventManager::getInstance().RemoveEventListener(m_UndoListenerId);
+        EventManager::getInstance().RemoveEventListener(m_KeyDownListenerID);
         EventManager::getInstance().RemoveEventListener(m_PushUndoListenerId);
         EventManager::getInstance().RemoveEventListener(m_MouseMotionListenerId);
     }
 
-    bool Editor::RayIntersectAABB(const amath::CameraData& cam, const ECS::Component::AABB& aabb, const glm::mat4& modelMatrix)
+    bool Editor::RayIntersectAABB(const amath::CameraData& cam, const ECS::Component::AABB& aabb, const glm::mat4& modelMatrix, float* tMinOut, float* tMaxOut)
     {
         const auto& [origin, direction] = cam.cursorToWorldRay;
 
@@ -133,6 +142,10 @@ namespace Andromeda::Editor {
             tMax = std::min(tMax, t1);
             if (tMin > tMax) return false;
         }
+        if (tMinOut != nullptr)
+            *tMinOut = tMin;
+        if (tMaxOut != nullptr)
+            *tMaxOut = tMax;
         return true;
     }
     void Editor::editorPicking(const amath::CameraData* cam)
@@ -152,6 +165,7 @@ namespace Andromeda::Editor {
         if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
             const auto& aabbPool = m_SceneManager->m_Registry.getPool<ECS::Component::AABB>();
             Entity hitEntity = ECS::INVALID_ENTITY_ID;
+            std::vector<std::pair<ECS::Entity, float>> hitEntities;
             for (const Entity e : aabbPool.getEntities()) {
                 ECS::EntityHandle handle = { e,&m_SceneManager->m_Registry };
                 if (!handle.has<ECS::Component::Transform>()) {
@@ -159,16 +173,43 @@ namespace Andromeda::Editor {
                 }
                 const mat4 modelMatrix = handle.get<ECS::Component::Transform>().modelMatrix();
                 const auto& aabb = handle.get<ECS::Component::AABB>();
+                float tMinOut, tMaxOut;
+                if (RayIntersectAABB(*cam, aabb, modelMatrix, &tMinOut, &tMaxOut)) {
 
-                if (RayIntersectAABB(*cam, aabb, modelMatrix)) {
-                    hitEntity = e;
-                    break;
+                    if (tMinOut < 0) {
+                        hitEntities.push_back({
+                            e, tMaxOut
+                        });
+                    } else {
+                        hitEntities.push_back({e, tMinOut});
+                    }
                 }
             }
-            if (hitEntity != m_EditorContext.selection->getSelectedEntity()) {
-                m_EditorContext.selection->setSelectedEntity(hitEntity);
-                EventManager::getInstance().Dispatch(EventType::OnSceneObjectSelected, SceneObjectSelected(static_cast<u32>(hitEntity)));
+            std::ranges::sort(hitEntities, {}, &std::pair<ECS::Entity, float>::second);
+
+            std::vector<ECS::Entity> hits;
+            hits.reserve(hitEntities.size());
+            for (const auto& [entity, distance] : hitEntities) {
+                hits.push_back(entity);
             }
+
+            if (hits.empty()) {
+
+                m_LastPickHits.clear();
+                m_PickCycleIndex = 0;
+            } else if (hits == m_LastPickHits) {
+                m_PickCycleIndex = (m_PickCycleIndex + 1) % hits.size();
+            } else {
+                m_LastPickHits = std::move(hits);
+                m_PickCycleIndex = 0;
+            }
+
+            hitEntity = m_LastPickHits.empty() ? ECS::INVALID_ENTITY_ID
+                                               : m_LastPickHits[m_PickCycleIndex];
+
+            m_EditorContext.selection->setSelectedEntity(hitEntity);
+            EventManager::getInstance().Dispatch(EventType::OnSceneObjectSelected,
+                                                 SceneObjectSelected(static_cast<u32>(hitEntity)));
         }
     }
     amath::Ray Editor::cursorToWorldRay(const amath::CameraData& cam) {

@@ -21,6 +21,7 @@ target_link_libraries(renderer PUBLIC
     definitions
     scene
     core
+    os
     renderer_rhi
     resource
 )

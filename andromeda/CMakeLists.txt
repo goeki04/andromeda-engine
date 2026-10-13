@@ -119,6 +119,7 @@ add_executable(Andromeda
     ${PROTO_SRCS}
     ${PROTO_HDRS}
     modules/definitions/Math/a_glm_json_parser.hpp
+        modules/a_andromeda_subsystems_include.hpp
 )
 add_dependencies(Andromeda GenerateShaderHeaders)
 target_include_directories(Andromeda PUBLIC ${CMAKE_BINARY_DIR}/generated)

@@ -47,6 +47,6 @@ namespace Andromeda{
        }
     private:
         std::queue<T> m_Queue;
-        std::mutex m_Mutex;
+        mutable std::mutex m_Mutex;
     };
 }

@@ -93,14 +93,13 @@ namespace Andromeda {
 		 * @return Paths of all matching files found at any depth.
 		 */
 		std::vector<std::string> getAllFilesInDirectoryRecursive(const std::string& directory, std::span<const std::string> filter);
-
 		/**
 		 * @brief Collects files directly inside a directory (non-recursive) matching the filter.
 		 * @param directory Directory to search.
 		 * @param filter Allowed file extensions; pass an empty span to accept all files.
 		 * @return Paths of the matching files in the top level of @p directory.
 		 */
-		std::vector<std::string> getAllFilesInDirectory(const std::string& directory, std::span<std::string> filter);
+		std::vector<std::string> getAllFilesInDirectory(std::string_view directory, std::span<const std::string_view> filter);
 
 		/**
 		 * @brief Collects all files directly inside a directory (non-recursive, unfiltered).

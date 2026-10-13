@@ -109,6 +109,29 @@ namespace Andromeda {
 		 */
 		virtual void blitFramebuffer(const RHIFramebuffer* source, const RHIFramebuffer* target, bool copyDepth = false) = 0;
 
+		/**
+		 * @brief Reads a rectangle of a framebuffer's first color attachment back into CPU memory.
+		 *
+		 * @details Used where the CPU has to see what was rendered rather than just display it, for
+		 *          example to persist baked images (the asset preview atlas) to disk.
+		 *
+		 * @param fb The framebuffer to read from; nullptr reads the default (window) framebuffer.
+		 * @param x Left edge of the rectangle, in pixels measured from the attachment's bottom-left.
+		 * @param y Bottom edge of the rectangle.
+		 * @param width Width of the rectangle in pixels.
+		 * @param height Height of the rectangle in pixels.
+		 * @param outPixels Destination buffer, owned by the caller, which must hold at least
+		 *                  @p width * @p height RGBA8 pixels.
+		 *
+		 * @note Rows arrive bottom-up, because that is the order a framebuffer stores them. Image
+		 *       files are top-down, so writing the result out needs a vertical flip.
+		 * @note Only valid for a single-sample framebuffer. Reading a multisampled one fails;
+		 *       resolve it with @c blitFramebuffer() first and read the resolve target.
+		 * @note Synchronous: this waits until the GPU has finished rendering into @p fb, so it
+		 *       stalls the pipeline and does not belong in a per-frame path.
+		 */
+		virtual void readFramebufferPixels(const RHIFramebuffer* fb, u32 x, u32 y, u32 width, u32 height, void* outPixels) = 0;
+
 		/** @brief Creates a framebuffer matching the given specification. */
 		virtual std::unique_ptr<RHIFramebuffer> createFramebuffer(const FramebufferSpecification& specs) = 0;
 		/** @brief Creates an empty vertex array object (e.g. for attribute-less / SSBO-driven draws). */
@@ -171,7 +194,7 @@ namespace Andromeda {
 
 		/** @brief Allocates GPU memory for a pre-configured texture (must run on the render thread). */
 		virtual void allocateTexture(Texture& texture) = 0;
-
+		virtual void destroyTexture(Texture& texture) = 0;
 		/**
 		 * @brief Creates and allocates a new texture of the given size, sampler and format.
 		 * @param width Texture width in pixels.

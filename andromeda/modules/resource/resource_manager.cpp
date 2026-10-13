@@ -14,10 +14,19 @@
 namespace Andromeda {
     void ResourceManager::start()
     {
+        EventManager::getInstance().AddEventListener<FileChanged>([this](const FileChanged& event) {
+            for (const auto& s : m_MeshImportFilter) {
+                const std::string lowerExt = event.path.extension().string();
+                if (s == lowerExt) {
+                    A_INFO("Detected model file change: {}", event.path.string());
+                    loadScene(event.path.string());
+                    return;
+                }
+            }
+        });
         loadModels();
         loadDeviceIcons();
         loadEditorIcons();
-        setupMeshes();
         registerDefaultPrimitives();
         loadAllCubeMaps();
         for (const auto& [name, data] : m_CubemapData) {
@@ -192,10 +201,8 @@ void ResourceManager::loadAndStoreCubemap(const std::string& file) {
 
     void ResourceManager::loadDeviceIcons()
     {
-        std::array<std::string, 2> filter;
-        filter[0] = ".png";
-        filter[1] = ".jpg";
-        const std::vector<std::string> paths = Filesystem::getAllFilesInDirectory(ASSET_PATH "icons/device/", filter);
+        std::string_view path = ASSET_PATH "icons/device/";
+        const std::vector<std::string> paths = Filesystem::getAllFilesInDirectory(path, m_MeshImportFilter);
 
         for (auto& v : paths) {
             std::string fileName = Filesystem::getFileName(v);
@@ -237,7 +244,7 @@ void ResourceManager::loadAndStoreCubemap(const std::string& file) {
 
     void ResourceManager::loadEditorIcons()
     {
-        std::array<std::string,2> filter;
+        std::array<std::string_view,2> filter;
         filter[0] = ".png";
         filter[1] = ".jpg";
         const std::vector<std::string> paths = Filesystem::getAllFilesInDirectory(ASSET_PATH "icons/editor", filter);
@@ -339,6 +346,30 @@ void ResourceManager::loadAndStoreCubemap(const std::string& file) {
         return m_DeviceIcons.at(type).id;
     }
 
+    // TODO(rhi): this function and loadModelTexture below call OpenGL directly, which no
+    // other part of this module does - everything else goes through IGraphicsContext. It
+    // works today because renderer_rhi has exactly one backend and the GL context is already
+    // current by the time ResourceManager::start() runs, but it is a hole in the abstraction
+    // that modules/renderer_rhi exists to provide.
+    //
+    // It becomes a real problem at either of these points, whichever comes first:
+    //   - a second backend (Vulkan/D3D), where these calls simply do not exist;
+    //   - the texture cooker, where glTexImage2D has to become glCompressedTexImage2D for
+    //     BC-compressed assets, and the format/mip handling belongs behind the interface.
+    //
+    // Routing it through the RHI needs three things:
+    //   1. WrapMode::Repeat in a_samplerState.hpp - only ClampToEdge exists, so the REPEAT
+    //      that surface textures need cannot be expressed. The GL mapping in
+    //      a_opengl_sampler.hpp already treats anything else as GL_REPEAT.
+    //   2. allocateTexture() taking pixel data and a "generate mipmaps" flag; right now it
+    //      passes nullptr and can only reserve storage.
+    //   3. An IGraphicsContext for the ResourceManager - the open question, and the reason
+    //      this is still here. The context is created in Renderer::initRenderer(), but
+    //      main.cpp starts resourceManager before renderer, so there is none at start()
+    //      time. Either the ResourceManager gets one wired in from main.cpp, or texture
+    //      loading moves out of here into something the renderer owns.
+    // GLtexture itself does not leak outwards - getEditorIconID/getDeviceIconID return u32 -
+    // so the change stays inside this module plus the two rhi files.
     GLtexture ResourceManager::CreateOpenGLTexture(const char* path)
     {
         GLtexture texture;
@@ -366,6 +397,8 @@ void ResourceManager::loadAndStoreCubemap(const std::string& file) {
     }
 
 
+    // See the TODO(rhi) above CreateOpenGLTexture: the raw GL calls below belong behind
+    // IGraphicsContext for the same reasons.
     u32 ResourceManager::loadModelTexture(const std::string& path, const bool srgb)
     {
         if (path.empty()) {
@@ -410,15 +443,6 @@ void ResourceManager::loadAndStoreCubemap(const std::string& file) {
         const u32 id = texture.id;
         m_ModelTextures.emplace(path, std::move(texture));
         return id;
-    }
-
-    void ResourceManager::setupMeshes()
-    {
-        for (auto& [id, mesh] : m_Meshes)
-        {
-            MeshGPUHandle& gpuHandle = m_GPUMeshes[id];
-            createMesh(gpuHandle, mesh);
-        }
     }
     /**
      * @brief Records what one imported material declares, so the renderer can build it later.
@@ -476,10 +500,9 @@ void ResourceManager::loadAndStoreCubemap(const std::string& file) {
         return name;
     }
 
-    void ResourceManager::processNode(const uint32_t meshId, const aiScene* scene, aiNode* node,
+    void ResourceManager::processNode(Mesh& temp, const aiScene* scene, aiNode* node,
                                       const std::string& modelDirectory)
     {
-        auto& newMesh = m_Meshes.at(meshId);
         for (unsigned int i = 0; i < node->mNumMeshes; i++) {
             aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
             aiColor3D color(1.0f, 1.0f, 1.0f);
@@ -497,21 +520,21 @@ void ResourceManager::loadAndStoreCubemap(const std::string& file) {
             for (unsigned int j = 0; j < mesh->mNumVertices; j++) {
                 Vertex vertex{};
                 aiVector3D worldPos = mesh->mVertices[j];
-                vertex.pos = glm::vec3(worldPos.x, worldPos.y, worldPos.z);
+                vertex.pos = vec3(worldPos.x, worldPos.y, worldPos.z);
 
                 if (hasNormals) {
-                    vertex.normal = glm::vec3(mesh->mNormals[j].x, mesh->mNormals[j].y, mesh->mNormals[j].z);
+                    vertex.normal = vec3(mesh->mNormals[j].x, mesh->mNormals[j].y, mesh->mNormals[j].z);
                 }
 
                 if (mesh->HasTextureCoords(0)) {
-                    vertex.uv = glm::vec2(mesh->mTextureCoords[0][j].x, mesh->mTextureCoords[0][j].y);
+                    vertex.uv = vec2(mesh->mTextureCoords[0][j].x, mesh->mTextureCoords[0][j].y);
                 }
-                vertex.color = glm::vec3(color.r, color.g, color.b);
+                vertex.color = vec3(color.r, color.g, color.b);
                 vertices.push_back(vertex);
             }
-
-            auto& vb = newMesh.vertexbuffer;
-            auto& ib = newMesh.indexBuffer;
+           
+            auto& vb = temp.vertexbuffer;
+            auto& ib = temp.indexBuffer;
 
             const uint32_t baseVertex = static_cast<uint32_t>(vb.size());
             const uint32_t indexStart = static_cast<uint32_t>(ib.size());
@@ -527,14 +550,14 @@ void ResourceManager::loadAndStoreCubemap(const std::string& file) {
 
             // One submesh per imported mesh: they share the buffers above, but each keeps its
             // own material, so a room does not end up painted in a single texture.
-            newMesh.submeshes.push_back(Submesh{
+            temp.submeshes.push_back(Submesh{
                 indexStart,
                 static_cast<uint32_t>(ib.size()) - indexStart,
                 recordMaterial(material, modelDirectory)
             });
         }
         for (unsigned int i = 0; i < node->mNumChildren; i++) {
-            processNode(meshId, scene, node->mChildren[i], modelDirectory);
+            processNode(temp, scene, node->mChildren[i], modelDirectory);
         }
     }
 
@@ -547,31 +570,41 @@ void ResourceManager::loadAndStoreCubemap(const std::string& file) {
             aiProcess_FlipUVs |
             aiProcess_GenNormals
         );
-
+        uint32_t id = 0;
         if (!scene) {
-            throw std::runtime_error(importer.GetErrorString());
-        }
-
-        std::string meshName = Filesystem::getFileName(path);
-        if (m_MeshIDbyName.contains(meshName)) {
-            A_DEBUG("Mesh '{}' already exists, skipping load", meshName);
+            A_WARN("Failed to load model '{}': {}", path, importer.GetErrorString());
             return;
         }
+        std::string meshName = Filesystem::getFileName(path);
+        if (m_MeshIDbyName.contains(meshName)) {
+            A_DEBUG("Mesh '{}' already exists, refreshing asset", meshName);
+            id = m_MeshIDbyName.at(meshName);
+        } else {
+            id = m_NextMeshID++;
+            const deviceType dt = Filesystem::findDeviceTypeByPath(path);
 
-        const uint32_t id = m_NextMeshID++;
-        const deviceType dt = Filesystem::findDeviceTypeByPath(path);
+            m_Meshes[id] = Andromeda::Mesh{};
 
-        m_Meshes[id] = Andromeda::Mesh{};
+            m_ModelRecords[id] = ModelRecord{id, meshName, dt};
+            m_ModelIndexList.push_back(id);
 
-        m_ModelRecords[id] = ModelRecord{id,meshName,dt};
-        m_ModelIndexList.push_back(id);
-
-        m_MeshIDbyName.emplace(meshName, id);
+            m_MeshIDbyName.emplace(meshName, id);
+        }
 
         aiNode* rootNode = scene->mRootNode;
-        processNode(id, scene, rootNode, Filesystem::getDirectory(path));
-    }
+        Mesh temp;
+        processNode(temp, scene, rootNode, Filesystem::getDirectory(path));
 
+        m_Meshes[id] = std::move(temp);
+        destroyMesh(m_GPUMeshes[id]);
+        createMesh(m_GPUMeshes[id], m_Meshes[id]);
+
+        // Only now is the mesh fully valid on both sides, so this is the earliest point at
+        // which anything derived from it may be rebuilt. Listeners get the id and nothing
+        // else - whether this was a first import or a reload, and whether the file was an
+        // .obj or an .fbx, is this function's business, not theirs.
+        EventManager::getInstance().Dispatch(MeshReloaded::GetStaticType(), MeshReloaded(id));
+    }
 
     ShaderProgramHandle ResourceManager::loadShaderRHI(IGraphicsContext* ctx, const std::string& name, const std::string& vertPath, const std::string& fragPath) {
         auto it = m_RhiShaders.find(name);

@@ -32,4 +32,14 @@ namespace Andromeda {
         glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<void *>(offsetof(Vertex, color)));
         glBindVertexArray(0);
     }
+
+    void destroyMesh(MeshGPUHandle& glMesh) {
+        glDeleteVertexArrays(1, &glMesh.vao);
+        glDeleteBuffers(1, &glMesh.vbo);
+        glDeleteBuffers(1, &glMesh.ebo);
+        glMesh.vao = 0;
+        glMesh.vbo = 0;
+        glMesh.ebo = 0;
+        glMesh.indexCount = 0;
+    }
 }

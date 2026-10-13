@@ -42,6 +42,18 @@ namespace Andromeda::Gui::Console {
     };
 
     /**
+     * @struct ConsoleLine
+     * @brief One line of console output together with the colour it should be drawn in.
+     */
+    struct ConsoleLine {
+        std::string text;   ///< The text as displayed.
+        ImU32 color = 0;    ///< Draw colour; 0 means "use the default text colour".
+    };
+
+    /** @brief Lines kept in the console before the oldest are dropped. */
+    inline constexpr size_t kMaxConsoleLines = 2000;
+
+    /**
      * @struct AppConsole
      * @brief Holds the state and behavior of the interactive console widget.
      *
@@ -52,7 +64,7 @@ namespace Andromeda::Gui::Console {
     struct AppConsole
     {
         std::string                   inputBuf;        ///< Current text in the input field.
-        std::vector<std::string>      items;           ///< Log output lines, displayed top-to-bottom.
+        std::vector<ConsoleLine>      items;           ///< Log output lines, displayed top-to-bottom.
         std::vector<std::string>      history;          ///< Previously entered commands, for history recall.
         int                           historyPos;       ///< Current index into @c history (-1 when not browsing).
         ImGuiTextFilter               filter;           ///< Live text filter applied to the log output.
@@ -111,7 +123,24 @@ namespace Andromeda::Gui::Console {
         template<typename... Args>
         void addLog(const std::string_view fmt, Args&&... args)
         {
-            items.push_back(std::vformat(fmt, std::make_format_args(args...)));
+            addLine(std::vformat(fmt, std::make_format_args(args...)), 0);
+        }
+
+        /**
+         * @brief Appends an already formatted line in a given colour.
+         * @details Used by the log sink, whose text comes from spdlog and must not be run
+         *          through a formatter again - a logged JSON payload would be full of braces
+         *          and throw.
+         * @param text The finished line.
+         * @param color Draw colour, or 0 for the default text colour.
+         */
+        void addLine(std::string text, const ImU32 color)
+        {
+            // Bounded, because the console is fed by a logger that can run for hours.
+            if (items.size() >= kMaxConsoleLines) {
+                items.erase(items.begin(), items.begin() + (items.size() - kMaxConsoleLines) + 1);
+            }
+            items.push_back(ConsoleLine{std::move(text), color});
             scrollToBottom = true;
         }
 

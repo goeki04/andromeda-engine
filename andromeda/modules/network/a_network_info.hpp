@@ -9,6 +9,7 @@
 #include <string>
 #include <cstdlib>
 #include <optional>
+#include "a_environment.hpp"
 #include "a_logger.hpp"
 namespace Andromeda {
 	/**
@@ -31,15 +32,15 @@ namespace Andromeda {
 		 * @return The proxy settings, or an empty optional if none are configured.
 		 */
         static std::optional<ProxySettings> getProxySettings() {
-            const char* proxyEnv = std::getenv("HTTPS_PROXY");
-            if (!proxyEnv || proxyEnv[0] == '\0') {
-                proxyEnv = std::getenv("HTTP_PROXY");
+            auto proxyEnv = getEnvironmentVariable("HTTPS_PROXY");
+            if (!proxyEnv) {
+                proxyEnv = getEnvironmentVariable("HTTP_PROXY");
             }
-            if (!proxyEnv || proxyEnv[0] == '\0') {
+            if (!proxyEnv) {
                 return {};
             }
 
-            std::string proxyUrl = proxyEnv;
+            std::string proxyUrl = *proxyEnv;
 
             auto schemeEnd = proxyUrl.find("://");
             std::string hostPort = (schemeEnd != std::string::npos) ? proxyUrl.substr(schemeEnd + 3) : proxyUrl;

@@ -31,7 +31,7 @@ namespace Andromeda::Editor {
         Gui::ViewportDrawInfo m_VpDrawInfo;
 
         Undo::UndoBuffer m_UndoBuffer;
-        EventListenerID m_UndoListenerId;
+        EventListenerID m_KeyDownListenerID;
         EventListenerID m_PushUndoListenerId;
         EventListenerID m_OnSensorMsgReceivedId;
         EventListenerID m_MouseMotionListenerId;
@@ -89,7 +89,8 @@ namespace Andromeda::Editor {
          * @param modelMatrix The world-space transform matrix of the entity.
          * @return True if the ray intersects the bounding box; otherwise, false.
          */
-        static bool RayIntersectAABB(const amath::CameraData& cam, const ECS::Component::AABB& aabb, const mat4& modelMatrix);
+        static bool RayIntersectAABB(const amath::CameraData& cam, const ECS::Component::AABB& aabb,
+                                     const mat4& modelMatrix, float* tMinOut, float* tMaxOut);
 
         /**
          * @brief Evaluates mouse clicks in the viewport to select entities.
@@ -183,5 +184,15 @@ namespace Andromeda::Editor {
          * @return An amath::Ray structure containing the unprojected origin and normalized direction.
          */
         [[nodiscard]] static amath::Ray cursorToWorldRay(const amath::CameraData& cam);
+
+        private:
+            /**
+             * @brief The entities the previous click hit, nearest first.
+             * @details Entities only, no distances: the distances exist to sort by and change
+             *          with every camera movement, so comparing them would end the cycle as
+             *          soon as the view shifts by a fraction.
+             */
+            std::vector<ECS::Entity> m_LastPickHits;
+            size_t m_PickCycleIndex = 0; /**< Which of @c m_LastPickHits is currently selected. */
     };
 }

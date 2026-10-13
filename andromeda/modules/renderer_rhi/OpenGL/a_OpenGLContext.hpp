@@ -132,6 +132,27 @@ namespace Andromeda {
         void drawArrays(u32 vao, u32 vertexCount) override;
 
         /**
+         * @brief Reads a rectangle of a framebuffer's first color attachment back into CPU memory.
+         *
+         * @details Binds @p fb as the read framebuffer and fetches the rectangle as RGBA8. The
+         *          binding is left in place afterwards, the same way blitFramebuffer() leaves its
+         *          own bindings, so a later read does not silently take the previous source.
+         *
+         * @param fb The framebuffer to read from; nullptr reads the default (window) framebuffer.
+         * @param x Left edge of the rectangle, in pixels measured from the attachment's bottom-left.
+         * @param y Bottom edge of the rectangle.
+         * @param width Width of the rectangle in pixels.
+         * @param height Height of the rectangle in pixels.
+         * @param outPixels Destination buffer, owned by the caller, which must hold at least
+         *                  @p width * @p height RGBA8 pixels.
+         *
+         * @note Rows arrive bottom-up, as OpenGL stores them.
+         * @note A multisampled framebuffer raises GL_INVALID_OPERATION; resolve it first.
+         * @note Synchronous, and therefore a pipeline stall.
+         */
+        void readFramebufferPixels(const RHIFramebuffer* fb, u32 x, u32 y, u32 width, u32 height, void* outPixels) override;
+
+        /**
          * @brief Binds a framebuffer for rendering.
          * @param framebuffer The framebuffer to bind (pass nullptr for the default framebuffer).
          */
@@ -264,7 +285,7 @@ namespace Andromeda {
          * @param tex The 2D texture to attach.
          * @param mip The mip level to attach.
          */
-        void framebufferTexture2D(const Texture& tex, u32 mip);
+        void framebufferTexture2D(const Texture& tex, u32 mip) override;
 
          /**
          * @brief Allocates the physical memory (VRAM) on the GPU for a texture.
@@ -280,6 +301,9 @@ namespace Andromeda {
          * successful execution, the object receives a valid API-assigned textureID.
          */
         void allocateTexture(Texture& texture) override;
+
+        void destroyTexture(Texture& texture) override;
+
          /**
          * @brief Creates the metadata for a new texture on the CPU (blueprint).
          *

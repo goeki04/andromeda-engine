@@ -375,7 +375,7 @@ namespace Andromeda {
         return std::make_unique<RHIFramebuffer>(specs);
     }
 
-    void OpenGLContext::deleteVertexArrays(u32 vao)
+    void OpenGLContext::deleteVertexArrays(const u32 vao)
     {
         if (vao != 0) {
             glDeleteVertexArrays(1, &vao);
@@ -496,6 +496,12 @@ namespace Andromeda {
         glBindVertexArray(0);
     }
 
+    void OpenGLContext::readFramebufferPixels(const RHIFramebuffer* fb, u32 x, u32 y, u32 width, u32 height,
+                                              void* outPixels) {
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, fb ? fb->getFramebufferID() : 0);
+        glReadPixels(static_cast<GLint>(x), static_cast<GLint>(y), static_cast<GLsizei>(width), static_cast<GLsizei>(height), GL_RGBA, GL_UNSIGNED_BYTE, outPixels);
+    }
+
     void OpenGLContext::setParameter(ShaderProgramHandle shader, const std::string& name, const mat4& matrix) {
         i32 location = glGetUniformLocation(shader.apiID, name.c_str());
         if (location != -1) {
@@ -517,7 +523,7 @@ namespace Andromeda {
         }
     }
 
-    void OpenGLContext::bindSamplerState(u32 textureID, const SamplerState& state)
+    void OpenGLContext::bindSamplerState(const u32 textureID, const SamplerState& state)
     {
        GLenum target = GLSampler::GetTarget(state.type);
        glBindTexture(target, textureID);
@@ -554,6 +560,12 @@ namespace Andromeda {
             0, format.dataFormat, format.dataType, nullptr);
 
         glBindTexture(target, 0);
+    }
+
+    void OpenGLContext::destroyTexture(Texture& texture)
+    {
+        glDeleteTextures(1, &texture.textureID);
+        texture.textureID = 0;
     }
 
     Texture OpenGLContext::generateTexture(u32 width, u32 height,SamplerState& sampler, TextureFormat format)

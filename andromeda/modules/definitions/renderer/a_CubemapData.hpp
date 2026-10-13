@@ -27,9 +27,9 @@ namespace Andromeda{
         };
         std::vector<std::string> texturePath; ///< Source file paths of the six face images, in the same order as @c pixelData.
         u32 textureID = 0; ///< GPU texture handle once uploaded (0 if not yet uploaded).
-        i32 width;    ///< Width in pixels of each cubemap face (faces are assumed to be square and equally sized).
-        i32 height;   ///< Height in pixels of each cubemap face.
-        i32 channels; ///< Number of color channels per pixel (e.g. 3 for RGB, 4 for RGBA).
+        i32 width = 0;    ///< Width in pixels of each cubemap face (faces are assumed to be square and equally sized).
+        i32 height = 0;   ///< Height in pixels of each cubemap face.
+        i32 channels = 0; ///< Number of color channels per pixel (e.g. 3 for RGB, 4 for RGBA).
 
         bool isHDR = false; ///< True if the source images were loaded as high-dynamic-range (float) data rather than 8-bit.
 

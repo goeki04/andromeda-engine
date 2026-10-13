@@ -20,6 +20,8 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/basic_file_sink.h>
 
+#include "a_log_sink.hpp"
+
 #include <memory>
 #include <string>
 #include <vector>
@@ -51,6 +53,12 @@ namespace Andromeda::Log {
             } catch (const spdlog::spdlog_ex&) {
                 // File sink is optional - keep going with the console only.
             }
+
+            // Third sink: feeds the editor's own console. Deliberately after the other two,
+            // so a crash inside the editor still leaves a complete stdout and file log.
+            auto console_panel = std::make_shared<ConsoleSinkMt>();
+            console_panel->set_pattern("[%T] [%l] %v");
+            sinks.push_back(console_panel);
 
             auto logger = std::make_shared<spdlog::logger>("Andromeda", sinks.begin(), sinks.end());
 #ifdef NDEBUG

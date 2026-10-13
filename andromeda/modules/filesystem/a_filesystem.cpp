@@ -1,6 +1,8 @@
 #include "a_filesystem.hpp"
 #include "a_logger.hpp"
 #include <filesystem>
+#include <cctype>
+#include <ranges>
 #include <fstream>
 namespace Andromeda {
     /// <summary>
@@ -32,7 +34,8 @@ namespace Andromeda {
             if (ec) break;
             if (!entry.is_regular_file(ec)) continue;
 
-            const std::string ext = entry.path().extension().generic_string();
+            std::string ext = entry.path().extension().generic_string();
+            Filesystem::stringToLower(ext);
             const bool allowed =
                 filter.empty() ||
                 std::ranges::find(filter, ext) != filter.end();
@@ -45,7 +48,7 @@ namespace Andromeda {
         return filePaths;
     }
 
-    std::vector<std::string> Filesystem::getAllFilesInDirectory(const std::string& directory, std::span<std::string> filter)
+    std::vector<std::string> Filesystem::getAllFilesInDirectory(std::string_view directory, std::span<const std::string_view> filter)
     {
         std::vector<std::string> filePaths;
         std::error_code ec;
@@ -76,9 +79,14 @@ namespace Andromeda {
         return filePaths;
     }
 
+
     std::string Filesystem::getFileName(const std::string& path)
     {
-        const size_t namePos = path.find_last_of("/");
+        // Both separators: paths reaching this function come from two sources with different
+        // spellings - the directory scans above hand out generic_string() with '/', while
+        // anything originating from a Win32 API (the file watcher, drag and drop) carries the
+        // native '\'. Matching only '/' silently returned the whole path as the "file name".
+        const size_t namePos = path.find_last_of("/\\");
         const std::string objectName = (namePos == std::string::npos) ? path : path.substr(namePos + 1);
 
         const size_t dotPos = objectName.find_last_of('.');

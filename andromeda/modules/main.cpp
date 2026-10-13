@@ -1,22 +1,8 @@
 #ifndef SDL_MAIN_USE_CALLBACKS
 #define SDL_MAIN_USE_CALLBACKS 1
 #endif
-#include <SDL3/SDL_main.h>
-#include "a_subsystem_manager.hpp"
-#include "window_manager.hpp"
-#include "input/input_manager.hpp"
-#include "resource/resource_manager.h"
-#include "renderer/renderer.h"
-#include "editor/editor.hpp"
-#include "scene/scene.hpp"
-#include "serialization/sceneSerializer.hpp"
-#include "particle_system/a_particle_binding_system.hpp"
-#include "particle_system/a_particle_graph_system.hpp"
-#include <cstdlib>
-#include "a_logger.hpp"
-#include "network/service/a_WeatherService.hpp"
-#include "a_HomeAssistant.hpp"
-#include "network/a_network_manager.hpp"
+#include "a_andromeda_subsystems_include.hpp"
+#include "a_environment.hpp"
 Andromeda::Window::WindowManager windowManager;
 Andromeda::InputSystem inputManager;
 Andromeda::Renderer renderer;
@@ -26,6 +12,8 @@ Andromeda::SceneManager sceneManager;
 Andromeda::NetworkManager networkManager;
 Andromeda::ParticleBindingSystem particleBindingSystem;
 Andromeda::ParticleGraphSystem particleGraphSystem;
+Andromeda::OS::OS_Manager os_Manager;
+
 SDL_AppResult SDL_Init() {
     SDL_SetAppMetadata("ESP32", "1.0", "ESP32.goeki.com");
     if (!SDL_Init(SDL_INIT_VIDEO)) {
@@ -51,25 +39,23 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
     }
     else {
 #if defined(_WIN32)
-        const char* base = std::getenv("APPDATA");
+        auto base = Andromeda::getEnvironmentVariable("APPDATA");
 #else
-        const char* base = std::getenv("XDG_DATA_HOME");
-        std::string xdgFallback;
-        if (!base || base[0] == '\0') {
-            const char* home = std::getenv("HOME");
-            if (home) {
-                xdgFallback = std::string(home) + "/.local/share";
-                base = xdgFallback.c_str();
+        auto base = Andromeda::getEnvironmentVariable("XDG_DATA_HOME");
+        if (!base) {
+            if (const auto home = Andromeda::getEnvironmentVariable("HOME")) {
+                base = *home + "/.local/share";
             }
         }
 #endif
         assert(base && "could not determine a user data directory");
         if (base) {
-            g_ProjectPath = (std::filesystem::path(base) / "Andromeda" / "DefaultProject").string();
+            g_ProjectPath = (std::filesystem::path(*base) / "Andromeda" / "DefaultProject").string();
         }
     }
 	std::filesystem::create_directories(g_ProjectPath);
     SDL_Init();
+    Andromeda::SystemManager::getInstance().addSubsystem(&os_Manager);
     Andromeda::SystemManager::getInstance().addSubsystem(&windowManager);
     Andromeda::SystemManager::getInstance().addSubsystem(&inputManager);
     Andromeda::SystemManager::getInstance().addSubsystem(&resourceManager);

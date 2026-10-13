@@ -1,3 +1,12 @@
+# The bottom layer: everything that has no dependency on the engine running. Type aliases
+# and primitives, but also the plain data structures and type-safe plumbing that every
+# other module shares - logging, events, the thread-safe queue. The rule for what belongs
+# here is "does it still make sense without a window, a context or a frame?"
+#
+# Nothing in this module may link a module above it. When something here needs a higher
+# layer, it is in the wrong layer - that is how a_threadSafeQueue.hpp and
+# a_event_manager.hpp ended up moving down out of core.
+
 find_package(glm REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(spdlog REQUIRED)

@@ -20,7 +20,7 @@
 #include "a_cubemapData.hpp"
 #include "a_IGraphicsContext.hpp"
 #include "a_Material.hpp"
-
+#include "a_event_manager.hpp"
 namespace Andromeda {
 
     /**
@@ -34,6 +34,11 @@ namespace Andromeda {
     class ResourceManager : public ISubsystem, public IModelProvider {
     public:
 
+        static constexpr std::array<std::string_view, 2> s_SupportedModelFormat{
+            ".fbx",
+            ".obj"
+        };
+
         /** @brief CPU-side storage of loaded mesh geometry, mapped by unique ID. */
         std::unordered_map<u32, Andromeda::Mesh> m_Meshes;
 
@@ -45,6 +50,8 @@ namespace Andromeda {
 
         /** @brief Loaded cubemap environment data (LDR skies or HDR panoramas), mapped by name. */
         std::unordered_map<std::string, CubemapData> m_CubemapData;
+
+        static constexpr std::array<std::string_view, 2> m_MeshImportFilter{".obj", ".fbx"};
 
         /**
          * @brief What the imported model files declared about their materials, keyed by material name.
@@ -294,7 +301,7 @@ namespace Andromeda {
         std::vector<u32> m_ModelIndexList;                       /**< Sequential list of model IDs for UI iteration. */
         std::unordered_map<std::string, u32> m_MeshIDbyName;     /**< Maps string names to internal Mesh IDs to prevent duplicates. */
         std::unordered_map<u32,u32> m_PreviewTextureIDs;
-
+        EventListenerID m_OnFileChangedListener; /**< Listener ID for file change events, used to reload assets on-the-fly. */
         /** @brief Cached RHI shader programs, keyed by their registration name. */
         std::unordered_map<std::string, ShaderProgramHandle> m_RhiShaders;
         /** @brief Cached material instances, keyed by their registration name. */
@@ -302,19 +309,13 @@ namespace Andromeda {
 
         u32 m_NextMeshID = 0; /**< Autoincrementing counter for assigning unique Mesh IDs. */
 
-
-        /**
-         * @brief Iterates over CPU meshes and generates their corresponding OpenGL buffers (VAO/VBO/EBO).
-         */
-        void setupMeshes();
-
         /**
          * @brief Recursively processes Assimp nodes, extracting vertex and index data into Andromeda format.
          * @param meshId The internal Andromeda ID being assigned to this scene.
          * @param scene The parent Assimp scene.
          * @param node The current Assimp node being processed.
          */
-        void processNode(uint32_t meshId, const aiScene* scene, aiNode* node, const std::string& modelDirectory);
+        void processNode(Mesh& mesh, const aiScene* scene, aiNode* node, const std::string& modelDirectory);
 
         /**
          * @brief Records one imported material under its name and returns that name.
@@ -323,10 +324,12 @@ namespace Andromeda {
          */
         std::string recordMaterial(const aiMaterial* material, const std::string& modelDirectory);
 
+
         /**
          * @brief Initiates the Assimp importer for a specific file and sets up the internal Mesh structure.
          * @param path The full system path to the 3D model file.
          */
         void loadScene(const std::string& path);
+
     };
 }

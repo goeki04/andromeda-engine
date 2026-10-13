@@ -1,7 +1,26 @@
 #include "a_ConsolePanel.hpp"
 #include "a_EditorContext.hpp"
+#include "a_log_sink.hpp"
 namespace Andromeda::Gui {
+    /** @brief Maps a log level onto the colour its line is drawn in, 0 for the default. */
+    static ImU32 colorForLevel(const spdlog::level::level_enum level) {
+        switch (level) {
+            case spdlog::level::critical: return IM_COL32(255, 110, 110, 255);
+            case spdlog::level::err:      return IM_COL32(255, 100, 100, 255);
+            case spdlog::level::warn:     return IM_COL32(240, 200,  90, 255);
+            case spdlog::level::debug:
+            case spdlog::level::trace:    return IM_COL32(150, 150, 160, 255);
+            default:                      return 0;
+        }
+    }
+
     void ConsolePanel::onGuiRender(EditorContext& ctx) {
+        // Drained every frame regardless of whether the panel is open, otherwise the queue
+        // grows unbounded while the console is hidden - which is its default state.
+        for (auto& line : Log::pendingLines().dequeueAll()) {
+            m_Console.addLine(std::move(line.text), colorForLevel(line.level));
+        }
+
         
         ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
         if (!ImGui::Begin(m_Name, &m_IsOpen))
@@ -50,27 +69,24 @@ namespace Andromeda::Gui {
 
             for (const auto& item : m_Console.items)
             {
-                if (!m_Console.filter.PassFilter(item.c_str()))
+                if (!m_Console.filter.PassFilter(item.text.c_str()))
                     continue;
 
-                ImVec4 color;
-                bool has_color = false;
-
-                if (item.find("[E]") != std::string::npos)
+                // Lines from the log sink carry their colour; the command handlers still mark
+                // their own output with the "[E]" and "# " prefixes.
+                ImU32 color = item.color;
+                if (color == 0)
                 {
-                    color = ImVec4(1.0f, 0.4f, 0.4f, 1.0f);
-                    has_color = true;
-                }
-                else if (item.substr(0, 2) == "# ")
-                {
-                    color = ImVec4(1.0f, 0.8f, 0.6f, 1.0f);
-                    has_color = true;
+                    if (item.text.find("[E]") != std::string::npos)
+                        color = IM_COL32(255, 100, 100, 255);
+                    else if (item.text.starts_with("# "))
+                        color = IM_COL32(255, 205, 150, 255);
                 }
 
-                if (has_color)
+                if (color != 0)
                     ImGui::PushStyleColor(ImGuiCol_Text, color);
-                ImGui::TextUnformatted(item.c_str());
-                if (has_color)
+                ImGui::TextUnformatted(item.text.c_str());
+                if (color != 0)
                     ImGui::PopStyleColor();
             }
             if (copy_to_clipboard) ImGui::LogFinish();

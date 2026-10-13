@@ -19,6 +19,8 @@
 #include "a_particle.hpp"
 #include "a_FrameConstants.hpp"
 #include "a_AssetPreviewRenderer.hpp"
+#include "a_event_manager.hpp"
+
 namespace Andromeda {
 	namespace amath {
 		struct CameraData;
@@ -157,6 +159,7 @@ namespace Andromeda {
 		 */
 		void createCubemapTexture(CubemapData& data);
 	private:
+		EventListenerID m_FileChangedListerID = {};
 		AndromedaGXAPI m_Api = AndromedaGXAPI::OpenGL;            ///< Active graphics backend.
 		ResourceManager* m_ResourceManager = nullptr;              ///< Cached resource manager (meshes, textures, shaders).
 		SceneManager* m_SceneManager = nullptr;                    ///< Cached scene manager (entities to render).

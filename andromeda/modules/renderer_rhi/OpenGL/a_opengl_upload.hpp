@@ -15,4 +15,6 @@ namespace Andromeda {
 	 * @param mesh The source mesh (vertex and index data) to upload.
 	 */
 	void createMesh(MeshGPUHandle& glMesh, const Mesh& mesh);
+
+	void destroyMesh(MeshGPUHandle& glMesh);
 }

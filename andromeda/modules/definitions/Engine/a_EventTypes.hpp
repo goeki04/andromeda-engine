@@ -1,6 +1,7 @@
 #pragma once
 
 #include "a_Keycodes.hpp"
+#include "a_file_event.hpp"
 #include <string>
 #include <any>
 namespace Andromeda {
@@ -12,7 +13,8 @@ namespace Andromeda {
         OnKeyDown, OnKeyUp,
         OnMouseBtnDown, OnMouseBtnUp, OnMouseWheelScroll,
         OnMouseMoved, OnSceneObjectSelected, OnEnableWireframe,
-        OnPushUndoTransform, OnSensorMessageReceived
+        OnPushUndoTransform, OnSensorMessageReceived,
+        OnFileChanged, OnMeshReloaded
     };
 
     /**
@@ -21,6 +23,44 @@ namespace Andromeda {
      */
     struct IEvent {
         virtual ~IEvent() = default;
+    };
+
+    /**
+     * @brief Triggered once per watched file change, after the watcher thread handed the
+     *        event to the main thread.
+     *
+     * @details Dispatched from OS_Manager::update(), so listeners run on the main thread
+     *          and may touch the graphics context. A Rescan action means notifications
+     *          were dropped and the path is the watched directory, not a single file.
+     */
+    struct FileChanged : IEvent {
+        FileAction action;             ///< What happened to the entry.
+        std::filesystem::path path;    ///< Absolute path of the affected entry.
+
+        FileChanged(const FileAction _action, std::filesystem::path _path)
+            : action(_action), path(std::move(_path)) {}
+        static constexpr EventType GetStaticType() { return EventType::OnFileChanged; }
+    };
+
+    /**
+     * @brief Triggered once a mesh's CPU and GPU data are current again.
+     *
+     * @details Sent by the ResourceManager at the end of an import, for a freshly added mesh
+     *          as well as for one that was re-imported after its file changed. Listeners can
+     *          assume the mesh id is valid and its GPU buffers are the new ones, so anything
+     *          derived from the mesh - thumbnails, bounding volumes, colliders - is stale and
+     *          has to be rebuilt.
+     *
+     *          Deliberately separate from FileChanged: a consumer that only cares about the
+     *          result should not have to know about file paths, extensions or whether the
+     *          import succeeded, and it must not race the ResourceManager for who handles the
+     *          file event first.
+     */
+    struct MeshReloaded : IEvent {
+        u32 meshID; ///< The mesh whose data was just (re)imported.
+
+        explicit MeshReloaded(const u32 _meshID) : meshID(_meshID) {}
+        static constexpr EventType GetStaticType() { return EventType::OnMeshReloaded; }
     };
 
     /**
