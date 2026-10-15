@@ -12,7 +12,15 @@ namespace Andromeda::Gui {
     }
 
     void Chart::onGuiRender(EditorContext& ctx) {
-            ImGui::Begin("Live Performance Chart", nullptr);
+            // m_Name, not a separate literal: ImGui identifies windows by their title, so a
+            // title that differs from the panel name leaves the Window menu toggling one thing
+            // and the dock layout in a_Docking.cpp addressing another that never exists.
+            // &m_IsOpen rather than nullptr gives the window its close button back and lets
+            // ImGui clear the flag itself - without it the only way out was the menu.
+            if (!ImGui::Begin(m_Name, &m_IsOpen)) {
+                ImGui::End();
+                return;
+            }
 
             static ScrollingBuffer sdata(1000);
             static float t = 0;

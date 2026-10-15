@@ -29,6 +29,7 @@ namespace Andromeda::Gui {
         void onGuiRender(EditorContext& ctx) override;
 
     private:
+        float m_IconScale = 1.0f;
         /**
          * @struct Tile
          * @brief Internal data structure representing a single device entry in the browser grid.
@@ -65,9 +66,9 @@ namespace Andromeda::Gui {
              * @brief Calculates the standard icon size based on current ImGui frame height.
              * @return A scaled ImVec2 representing the icon dimensions.
              */
-            static ImVec2 getIconSize() {
-                float h = ImGui::GetFrameHeight();
-                return { h * 2.5f, h * 2.5f };
+            static ImVec2 getIconSize(float scale) {
+                float h = ImGui::GetFrameHeight() * 2.5f * scale;
+                return { h, h };
             }
         };
 
@@ -90,14 +91,15 @@ namespace Andromeda::Gui {
          * @param idx The index of the device.
          * @return True if the tile was clicked, false otherwise.
          */
-        static bool handleTile(EditorContext& ctx, const ModelRecord& device, int idx);
+        bool handleTile(EditorContext& ctx, const ModelRecord& device, int idx, ImVec2 iconSize);
 
         /**
          * @brief Handles 3D world interaction for dragging devices into the scene.
          * @param ctx Reference to the editor context.
          * @param tile The tile being dragged.
+         * @param iconSize The size of the icon being dragged.
          */
-        static void handleDragAndDrop(EditorContext& ctx, const Tile& tile);
+        void handleDragAndDrop(EditorContext& ctx, const Tile& tile, ImVec2 iconSize);
 
         /**
          * @brief Performs low-level ImGui drawing for the tile's icon, text, and highlights.
