@@ -44,6 +44,11 @@ namespace Andromeda::Gui {
                 else
                     A_ERROR("Loading the scene from '{}' failed, current scene kept", scenePath);
             }
+            if (ImGui::MenuItem("Project Settings")) {
+                if (ctx.panelController) {
+                    ctx.panelController->setPanelOpen("Project Settings", true);
+                }
+            }
             if (ImGui::MenuItem("Exit")) {}
             ImGui::EndMenu();
         }

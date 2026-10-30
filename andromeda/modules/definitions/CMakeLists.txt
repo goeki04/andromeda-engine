@@ -131,6 +131,7 @@ target_include_directories(definitions INTERFACE
    ECS
    network
    gui
+   resource
 )
 
 target_link_libraries(definitions INTERFACE

@@ -213,5 +213,21 @@ namespace Andromeda {
 		 * @param pbrShaderHandle The PBR shader the imported materials share.
 		 */
 		void createImportedMaterials(ShaderProgramHandle pbrShaderHandle);
+
+		/**
+		 * @brief Builds or updates one imported material in place.
+		 * @details Split out of createImportedMaterials so a reload can rebuild a single material
+		 *          without walking every definition in the project.
+		 * @param name The material's cache key, as submeshes refer to it.
+		 * @param def What the model file declared about it.
+		 * @param pbrShaderHandle The PBR shader all imported materials share.
+		 */
+		void applyImportedMaterial(const std::string& name, const MaterialDef& def, ShaderProgramHandle pbrShaderHandle);
+
+		/**
+		 * @brief Re-applies the materials used by one mesh after its file changed.
+		 * @param meshID The mesh that was just re-imported.
+		 */
+		void refreshMeshMaterials(u32 meshID);
 	};
 }

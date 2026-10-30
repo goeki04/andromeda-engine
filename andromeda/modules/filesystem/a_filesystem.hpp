@@ -73,11 +73,21 @@ namespace Andromeda {
 			return (std::filesystem::path(baseDirectory) / candidate).lexically_normal().generic_string();
 		}
 
-		inline void stringToLower(std::string& data) {
-				std::ranges::transform(data, data.begin(),
-				                       [](const unsigned char c) {return std::tolower(c);
-				                       });
-		}
+        /**
+         * @brief Converts all ASCII uppercase letters in a string to lowercase, in place.
+         * @details Only 'A'-'Z' are changed; every other byte, including UTF-8 multi-byte
+         *          sequences such as umlauts, is left untouched. Unlike std::tolower this does
+         *          not depend on the current locale, so the result is the same on every machine,
+         *          and it is usable in constant expressions.
+         *          Intended for case-insensitive comparison of identifiers like file extensions,
+         *          not for natural-language text.
+         * @param data The string to convert; modified in place.
+         */
+		constexpr void stringToLower(std::string& data) {
+            std::ranges::transform(data, data.begin(), [](const char c) {
+                return (c >= 'A' && c <= 'Z') ? static_cast<char>(c + ('a' - 'A')) : c;
+            });
+        }
 
 		/**
 		 * @brief Determines the device type encoded in a path via the @c m_DirectoryNames convention.
@@ -114,6 +124,17 @@ namespace Andromeda {
 		 * @return The final path component.
 		 */
 		std::string getFileName(const std::string& path);
+
+		/**
+		 * @brief Extracts the extension from a path, including the leading dot.
+		 * @details Follows the std::filesystem rule: a leading dot is part of the name, not a
+		 *          separator, so a dotfile such as ".gitignore" has no extension. A path without
+		 *          a dot, or one ending in a separator, yields an empty string.
+		 * @param path The file path to inspect.
+		 * @return The extension as it is written on disk, e.g. ".obj" - the case is not changed,
+		 *         so comparisons against a fixed list should lower-case it first.
+		 */
+		std::string getFileExtension(std::string_view path);
 
 		std::string readFile(const std::string& path);
 

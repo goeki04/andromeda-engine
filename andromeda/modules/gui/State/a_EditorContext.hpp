@@ -3,6 +3,7 @@
 #include "a_primitives.hpp"
 #include <string_view>
 #include <functional>
+#include "a_AssetRegistry.hpp"
 namespace Andromeda {
     struct SelectionContext;
     namespace ECS { class ComponentRegistry; }
@@ -34,6 +35,7 @@ namespace Andromeda::Gui
         ResourceManager* resourceManager;    /**< Access to textures, models, and fonts. */
         SelectionContext* selection;         /**< Current selection state across all panels. */
         SceneManager* sceneManager;          /**< Management of the active scene hierarchy. */
+        Andromeda::AssetManagement::AssetRegistry* assetRegistry;
         IModelProvider* modelProvider;       /**< Interface for hardware-specific data. */
         amath::CameraData* cameraData;       /**< Viewport camera parameters and controls. */
         ViewportDrawInfo* viewportDrawInfo; /**< Information for rendering the viewport. */

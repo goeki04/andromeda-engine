@@ -1,4 +1,5 @@
 ﻿#include "gui_renderer.h"
+#include <cstdio>
 #include <stdexcept>
 #include "imgui_internal.h"
 #include "window_manager.hpp"
@@ -14,8 +15,53 @@
 #include <implot.h>
 #include "a_ParticleEditor.hpp"
 #include "a_subsystem_manager.hpp"
+#include "a_ProjectSettingsPanel.hpp"
 #include "IconsLucide.h"
 namespace {
+    /// Section name this handler owns inside imgui.ini.
+    constexpr const char* kPanelSettingsType = "AndromedaPanels";
+
+    /**
+     * @brief Resolves a "[AndromedaPanels][<name>]" section to the panel it refers to.
+     * @details Returning nullptr makes ImGui skip the section's lines, which is exactly what
+     *          should happen for a panel that no longer exists - an old ini then ages out
+     *          quietly instead of needing migration.
+     */
+    void* panelSettingsReadOpen(ImGuiContext*, ImGuiSettingsHandler* handler, const char* name) {
+        auto* renderer = static_cast<Andromeda::Gui::GuiRenderer*>(handler->UserData);
+        for (auto& panel : renderer->m_Panels) {
+            if (panel->getName() && std::string_view(panel->getName()) == name) {
+                return panel.get();
+            }
+        }
+        return nullptr;
+    }
+
+    /** @brief Reads one "Open=<0|1>" line into the panel that panelSettingsReadOpen resolved. */
+    void panelSettingsReadLine(ImGuiContext*, ImGuiSettingsHandler*, void* entry, const char* line) {
+        auto* panel = static_cast<Andromeda::Gui::EditorPanel*>(entry);
+        int open = 0;
+        if (std::sscanf(line, "Open=%d", &open) == 1) {
+            panel->m_IsOpen = open != 0;
+        } else {
+            panel->readSettings(line);
+        }
+    }
+
+    /** @brief Appends every panel's visibility to the ini buffer ImGui is about to write. */
+    void panelSettingsWriteAll(ImGuiContext*, ImGuiSettingsHandler* handler, ImGuiTextBuffer* buf) {
+        auto* renderer = static_cast<Andromeda::Gui::GuiRenderer*>(handler->UserData);
+        for (const auto& panel : renderer->m_Panels) {
+            if (!panel->getName()) {
+                continue;
+            }
+            buf->appendf("[%s][%s]\n", kPanelSettingsType, panel->getName());
+            buf->appendf("Open=%d\n", panel->m_IsOpen ? 1 : 0);
+            panel->writeSettings(*buf);
+            buf->appendf("\n");
+        }
+    }
+
     void drawToolBar() {
 		ImGuiViewport* viewport = ImGui::GetMainViewport();
         const float height = ImGui::GetFrameHeight();
@@ -57,11 +103,35 @@ namespace Andromeda::Gui {
         m_Panels.push_back(std::make_unique<BrowserPanel>("Browser"));
         m_Panels.push_back(std::make_unique<ViewportPanel>("Viewport"));
         m_Panels.push_back(std::make_unique<ParticleEditor>("Particle Editor"));
+        m_Panels.push_back(std::make_unique<ProjectSettingsPanel>("Project Settings"));
         m_Panels.push_back(std::make_unique<Chart>("Chart"));
         
         for (auto& panel : m_Panels) {
             panel->initPanel(editorContext);
         }
+
+        registerPanelSettings();
+    }
+
+    void GuiRenderer::registerPanelSettings() {
+        // imgui.ini stores a window's position, size, collapsed state and docking, but not
+        // whether it is open: p_open points at application memory, so ImGui cannot own it. A
+        // settings handler adds our own section to that same file, which keeps panel
+        // visibility next to the dock layout it belongs with.
+        //
+        // Registered here because ImGui loads the ini lazily on the first NewFrame - any later
+        // and the saved values would be read before this handler exists to claim them. The
+        // panels are already constructed above, so ReadOpen can resolve names right away.
+        ImGuiSettingsHandler handler;
+        handler.TypeName = kPanelSettingsType;
+        handler.TypeHash = ImHashStr(kPanelSettingsType);
+        handler.ReadOpenFn = panelSettingsReadOpen;
+        handler.ReadLineFn = panelSettingsReadLine;
+        handler.WriteAllFn = panelSettingsWriteAll;
+        handler.UserData = this;
+
+        // AddSettingsHandler copies the struct, so the local going out of scope is fine.
+        ImGui::AddSettingsHandler(&handler);
     }
 
     void GuiRenderer::update(EditorContext& editorContext) {
@@ -118,6 +188,9 @@ namespace Andromeda::Gui {
         for (auto& panel : m_Panels) {
             if (panel->getName() && std::string_view(panel->getName()) == name) {
                 panel->m_IsOpen = open;
+                // Without this ImGui has no reason to rewrite the ini, and a toggle made late
+                // in a session would be lost.
+                ImGui::MarkIniSettingsDirty();
                 return;
             }
         }

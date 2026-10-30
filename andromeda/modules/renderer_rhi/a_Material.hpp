@@ -137,6 +137,16 @@ namespace Andromeda {
         }
 
         /**
+         * @brief Drops all texture bindings.
+         * @details Needed before re-applying a material: addTexture appends, so rebuilding one
+         *          in place would otherwise leave it with two sets of bindings after the first
+         *          reload and three after the second.
+         */
+        void clearTextures() {
+            m_Textures.clear();
+        }
+
+        /**
          * @brief Binds the material and uploads all parameters to the GPU in a highly efficient batch.
          * * This method is called every frame inside the render loop. It builds a flat submission
          * queue (@ref UniformData) directly on the CPU stack, containing pointers into the

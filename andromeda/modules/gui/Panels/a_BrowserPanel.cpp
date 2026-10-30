@@ -2,6 +2,8 @@
 #include "a_EditorContext.hpp"
 #include "a_ImGuiOperators.hpp"
 #include "a_Style.hpp"
+#include "IconsLucide.h"
+#include <algorithm>
 #include <cmath>
 #include <string>
 #include <cctype>
@@ -183,9 +185,24 @@ namespace Andromeda::Gui {
 
     void BrowserPanel::onGuiRender(EditorContext& ctx) {
         if (ImGui::Begin(m_Name, &m_IsOpen)) {
+            const ImGuiStyle& style = ImGui::GetStyle();
+            constexpr float sliderWidth = 140.0f;
+            const float iconWidth = ImGui::CalcTextSize(ICON_LC_GRID_2_X_2).x;
+            const float controlsWidth = iconWidth + style.ItemSpacing.x * 2.0f + sliderWidth;
+
+            // The search field takes whatever is left, which pushes the view controls flush
+            // against the right edge without computing an absolute offset - and without any
+            // chance of the two overlapping when the panel is narrow.
+            ImGui::SetNextItemWidth(std::max(ImGui::GetContentRegionAvail().x - controlsWidth, 60.0f));
             renderSearch(ctx);
+
             ImGui::SameLine();
-            Component::drawFloatingSlider("##iconScale", m_IconScale, 0.5f, 1.0f, 100.0f);
+            // Reads as "this belongs to the view" instead of an unexplained line beside a search box.
+            ImGui::AlignTextToFramePadding();
+            ImGui::TextUnformatted(ICON_LC_GRID_2_X_2);
+            ImGui::SameLine();
+            Component::drawFloatingSlider("##iconScale", m_IconScale, 0.5f, 1.0f, sliderWidth);
+
             renderGrid(ctx);
         }
         ImGui::End();

@@ -1,13 +1,10 @@
 #pragma once
 #include "a_guiTypes.hpp"
-
+#include <string_view>
+struct ImGuiTextBuffer;
 namespace Andromeda::Gui
 {
     struct EditorContext;
-}
-
-namespace Andromeda::Gui
-{
     /**
          * @brief Abstract base class for all editor UI components.
          * * This interface defines the lifecycle of a UI panel. By inheriting from
@@ -36,6 +33,10 @@ namespace Andromeda::Gui
          * @param ctx The shared editor context.
          */
         virtual void initPanel(EditorContext& ctx) {}
+
+        virtual void writeSettings(ImGuiTextBuffer& buffer) const {}
+
+        virtual void readSettings(const char* line) {}
 
         /** @brief Returns the panel's display name (also used as the ImGui window title). */
         const char* getName() const { return m_Name; }

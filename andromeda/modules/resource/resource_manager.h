@@ -21,6 +21,7 @@
 #include "a_IGraphicsContext.hpp"
 #include "a_Material.hpp"
 #include "a_event_manager.hpp"
+#include "a_AssetRegistry.hpp"
 namespace Andromeda {
 
     /**
@@ -282,6 +283,7 @@ namespace Andromeda {
 
         u32 getPreviewTextureID(const u32 meshID) const override;
         void setPreviewTextureID(const u32 meshID,const u32 textureID);
+        AssetManagement::AssetRegistry& getAssetRegistry();
     private:
         /**
          * @brief Decodes image data from disk into CPU memory using stb_image.
@@ -296,6 +298,7 @@ namespace Andromeda {
          */
         static void MapCubemapFacesLDR(CubemapData& data, const std::string& path);
 
+        AssetManagement::AssetRegistry m_AssetRegistry; /**< The central registry of all assets on disk, keyed by GUID. */
         std::unordered_map<u32, ModelRecord> m_ModelRecords;     /**< Stores metadata for all loaded models. */
         std::unordered_map<i32, MeshGPUHandle> m_GPUMeshes;      /**< Stores OpenGL VAO/VBO/EBO handles for loaded meshes. */
         std::vector<u32> m_ModelIndexList;                       /**< Sequential list of model IDs for UI iteration. */

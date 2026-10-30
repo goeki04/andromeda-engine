@@ -8,6 +8,7 @@
 #include <algorithm>
 
 #include "imgui.h"
+#include "a_Style.hpp"
 
 namespace Andromeda::Gui::Component{
 
@@ -36,9 +37,12 @@ namespace Andromeda::Gui::Component{
      *       built-in widgets set.)
      */
     inline bool drawFloatingSlider(const char* id, float& value, const float min, const float max, float width) {
-        constexpr float circleRadius = 10.0f;
         const float height = ImGui::GetFrameHeight();
-        constexpr float thickness = 3.0f;
+
+        // Sized off the row height rather than fixed: a 20px knob next to a 3px line read as a
+        // marble on a thread, and it stayed that size when the editor's font did not.
+        const float circleRadius = height * 0.3f;
+        const float thickness = 4.0f;
 
         const ImVec2 origin = ImGui::GetCursorScreenPos();
         bool changed = false;
@@ -60,29 +64,42 @@ namespace Andromeda::Gui::Component{
         const bool isHovered = ImGui::IsItemHovered();
         const bool isActive = ImGui::IsItemActive();
 
-        ImColor color = ImColor(80, 80, 80, 255);
-        if (isHovered) {
-            color = ImColor(120, 120, 120, 255);
-        }
-        if (isActive) {
-            color = ImColor(150, 150, 150, 255);
-        }
-
         if (isActive && usable) {
             t = std::clamp((ImGui::GetIO().MousePos.x - trackStart) / trackWidth, 0.0f, 1.0f);
+
+            // Compared against the old value instead of reporting every held frame: a drag
+            // that pauses mid-way would otherwise keep firing, and anything listening - undo,
+            // a network sync, a shader rebuild - would do the same work over and over.
             if (const float next = min + t * range; next != value) {
                 value = next;
                 changed = true;
             }
         }
 
+        // Taken from the style rather than hard-coded, so this widget follows the editor theme
+        // the way every built-in control does - the white track and grey knob it used to draw
+        // were the only two colours in the editor that appeared nowhere else.
+        const ImU32 trackColor = ImGui::GetColorU32(ImGuiCol_FrameBg);
+        const ImU32 fillColor = ImGui::GetColorU32(isHovered || isActive ? AccentColorBright : AccentColor);
+        const ImU32 knobColor = ImGui::GetColorU32(isActive ? ImGuiCol_SliderGrabActive : ImGuiCol_SliderGrab);
+
         ImDrawList* dl = ImGui::GetWindowDrawList();
         const float centerY = origin.y + height * 0.5f;
+        const float knobX = trackStart + t * trackWidth;
 
         dl->AddRectFilled(ImVec2(origin.x, centerY - thickness * 0.5f),
-                          ImVec2(origin.x + width, centerY + thickness * 0.5f), IM_COL32(255, 255, 255, 255),
+                          ImVec2(origin.x + width, centerY + thickness * 0.5f), trackColor,
                           thickness * 0.5f);
-        dl->AddCircleFilled(ImVec2(trackStart + t * trackWidth, centerY), circleRadius, color);
+
+        // The filled part is what makes the value readable at a glance; without it the track
+        // says nothing and the knob has to be hunted for.
+        if (knobX > origin.x) {
+            dl->AddRectFilled(ImVec2(origin.x, centerY - thickness * 0.5f),
+                              ImVec2(knobX, centerY + thickness * 0.5f), fillColor,
+                              thickness * 0.5f);
+        }
+
+        dl->AddCircleFilled(ImVec2(knobX, centerY), circleRadius, knobColor);
         return changed;
     }
 }

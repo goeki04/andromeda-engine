@@ -16,6 +16,7 @@ add_library(gui STATIC
     Panels/a_ConsolePanel.cpp
     Panels/a_ViewportPanel.cpp
     Panels/a_ParticleEditor.cpp
+    Panels/a_ProjectSettingsPanel.cpp
     ParticleGraph/Overlays/a_VariablesOverlay.cpp
     ParticleGraph/Overlays/a_GroupsOverlay.cpp
     Widgets/a_MainMenuBar.cpp
@@ -62,4 +63,5 @@ target_link_libraries(gui PUBLIC
     resource
     renderer_rhi
     data
+    os
 )

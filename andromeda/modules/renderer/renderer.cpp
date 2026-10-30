@@ -39,6 +39,9 @@ namespace Andromeda {
         m_AssetPreviewRenderer = std::make_unique<AssetPreviewRenderer>(m_ResourceManager, m_RenderContext,m_ResourceManager, &m_FrameConstants);
         m_FileChangedListerID = EventManager::getInstance().AddEventListener<MeshReloaded>([this](const MeshReloaded& event)
         {
+            // Materials first: the thumbnail is rendered with them, so refreshing it beforehand
+            // would show the reloaded geometry with the previous surface.
+            refreshMeshMaterials(event.meshID);
             m_AssetPreviewRenderer->refresh(event);
         });
     }
@@ -355,40 +358,71 @@ namespace Andromeda {
     void Renderer::createImportedMaterials(const ShaderProgramHandle pbrShaderHandle)
     {
         for (const auto& [name, def] : m_ResourceManager->m_MaterialDefs) {
-            auto material = m_ResourceManager->createMaterial(name, pbrShaderHandle, m_RenderContext);
-            if (!material) {
-                A_WARN("Imported material '{}' could not be created", name);
-                continue;
+            applyImportedMaterial(name, def, pbrShaderHandle);
+        }
+    }
+
+    void Renderer::applyImportedMaterial(const std::string& name, const MaterialDef& def,
+                                         const ShaderProgramHandle pbrShaderHandle)
+    {
+        // createMaterial returns the existing instance for a known name, and that is what we
+        // want: submeshes refer to materials by name, so the object has to be updated in place
+        // rather than replaced.
+        const auto material = m_ResourceManager->createMaterial(name, pbrShaderHandle, m_RenderContext);
+        if (!material) {
+            A_WARN("Imported material '{}' could not be created", name);
+            return;
+        }
+
+        // Colour maps are authored in sRGB and must be linearised, data maps must not be.
+        const u32 albedoTex = m_ResourceManager->loadModelTexture(def.albedoMap, true);
+        const u32 emissiveTex = m_ResourceManager->loadModelTexture(def.emissiveMap, true);
+        const u32 roughnessTex = m_ResourceManager->loadModelTexture(def.roughnessMap, false);
+        const u32 normalTex = m_ResourceManager->loadModelTexture(def.normalMap, false);
+
+        u32 flags = 0;
+        if (albedoTex != 0)    flags |= 1u;  // HAS_ALBEDO_MAP
+        if (roughnessTex != 0) flags |= 2u;  // HAS_ROUGHNESS_MAP
+        if (normalTex != 0)    flags |= 4u;  // HAS_NORMAL_MAP
+        if (emissiveTex != 0)  flags |= 8u;  // HAS_EMISSIVE_MAP
+
+        Generated::pbrMaterial data;
+        data.albedo = def.albedo;
+        data.metallic = def.metallic;
+        data.roughness = def.roughness;
+        data.ao = 1.0f;
+        // The reflector may type the flag word as signed, so convert to whatever it chose.
+        data.textureFlags = static_cast<decltype(data.textureFlags)>(flags);
+
+        material->setUBOData(data, 2, m_RenderContext);
+
+        // Cleared first because addTexture appends - without this a reloaded material would
+        // carry both the old bindings and the new ones.
+        material->clearTextures();
+        material->addTexture({ m_IrradianceCubemap.textureID, 0 });
+        material->addTexture({ m_PrefilterMap.textureID, 1 });
+        material->addTexture({ m_BrdfLUTTexture.textureID, 2 });
+        if (albedoTex != 0)    material->addTexture({ albedoTex, 3 });
+        if (roughnessTex != 0) material->addTexture({ roughnessTex, 4 });
+        if (normalTex != 0)    material->addTexture({ normalTex, 5 });
+        if (emissiveTex != 0)  material->addTexture({ emissiveTex, 6 });
+    }
+
+    void Renderer::refreshMeshMaterials(const u32 meshID)
+    {
+        const ShaderProgramHandle pbrShader = m_ResourceManager->getShaderRHI("PBR_Shader");
+        if (pbrShader.apiID == 0) {
+            return;
+        }
+
+        // Only the materials this mesh actually uses: a reload of one model should not rebuild
+        // every material in the project.
+        const Mesh& mesh = m_ResourceManager->getMeshByID(meshID);
+        for (const auto& submesh : mesh.submeshes) {
+            const auto it = m_ResourceManager->m_MaterialDefs.find(submesh.materialName);
+            if (it != m_ResourceManager->m_MaterialDefs.end()) {
+                applyImportedMaterial(it->first, it->second, pbrShader);
             }
-
-            // Colour maps are authored in sRGB and must be linearised, data maps must not be.
-            const u32 albedoTex = m_ResourceManager->loadModelTexture(def.albedoMap, true);
-            const u32 emissiveTex = m_ResourceManager->loadModelTexture(def.emissiveMap, true);
-            const u32 roughnessTex = m_ResourceManager->loadModelTexture(def.roughnessMap, false);
-            const u32 normalTex = m_ResourceManager->loadModelTexture(def.normalMap, false);
-
-            u32 flags = 0;
-            if (albedoTex != 0)    flags |= 1u;  // HAS_ALBEDO_MAP
-            if (roughnessTex != 0) flags |= 2u;  // HAS_ROUGHNESS_MAP
-            if (normalTex != 0)    flags |= 4u;  // HAS_NORMAL_MAP
-            if (emissiveTex != 0)  flags |= 8u;  // HAS_EMISSIVE_MAP
-
-            Generated::pbrMaterial data;
-            data.albedo = def.albedo;
-            data.metallic = def.metallic;
-            data.roughness = def.roughness;
-            data.ao = 1.0f;
-            // The reflector may type the flag word as signed, so convert to whatever it chose.
-            data.textureFlags = static_cast<decltype(data.textureFlags)>(flags);
-
-            material->setUBOData(data, 2, m_RenderContext);
-            material->addTexture({ m_IrradianceCubemap.textureID, 0 });
-            material->addTexture({ m_PrefilterMap.textureID, 1 });
-            material->addTexture({ m_BrdfLUTTexture.textureID, 2 });
-            if (albedoTex != 0)    material->addTexture({ albedoTex, 3 });
-            if (roughnessTex != 0) material->addTexture({ roughnessTex, 4 });
-            if (normalTex != 0)    material->addTexture({ normalTex, 5 });
-            if (emissiveTex != 0)  material->addTexture({ emissiveTex, 6 });
         }
     }
 

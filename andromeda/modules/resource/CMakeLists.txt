@@ -2,6 +2,8 @@ find_package(assimp REQUIRED)
 
 add_library(resource STATIC
     resource_manager.cpp
+    a_AssetRegistry.cpp
+    a_AssetManager.cpp
 )
 
 target_compile_definitions(resource PRIVATE ASSET_PATH="${CMAKE_SOURCE_DIR}/assets/")

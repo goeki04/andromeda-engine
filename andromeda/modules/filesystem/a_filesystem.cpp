@@ -94,6 +94,14 @@ namespace Andromeda {
         return fileName;
     }
 
+    std::string Filesystem::getFileExtension(const std::string_view path)
+    {
+        // std::filesystem rather than a hand-rolled find_last_of('.'): it knows that a leading
+        // dot belongs to the name, so ".gitignore" comes back without an extension instead of
+        // being read as one.
+        return std::filesystem::path(path).extension().string();
+    }
+
     std::string Filesystem::readFile(const std::string& path)
     {
         std::ifstream file(path, std::ios::in | std::ios::binary);

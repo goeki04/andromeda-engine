@@ -49,6 +49,15 @@ namespace Andromeda::Gui {
         /** @brief Shuts down ImGui and releases panel/UI resources. */
         void destroy();
 
+    private:
+        /**
+         * @brief Registers the imgui.ini settings handler that persists panel visibility.
+         * @details Called at the end of init(), before the first frame reads the ini.
+         */
+        void registerPanelSettings();
+
+    public:
+
         std::vector<std::unique_ptr<EditorPanel>> m_Panels; ///< All registered editor panels, owned by the renderer.
 
         /** @copydoc IPanelController::isPanelOpen */

@@ -11,6 +11,7 @@
 #include "OpenGL/a_opengl_upload.hpp"
 #include <assimp/postprocess.h>
 #include "OpenGL/a_GLcubemap.hpp"
+
 namespace Andromeda {
     void ResourceManager::start()
     {
@@ -24,6 +25,9 @@ namespace Andromeda {
                 }
             }
         });
+        for(const auto& dir : m_AssetRegistry.getImportDirectories()) {
+            m_AssetRegistry.scanDirectory(dir);
+        }
         loadModels();
         loadDeviceIcons();
         loadEditorIcons();
@@ -459,9 +463,9 @@ void ResourceManager::loadAndStoreCubemap(const std::string& file) {
                                ? std::string(nameValue.C_Str())
                                : std::string("UnnamedMaterial");
 
-        if (m_MaterialDefs.contains(name)) {
-            return name;
-        }
+        // Deliberately no early return on a known name: on a reload the file has just been
+        // re-read, and its definition is the current one. Skipping here was why editing a .mtl
+        // changed nothing - the mesh came back with new geometry and the old surface.
 
         MaterialDef def;
         def.name = name;
@@ -496,7 +500,9 @@ void ResourceManager::loadAndStoreCubemap(const std::string& file) {
             def.normalMap = texturePath(aiTextureType_HEIGHT);
         }
 
-        m_MaterialDefs.emplace(name, std::move(def));
+        // insert_or_assign, not emplace: emplace keeps the existing entry on a duplicate key,
+        // which is the same stale-definition problem one layer down.
+        m_MaterialDefs.insert_or_assign(name, std::move(def));
         return name;
     }
 
@@ -694,5 +700,9 @@ void ResourceManager::loadAndStoreCubemap(const std::string& file) {
     void ResourceManager::setPreviewTextureID(const u32 meshID, const u32 textureID)
     {
         m_PreviewTextureIDs[meshID] = textureID;
+    }
+
+    AssetManagement::AssetRegistry& ResourceManager::getAssetRegistry() {
+        return m_AssetRegistry;
     }
 }
