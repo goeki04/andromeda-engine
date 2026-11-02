@@ -5,6 +5,7 @@
  * @brief Data-oriented undo history that stores commands as a flat byte stream.
  */
 
+#include <type_traits>
 #include <vector>
 #include "a_primitives.hpp"
 #include "generated_undo_commands.hpp"
@@ -52,6 +53,9 @@ namespace Andromeda::Editor::Undo {
 		 */
 		void undo(ECS::ComponentRegistry& registry);
 
+		/** @brief Number of commands that can currently be undone, at most @c maxUndoSteps. */
+		[[nodiscard]] size_t size() const { return commandOffsets.size(); }
+
 		/**
 		 * @brief Serializes a command (header + payload) onto the undo stack.
 		 * @details Evicts the oldest command first if the buffer is full, records the new
@@ -62,6 +66,13 @@ namespace Andromeda::Editor::Undo {
 		 */
 		template<typename T>
 		void pushCommand(CommandType cmdType, const T& commandData) {
+			// The payload is copied byte by byte and later read back through a reinterpret_cast.
+			// That is only defined for trivially copyable types: a payload holding a std::string
+			// (e.g. UndoTagData, through Tag::name) would copy the string's internal pointer, and the
+			// undo would read freed memory once the original string is gone.
+			static_assert(std::is_trivially_copyable_v<T>,
+				"Undo payloads are stored as raw bytes and must be trivially copyable - "
+				"replace std::string and other owning members with fixed-size data.");
 			if (commandOffsets.size() >= maxUndoSteps) {
 				deleteCommand();
 			}
