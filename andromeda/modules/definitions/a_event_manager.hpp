@@ -11,6 +11,7 @@
 #include <functional>
 #include <ranges>
 #include <concepts>
+#include <utility>
 #include "a_EventTypes.hpp"
 
 namespace Andromeda {
@@ -34,6 +35,7 @@ namespace Andromeda {
      * - **Performance**: Optimized dispatch loop using deferred removal to avoid
      * expensive heap allocations (vector copies) during event firing.
      * - **Reentrancy**: Safe to add or remove listeners even while a dispatch is in progress.
+     *   Both take effect once the outermost dispatch has finished.
      */
     class EventManager {
     private:
@@ -56,6 +58,14 @@ namespace Andromeda {
 
         /** @brief Tracks the current recursion depth of Dispatch calls to ensure thread/reentrancy safety. */
         int m_DispatchLevel = 0;
+
+        /**
+         * @brief Listeners added while a Dispatch was running, waiting to join m_Events.
+         * @details Appending to the vector a Dispatch is iterating over could reallocate it under
+         *          the running loop. They join once the outermost Dispatch has finished, so a new
+         *          listener first hears the next event, not the one being dispatched.
+         */
+        std::vector<std::pair<EventType, EventListener>> m_PendingAdditions;
 
     public:
         /**
@@ -86,7 +96,11 @@ namespace Andromeda {
                 handle(static_cast<const T&>(e));
             };
 
-            m_Events[type].push_back({ std::move(wrapper), id, false });
+            if (m_DispatchLevel > 0) {
+                m_PendingAdditions.push_back({ type, EventListener{ std::move(wrapper), id, false } });
+            } else {
+                m_Events[type].push_back({ std::move(wrapper), id, false });
+            }
             return { type, id };
         }
 
@@ -124,6 +138,11 @@ namespace Andromeda {
          * * @param handle The ID object returned by AddEventListener.
          */
         void RemoveEventListener(EventListenerID handle) {
+            // A listener added during the running dispatch is not in m_Events yet.
+            std::erase_if(m_PendingAdditions, [&handle](const auto& pending) {
+                return pending.first == handle.type && pending.second.id == handle.id;
+            });
+
             const auto it = m_Events.find(handle.type);
             if (it == m_Events.end()) return;
 
@@ -154,6 +173,10 @@ namespace Andromeda {
                     return l.pendingRemoval;
                     });
             }
+            for (auto& [type, listener] : m_PendingAdditions) {
+                m_Events[type].push_back(std::move(listener));
+            }
+            m_PendingAdditions.clear();
         }
     };
 }
