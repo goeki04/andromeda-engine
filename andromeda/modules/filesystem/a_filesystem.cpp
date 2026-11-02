@@ -40,6 +40,7 @@ namespace Andromeda {
             if (!entry.is_regular_file()) continue;
 
             std::string ext = entry.path().extension().generic_string();
+            Filesystem::stringToLower(ext);
             const bool allowed = filter.empty() ||
                 std::ranges::find(filter, ext) != filter.end();
 
@@ -96,6 +97,43 @@ namespace Andromeda {
         std::stringstream buffer;
         buffer << file.rdbuf();
         return buffer.str();
+    }
+
+    bool Filesystem::writeFileAtomic(const std::filesystem::path& file, const std::string_view text)
+    {
+        namespace fs = std::filesystem;
+        std::error_code ec;
+        if (file.has_parent_path()) {
+            fs::create_directories(file.parent_path(), ec);
+        }
+
+        fs::path temp = file;
+        temp += ".tmp";
+        bool written = false;
+        {
+            std::ofstream out(temp, std::ios::binary | std::ios::trunc);
+            out.write(text.data(), static_cast<std::streamsize>(text.size()));
+            written = static_cast<bool>(out);
+        }
+        if (written) {
+            fs::rename(temp, file, ec);
+            if (!ec) {
+                return true;
+            }
+        }
+        fs::remove(temp, ec);
+        return false;
+    }
+
+    std::filesystem::path Filesystem::fromUtf8(const std::string_view utf8)
+    {
+        return std::filesystem::path(std::u8string(utf8.begin(), utf8.end()));
+    }
+
+    std::string Filesystem::toUtf8(const std::filesystem::path& path)
+    {
+        const std::u8string text = path.generic_u8string();
+        return std::string(text.begin(), text.end());
     }
 
     /// Returns a list of directory names within the specified path
