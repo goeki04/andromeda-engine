@@ -21,6 +21,7 @@ latex/
 .idea/
 .venv/
 .claude/
+.andromeda/
 
 # Local credentials - see secrets.example.json for the expected shape
 secrets.json

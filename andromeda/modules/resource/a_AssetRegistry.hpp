@@ -86,9 +86,10 @@ namespace Andromeda::AssetManagement {
      */
     class AssetRegistry {
     public:
+        AssetRegistry();
         /**
          * @brief Imports an asset from the given file path.
-         * @param path The file path of the asset to import.
+         * @param rawPath The file path of the asset to import.
          */
         void importAsset(const std::string& rawPath);
         /**
@@ -119,7 +120,8 @@ namespace Andromeda::AssetManagement {
         std::unordered_map<Guid, size_t> m_AssetRecordIndex;
         std::unordered_map<std::string, Guid> m_PathToGuid;
         std::vector<AssetRecord> m_AssetRecordsList;
-
+        std::filesystem::path m_ProjectRoot;
+        std::unordered_map<std::string, Guid> m_KnownGuids;
         /**
          * @brief True if @p path is new to the registry and of a known asset type.
          * @details Checked before anything touches the file, so unknown and already registered
@@ -139,6 +141,6 @@ namespace Andromeda::AssetManagement {
          * @details 122 of the 128 bits are random, the rest encode version and variant.
          * @return A new, unique asset GUID in canonical big-endian byte order.
          */
-        Guid generate_uuid_v4_binary();
+        static Guid generate_uuid_v4_binary();
     };
 } 

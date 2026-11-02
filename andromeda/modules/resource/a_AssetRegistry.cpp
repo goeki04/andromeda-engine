@@ -2,6 +2,9 @@
 #include "a_filesystem.hpp"
 #include <random>
 #include <filesystem>
+#include <fstream>
+#include <nlohmann/adl_serializer.hpp>
+#include <nlohmann/json.hpp>
 
 namespace {
     std::string normalizePath(std::string_view path) {
@@ -60,6 +63,75 @@ namespace Andromeda::AssetManagement {
         }
     }
 
+    bool AssetRegistry::saveDatabase(const std::filesystem::path& file) const
+    {
+        namespace fs = std::filesystem;
+        nlohmann::json root;
+        root["assets"] = nlohmann::json::array();
+        for (const AssetRecord& record : m_AssetRecordsList) {
+            const fs::path relative = fs::path(record.path).lexically_relative(m_ProjectRoot);
+            const bool insideProject = !relative.empty() && *relative.begin() != "..";
+            root["assets"].push_back({
+                {"guid", record.guid.toString()},
+                {"path", insideProject ? relative.generic_string() : record.path},
+                {"timestamp", record.fileTimestamp},
+            });
+        }
+
+        std::error_code ec;
+        fs::create_directories(file.parent_path(), ec);
+
+        const fs::path temp = file.string() + ".tmp";
+        {
+            std::ofstream out(temp);
+            if (!out) {
+                return false;
+            }
+            out << root.dump(4);
+            if (!out) {
+                return false;
+            }
+        }
+        fs::rename(temp, file, ec);
+        return !ec;
+    }
+
+    bool AssetRegistry::loadDatabase(const std::filesystem::path& file)
+    {
+        std::ifstream in(file);
+        if (!in) {
+            return true;
+        }
+        const nlohmann::json root = nlohmann::json::parse(in, nullptr, false);
+        if (root.is_discarded() || !root.contains("assets") || !root["assets"].is_array()) {
+            return false;
+        }
+
+        for (const nlohmann::json& entry : root["assets"])
+        {
+            if (!entry.contains("guid") || !entry.contains("path"))
+            {
+                continue;
+            }
+            const std::string stored = entry["path"].get<std::string>();
+            if (stored.empty()) {
+                continue;
+            }
+            const std::optional<Guid> guid = Guid::fromString(entry["guid"].get<std::string>());
+            if (!guid)
+            {
+                continue;
+            }
+            const std::string path = normalizePath((m_ProjectRoot / entry["path"].get<std::string>()).generic_string());
+            m_KnownGuids.emplace(path, *guid);
+        }
+        return true;
+    }
+
+    // ASSET_PATH is "<project>/assets/" - its parent is the project root.
+    AssetRegistry::AssetRegistry()
+        : m_ProjectRoot(std::filesystem::path(ASSET_PATH).parent_path().parent_path()) {}
+
     void AssetRegistry::importAsset(const std::string& rawPath) {
         const std::string path = normalizePath(rawPath);
         if (!isImportable(path)) {
@@ -83,7 +155,9 @@ namespace Andromeda::AssetManagement {
 
     void AssetRegistry::addRecord(const std::string& path, const std::filesystem::file_time_type lastWriteTime) {
         AssetRecord record;
-        Guid guid = generate_uuid_v4_binary();
+        const auto known = m_KnownGuids.find(path);
+        const bool reuse = known != m_KnownGuids.end() && !m_AssetRecordIndex.contains(known->second);
+        const Guid guid = reuse ? known->second : generate_uuid_v4_binary();
         record.guid = guid;
         record.name = Filesystem::getFileName(path);
         record.path = path;
@@ -118,6 +192,7 @@ namespace Andromeda::AssetManagement {
                         
             return Guid{bytes};
         }
+
 
     const std::vector<std::string>& AssetRegistry::getImportDirectories() const {
             return m_ImportDirectories;

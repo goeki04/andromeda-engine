@@ -1,0 +1,21 @@
+{
+    "assets": {
+        "databaseDirectory": "ProjectSettings",
+        "directories": [
+            "assets"
+        ]
+    },
+    "general": {
+        "autosave": true,
+        "autosaveMinutes": 5,
+        "projectName": "Andromeda",
+        "reopenLastScene": true,
+        "startupScene": "",
+        "version": "0.1.0"
+    },
+    "rendering": {
+        "graphicsApi": 0,
+        "msaaSamples": 4,
+        "vsync": true
+    }
+}

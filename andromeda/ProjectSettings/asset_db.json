@@ -1,0 +1,379 @@
+{
+    "assets": [
+        {
+            "guid": "ec34c51a60144e6ca08d9c8b07c13df3",
+            "path": "assets/cubemaps/LDR/skybox/back.jpg",
+            "timestamp": 134303315254184649
+        },
+        {
+            "guid": "b146b20e7cb440dba3a9dfc9c923947b",
+            "path": "assets/cubemaps/LDR/skybox/bottom.jpg",
+            "timestamp": 134303315254184649
+        },
+        {
+            "guid": "1e7ca82826c448ab9cabc1d69cc8cedf",
+            "path": "assets/cubemaps/LDR/skybox/front.jpg",
+            "timestamp": 134303315254184649
+        },
+        {
+            "guid": "beda504d54ef414b848654d8e3828d88",
+            "path": "assets/cubemaps/LDR/skybox/left.jpg",
+            "timestamp": 134303315254305605
+        },
+        {
+            "guid": "0a6ffb742b9740dd9a61a0440d963f94",
+            "path": "assets/cubemaps/LDR/skybox/right.jpg",
+            "timestamp": 134303315254325570
+        },
+        {
+            "guid": "1e20e1a63e1b47cbb6823d135283dc59",
+            "path": "assets/cubemaps/LDR/skybox/top.jpg",
+            "timestamp": 134303315254345582
+        },
+        {
+            "guid": "753b23251593406da4d7646c8d054221",
+            "path": "assets/fonts/lucide-font/codepoints.json",
+            "timestamp": 134303315254369343
+        },
+        {
+            "guid": "4b6fe0c37a7f477dabb6d28188ebd5b3",
+            "path": "assets/fonts/lucide-font/info.json",
+            "timestamp": 134303315254369343
+        },
+        {
+            "guid": "8ca2b5d504a94f6dbbd429b87228e9de",
+            "path": "assets/icons/device/box.png",
+            "timestamp": 134303315255351096
+        },
+        {
+            "guid": "5e4b95b878ff40ada0f47aa3bef38707",
+            "path": "assets/icons/device/controller.png",
+            "timestamp": 134303315255351096
+        },
+        {
+            "guid": "0a00781d9c414400a657248fa07e177c",
+            "path": "assets/icons/device/sensor.png",
+            "timestamp": 134303315255351096
+        },
+        {
+            "guid": "727ff8b66eb548c0b24931eaf930ff90",
+            "path": "assets/icons/editor/box.png",
+            "timestamp": 134303315255351096
+        },
+        {
+            "guid": "a7b3b85d0bbf461aa551755bbd101ec6",
+            "path": "assets/icons/editor/gear.png",
+            "timestamp": 134303315255351096
+        },
+        {
+            "guid": "e5327181c248487a9866c65df0e93ab3",
+            "path": "assets/icons/editor/rotate.png",
+            "timestamp": 134303315255351096
+        },
+        {
+            "guid": "7f26fb91d77f45608a1f6168fbc55978",
+            "path": "assets/icons/editor/scale.png",
+            "timestamp": 134303315255351096
+        },
+        {
+            "guid": "e54bb3229bcd47989ef9b90c59468a07",
+            "path": "assets/icons/editor/search.png",
+            "timestamp": 134303315255351096
+        },
+        {
+            "guid": "4748321dbab746a983a739ed4c800674",
+            "path": "assets/icons/editor/select.png",
+            "timestamp": 134303315255351096
+        },
+        {
+            "guid": "43e5e285ff874b40adccd4fdbeac5773",
+            "path": "assets/icons/editor/translate.png",
+            "timestamp": 134303315255351096
+        },
+        {
+            "guid": "8282b710b5284e7799bfee45b085f35a",
+            "path": "assets/logo.png",
+            "timestamp": 134303315255435834
+        },
+        {
+            "guid": "969c6c10ad374b528d49ea4cab8b5fce",
+            "path": "assets/models/CustomModel.obj",
+            "timestamp": 134363635263430361
+        },
+        {
+            "guid": "797dd636c2f3454987524997c4a900f1",
+            "path": "assets/models/dcontroller/ESP32.fbx",
+            "timestamp": 134303315255613783
+        },
+        {
+            "guid": "b2140d4524fd46ff9b49993bc8584c65",
+            "path": "assets/models/dcontroller/RaspberryPi.obj",
+            "timestamp": 134303315255918966
+        },
+        {
+            "guid": "cd4331ecde084883935d1b9c641f6347",
+            "path": "assets/models/dsensor/BMV080.obj",
+            "timestamp": 134303315255958417
+        },
+        {
+            "guid": "90fe6aa06c694eeea0146345f9c26cef",
+            "path": "assets/models/Room 2.1.obj",
+            "timestamp": 134351399268007562
+        },
+        {
+            "guid": "9d4cc168f97349b898769917b3165b36",
+            "path": "assets/textures/room/Book_diffuse.png",
+            "timestamp": 134351404335420325
+        },
+        {
+            "guid": "31f03aa94afc496bab18eda9aec218d6",
+            "path": "assets/textures/room/Book_roughness.png",
+            "timestamp": 134351404335487860
+        },
+        {
+            "guid": "5c9cd3543636473591693827ab2b7004",
+            "path": "assets/textures/room/Building_diffuse.png",
+            "timestamp": 134351404335587796
+        },
+        {
+            "guid": "42168616a5374e098836f793a53c30ec",
+            "path": "assets/textures/room/Building_nrml.png",
+            "timestamp": 134351404335677980
+        },
+        {
+            "guid": "3da9939fafcb46f7a110738c63ee19ce",
+            "path": "assets/textures/room/Building_roughness.png",
+            "timestamp": 134351404335771890
+        },
+        {
+            "guid": "483e442be63147c2aaece00735c74dc0",
+            "path": "assets/textures/room/Cabinet_diffuse.png",
+            "timestamp": 134351404335864006
+        },
+        {
+            "guid": "c65d72954b314a298e158a53bde33c1c",
+            "path": "assets/textures/room/Cabinet_normal.png",
+            "timestamp": 134351404335956035
+        },
+        {
+            "guid": "c066c20867b54b40874944f0ff543f44",
+            "path": "assets/textures/room/Cabinet_roughness.png",
+            "timestamp": 134351404336031550
+        },
+        {
+            "guid": "d1bcd394dece426eaf675139dd6321df",
+            "path": "assets/textures/room/Clock_diffuse.png",
+            "timestamp": 134351404336121482
+        },
+        {
+            "guid": "d72392d1ba8e4703a3ad956e8feae17b",
+            "path": "assets/textures/room/Clock_emit.png",
+            "timestamp": 134351404336213307
+        },
+        {
+            "guid": "f9dd80e4c9254d7095c3669b69c038e1",
+            "path": "assets/textures/room/Clock_roughness.png",
+            "timestamp": 134351404336287753
+        },
+        {
+            "guid": "b48884f291ea41f886d9870d01b597c0",
+            "path": "assets/textures/room/Dvd_diffuse.png",
+            "timestamp": 134351404336372935
+        },
+        {
+            "guid": "fbaa57da92b44871946257cfa6e6202b",
+            "path": "assets/textures/room/Dvd_roughness.png",
+            "timestamp": 134351404336469786
+        },
+        {
+            "guid": "77b3a607b59647a09eef5966812813cd",
+            "path": "assets/textures/room/Guitar_diffuse.png",
+            "timestamp": 134351404336566211
+        },
+        {
+            "guid": "0609307910044994af2a49294ac5cf50",
+            "path": "assets/textures/room/Guitar_roughness.png",
+            "timestamp": 134351404336683272
+        },
+        {
+            "guid": "cc97683bea7a4e3cab2c307bf78ce511",
+            "path": "assets/textures/room/Lamp_diffuse.png",
+            "timestamp": 134351404336788500
+        },
+        {
+            "guid": "c68ca2aa99324440a1cb82e2b615cdb4",
+            "path": "assets/textures/room/Lamp_emission.png",
+            "timestamp": 134351404336926616
+        },
+        {
+            "guid": "393bbea3a2814a69aaaab44654878b4b",
+            "path": "assets/textures/room/Lamp_roughness.png",
+            "timestamp": 134351404337078668
+        },
+        {
+            "guid": "0046048417a64ddca32b62759b60bc93",
+            "path": "assets/textures/room/Led_diffuse.png",
+            "timestamp": 134351404337255094
+        },
+        {
+            "guid": "230b095805e74bbdae346f3f375bfdfb",
+            "path": "assets/textures/room/Led_emission.png",
+            "timestamp": 134351404337442113
+        },
+        {
+            "guid": "40734fd8d1bb4df0878ddb18a1e91a08",
+            "path": "assets/textures/room/Led_roughness.png",
+            "timestamp": 134351404337635096
+        },
+        {
+            "guid": "000697c332194225b34c82c8d4157738",
+            "path": "assets/textures/room/Mug_diffuse.png",
+            "timestamp": 134351404337748451
+        },
+        {
+            "guid": "6ac6554e33ff4126835cf6019e6fac82",
+            "path": "assets/textures/room/Mug_roughness.png",
+            "timestamp": 134351404337860904
+        },
+        {
+            "guid": "7151d260f17f45f0b6be211eaa4d4355",
+            "path": "assets/textures/room/Phone_diffuse.png",
+            "timestamp": 134351404337985407
+        },
+        {
+            "guid": "060f859c167e4da3aae64224005d9ef1",
+            "path": "assets/textures/room/Phone_emission.png",
+            "timestamp": 134351404338077996
+        },
+        {
+            "guid": "79b602d7f97049a8bb585e05c7941e87",
+            "path": "assets/textures/room/Phone_roughness.png",
+            "timestamp": 134351404338176766
+        },
+        {
+            "guid": "dc0adc2eef6147dc96087105d9a096a2",
+            "path": "assets/textures/room/Plant_diffuse.png",
+            "timestamp": 134351404338281698
+        },
+        {
+            "guid": "6a96b86338ea4d33bd570784925833a4",
+            "path": "assets/textures/room/Plant_normal.png",
+            "timestamp": 134351404338384980
+        },
+        {
+            "guid": "3740cf1f372d4be8991165baf7dd51b2",
+            "path": "assets/textures/room/Plant_roughness.png",
+            "timestamp": 134351404338479724
+        },
+        {
+            "guid": "c28cd66be02a42cb81126ee32e604ab3",
+            "path": "assets/textures/room/Pokeball_diffuse.png",
+            "timestamp": 134351404338569797
+        },
+        {
+            "guid": "5eff382323304ef19adf9e23ecb45c21",
+            "path": "assets/textures/room/Pokeball_roughness.png",
+            "timestamp": 134351404338664910
+        },
+        {
+            "guid": "9fd5ff0e73ad498ab5cb3ac9cfbdaf90",
+            "path": "assets/textures/room/Poster_diffuse.png",
+            "timestamp": 134351404338901808
+        },
+        {
+            "guid": "a82e3b76bf8f4b1fa3a900215bf20c1f",
+            "path": "assets/textures/room/Poster_roughness.png",
+            "timestamp": 134351404339102072
+        },
+        {
+            "guid": "a8fa14e7872f42cb847e9902c65e5005",
+            "path": "assets/textures/room/Remote_diffuse.png",
+            "timestamp": 134351404339231831
+        },
+        {
+            "guid": "962d4076ca98482c98da56db78294148",
+            "path": "assets/textures/room/Remote_roughness.png",
+            "timestamp": 134351404339335586
+        },
+        {
+            "guid": "d8ddb22cafce4692b1198f146072f677",
+            "path": "assets/textures/room/Sofa_diffuse.png",
+            "timestamp": 134351404339452391
+        },
+        {
+            "guid": "5cab6129afc04306a048cd8575dd702c",
+            "path": "assets/textures/room/Sofa_normal.png",
+            "timestamp": 134351404339590228
+        },
+        {
+            "guid": "aa2676ef6c9f4e5a8ea2cb0c20d843cb",
+            "path": "assets/textures/room/Sofa_roughness.png",
+            "timestamp": 134351404339758685
+        },
+        {
+            "guid": "8cd0aadc855f4112bb60fd9ca53d4026",
+            "path": "assets/textures/room/Soundbar_diffuse.png",
+            "timestamp": 134351404339822982
+        },
+        {
+            "guid": "7af69f3d7ace44cf91bb17b5ac5a0c4e",
+            "path": "assets/textures/room/Soundbar_normal.png",
+            "timestamp": 134351404339921388
+        },
+        {
+            "guid": "4508396bf56d4d308838ee412bb64070",
+            "path": "assets/textures/room/Soundbar_roughness.png",
+            "timestamp": 134351404340034913
+        },
+        {
+            "guid": "da335a6015624213a99ee97d6cc7f742",
+            "path": "assets/textures/room/Switch_diffuse.png",
+            "timestamp": 134351404340137300
+        },
+        {
+            "guid": "6e9e6c5c2f1348b9966fd5c9a9a2ea4f",
+            "path": "assets/textures/room/Switch_emission.png",
+            "timestamp": 134351404340269630
+        },
+        {
+            "guid": "284a0914e11f4d9ba3dd32f51dbf59a7",
+            "path": "assets/textures/room/Switch_roughness.png",
+            "timestamp": 134351404340371841
+        },
+        {
+            "guid": "c710826f70784cb48575284599064380",
+            "path": "assets/textures/room/Table_diffuse.png",
+            "timestamp": 134351404340441513
+        },
+        {
+            "guid": "0a9823c23fd54319ba3d10ce8203456d",
+            "path": "assets/textures/room/Table_roughness.png",
+            "timestamp": 134351404340515382
+        },
+        {
+            "guid": "42645c0bc2534210819da34f35ecb23f",
+            "path": "assets/textures/room/Tv_diffuse.png",
+            "timestamp": 134351404340593645
+        },
+        {
+            "guid": "ba6a9029adc347cf93fa35c77e753172",
+            "path": "assets/textures/room/Tv_emit.png",
+            "timestamp": 134351404340692140
+        },
+        {
+            "guid": "f1b6d306990c43f6a092f60129acfc29",
+            "path": "assets/textures/room/Tv_roughness.png",
+            "timestamp": 134351404340766601
+        },
+        {
+            "guid": "ce05679b2eca4b4facb8509d333e043e",
+            "path": "assets/textures/room/Wall frame_diffuse.png",
+            "timestamp": 134351404340886561
+        },
+        {
+            "guid": "5e6cc8051ea2497bbab14bdd3a5b4a85",
+            "path": "assets/textures/room/Wall frame_roughness.png",
+            "timestamp": 134351404340990849
+        }
+    ]
+}

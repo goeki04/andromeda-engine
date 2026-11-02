@@ -120,7 +120,8 @@ add_custom_target(generate_ecs_metadata DEPENDS ${GEN_OUTPUT} ${GEN_NAME_OUTPUT}
 ${GEN_EVENT_OUTPUT} ${GEN_TELEMETRY_OUTPUT} ${GEN_NODE_OUTPUT})
 
 add_library(definitions INTERFACE
-		Math/a_glm_json_parser.hpp)
+		Math/a_glm_json_parser.hpp
+        Engine/a_ProjectSettings.hpp)
 add_dependencies(definitions generate_ecs_metadata)
 target_sources(definitions INTERFACE ${GEN_OUTPUT} ${GEN_NAME_OUTPUT} ${GEN_META_OUTPUT} ${GEN_EVENT_OUTPUT} ${GEN_TELEMETRY_OUTPUT} ${GEN_NODE_OUTPUT})
 target_include_directories(definitions INTERFACE 

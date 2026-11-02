@@ -11,6 +11,7 @@ namespace Andromeda {
     class ResourceManager;
     class IModelProvider;
     class SceneManager;
+    struct ProjectSettings;
 }
 
 namespace Andromeda::Editor::Undo{
@@ -35,11 +36,12 @@ namespace Andromeda::Gui
         ResourceManager* resourceManager;    /**< Access to textures, models, and fonts. */
         SelectionContext* selection;         /**< Current selection state across all panels. */
         SceneManager* sceneManager;          /**< Management of the active scene hierarchy. */
-        Andromeda::AssetManagement::AssetRegistry* assetRegistry;
+        AssetManagement::AssetRegistry* assetRegistry;
+        ProjectSettings* projectSettings;    /**< Project-wide settings, owned by the ResourceManager. */
         IModelProvider* modelProvider;       /**< Interface for hardware-specific data. */
         amath::CameraData* cameraData;       /**< Viewport camera parameters and controls. */
         ViewportDrawInfo* viewportDrawInfo; /**< Information for rendering the viewport. */
-        Andromeda::Editor::Undo::UndoBuffer* undoBuffer;       /**< Undo buffer for managing editor actions. */
+        Editor::Undo::UndoBuffer* undoBuffer;       /**< Undo buffer for managing editor actions. */
         /** @} */
         IPanelController* panelController = nullptr;
 
@@ -91,7 +93,9 @@ namespace Andromeda::Gui
             modelProvider(nullptr),
             cameraData(nullptr),
             viewportDrawInfo(nullptr),
-            undoBuffer(nullptr)
+            undoBuffer(nullptr),
+            assetRegistry(nullptr),
+            projectSettings(nullptr)
         {
         }
     };

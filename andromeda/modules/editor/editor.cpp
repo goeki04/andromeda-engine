@@ -28,7 +28,9 @@ namespace Andromeda::Editor {
         m_EditorContext.sceneManager = m_SceneManager;
         m_EditorContext.selection = &m_Selection;
         m_EditorContext.resourceManager = rm;
-        m_EditorContext.windowContext.glslVersion = Andromeda::Renderer::glsl_version;
+        m_EditorContext.windowContext.glslVersion = Renderer::glsl_version;
+        m_EditorContext.assetRegistry = &rm->getAssetRegistry();
+        m_EditorContext.projectSettings = &rm->getProjectSettings();
         m_EditorContext.windowContext.glContext = Window::m_GlContext;
         m_EditorContext.windowContext.window = Window::g_Window;
         m_EditorContext.modelProvider = rm;

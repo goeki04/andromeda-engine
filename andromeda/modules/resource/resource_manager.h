@@ -22,6 +22,8 @@
 #include "a_Material.hpp"
 #include "a_event_manager.hpp"
 #include "a_AssetRegistry.hpp"
+#include "a_ProjectSettings.hpp"
+#include <filesystem>
 namespace Andromeda {
 
     /**
@@ -284,7 +286,39 @@ namespace Andromeda {
         u32 getPreviewTextureID(const u32 meshID) const override;
         void setPreviewTextureID(const u32 meshID,const u32 textureID);
         AssetManagement::AssetRegistry& getAssetRegistry();
+
+        /** @brief The project's settings, loaded from ProjectSettings/project.json in start(). */
+        ProjectSettings& getProjectSettings();
+
+        /**
+         * @brief Writes the settings to ProjectSettings/project.json.
+         * @return false if writing failed, or if the file could not be read at startup - a file that
+         *         could not be read is never overwritten, so it can still be repaired by hand.
+         */
+        bool saveProjectSettings() const;
+
+        /**
+         * @brief Registers an asset directory with the registry, scans it and saves the asset database.
+         * @param directory Relative to the project root, or absolute for a folder outside the project.
+         */
+        void scanAssetDirectory(const std::string& directory);
+
+        /**
+         * @brief Stops importing from an asset directory.
+         * @note Records already found there stay in the registry until the next start - the registry
+         *       cannot drop every record below a path yet.
+         */
+        void forgetAssetDirectory(const std::string& directory);
     private:
+        /** @brief Reads project.json; a missing file keeps the defaults and is written once. */
+        void loadProjectSettings();
+
+        /** @brief Saves the registry to asset_db.json, unless that file was unreadable at startup. */
+        bool saveAssetDatabase() const;
+
+        /** @brief asset_db.json inside the database folder set in the project settings. */
+        std::filesystem::path assetDatabaseFile() const;
+
         /**
          * @brief Decodes image data from disk into CPU memory using stb_image.
          * @param data Reference to the CubemapData structure to populate.
@@ -299,6 +333,9 @@ namespace Andromeda {
         static void MapCubemapFacesLDR(CubemapData& data, const std::string& path);
 
         AssetManagement::AssetRegistry m_AssetRegistry; /**< The central registry of all assets on disk, keyed by GUID. */
+        ProjectSettings m_ProjectSettings;              /**< Loaded from ProjectSettings/project.json, edited by the editor. */
+        bool m_ProjectSettingsReadable = true;          /**< False if project.json existed but could not be read. */
+        bool m_AssetDatabaseReadable = false;           /**< False if asset_db.json existed but could not be read. */
         std::unordered_map<u32, ModelRecord> m_ModelRecords;     /**< Stores metadata for all loaded models. */
         std::unordered_map<i32, MeshGPUHandle> m_GPUMeshes;      /**< Stores OpenGL VAO/VBO/EBO handles for loaded meshes. */
         std::vector<u32> m_ModelIndexList;                       /**< Sequential list of model IDs for UI iteration. */

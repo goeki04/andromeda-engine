@@ -42,7 +42,7 @@ namespace Andromeda::Gui::Component{
         // Sized off the row height rather than fixed: a 20px knob next to a 3px line read as a
         // marble on a thread, and it stayed that size when the editor's font did not.
         const float circleRadius = height * 0.3f;
-        const float thickness = 4.0f;
+        constexpr float thickness = 4.0f;
 
         const ImVec2 origin = ImGui::GetCursorScreenPos();
         bool changed = false;

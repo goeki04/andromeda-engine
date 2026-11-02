@@ -23,6 +23,8 @@ add_library(gui STATIC
     Widgets/Console.cpp
     ${CMAKE_SOURCE_DIR}/bindings/imgui_impl_sdl3.cpp
     ${CMAKE_SOURCE_DIR}/bindings/imgui_impl_opengl3.cpp
+    # InputText for std::string - ships with Dear ImGui under misc/cpp, but is not part of the library.
+    ${CMAKE_SOURCE_DIR}/bindings/imgui_stdlib.cpp
     # Vendored ImPlot (master)
     ${CMAKE_SOURCE_DIR}/bindings/implot/implot.cpp
     ${CMAKE_SOURCE_DIR}/bindings/implot/implot_items.cpp

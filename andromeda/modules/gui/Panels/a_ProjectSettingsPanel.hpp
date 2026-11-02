@@ -17,7 +17,7 @@ namespace Andromeda::Gui {
     public:
         explicit ProjectSettingsPanel(const char* name) : EditorPanel(name) { m_IsOpen = true; }
 
-        void addDirectory(std::string_view directory);
+        void addDirectory(EditorContext& ctx, std::string_view directory);
         void drawGeneral(EditorContext& ctx);
         void drawRendering(EditorContext& ctx);
         void drawAssets(EditorContext& ctx);
@@ -33,37 +33,13 @@ namespace Andromeda::Gui {
         void readSettings(const char* line) override;
         void writeSettings(ImGuiTextBuffer& buf) const override;
     private:
-        // The text fields are plain char arrays because ImGui::InputText edits a buffer in place.
-        // 260 is MAX_PATH on Windows. None of these values is saved yet - that needs a project file.
+        // The values themselves live in ProjectSettings (definitions/Engine/a_ProjectSettings.hpp), owned by
+        // the ResourceManager: it needs the asset directories at startup, before any panel exists. This
+        // panel only edits them through ctx.projectSettings and has them saved after each finished edit.
 
-        /** @brief Values of the General category. */
-        struct GeneralSettings {
-            char projectName[128] = "Andromeda";
-            char version[32] = "0.1.0";
-            char startupScene[260] = "";
-            bool reopenLastScene = true;
-            bool autosave = true;
-            i32 autosaveMinutes = 5;
-        };
-
-        /** @brief Values of the Rendering category (backend only). */
-        struct RenderingSettings {
-            i32 graphicsApi = 0;  ///< Index into the API list in the .cpp, same order as AndromedaGXAPI (renderer.h).
-            bool vsync = true;
-            i32 msaaSamples = 4;  ///< 1 means MSAA off.
-        };
-
-        /** @brief Values of the Assets category. */
-        struct AssetSettings {
-            std::vector<std::string> directories{ "assets" };  ///< Without trailing slash, see addDirectory().
-            char databaseDirectory[260] = ".andromeda/";  ///< Folder that holds asset_db.json.
-        };
-
-        GeneralSettings m_General;
-        RenderingSettings m_Rendering;
-        AssetSettings m_Assets;
+        bool m_Dirty = false;           ///< Set by a finished edit; onGuiRender saves and clears it.
         i32 m_SelectedDirectory = -1;   ///< Row selected in the asset directory list, -1 for none.
-        char m_NewDirectory[260] = "";  ///< Path typed next to the + button.
+        std::string m_NewDirectory;     ///< Path typed next to the + button.
 
         ProjectSettingsTab m_SelectedTab = ProjectSettingsTab::General;
     };

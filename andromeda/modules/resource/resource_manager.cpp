@@ -4,6 +4,8 @@
 #include "a_primitiveGenerator.hpp"
 #include "a_logger.hpp"
 #include <string>
+#include <fstream>
+#include <filesystem>
 #define STB_IMAGE_IMPLEMENTATION
 
 #include "stb_image.h"
@@ -13,8 +15,41 @@
 #include "OpenGL/a_GLcubemap.hpp"
 
 namespace Andromeda {
+    namespace {
+        // ASSET_PATH is "<project>/assets/" - its parent is the project root.
+        std::filesystem::path projectRoot() {
+            return std::filesystem::path(ASSET_PATH).parent_path().parent_path();
+        }
+
+        // Always here: it cannot live in a folder that is configured inside it.
+        std::filesystem::path projectSettingsFile() {
+            return projectRoot() / "ProjectSettings" / "project.json";
+        }
+
+        // Relative entries are resolved against the project root. operator/ with an absolute
+        // right-hand side returns that side unchanged, so absolute entries pass through as they are.
+        std::filesystem::path resolveProjectPath(const std::string& path) {
+            return projectRoot() / path;
+        }
+    }
+
     void ResourceManager::start()
     {
+        // Settings first: they say which folders to scan and where the asset database lives.
+        loadProjectSettings();
+
+        const std::filesystem::path db = assetDatabaseFile();
+        m_AssetDatabaseReadable = m_AssetRegistry.loadDatabase(db);
+        if (!m_AssetDatabaseReadable) {
+            A_ERROR("Asset database {} could not be read - left untouched, assets get temporary Guids this session", db.string());
+        }
+        for (const std::string& directory : m_ProjectSettings.assets.directories) {
+            const std::string resolved = resolveProjectPath(directory).generic_string();
+            m_AssetRegistry.addImportDirectory(resolved);
+            m_AssetRegistry.scanDirectory(resolved);
+        }
+        saveAssetDatabase();
+
         EventManager::getInstance().AddEventListener<FileChanged>([this](const FileChanged& event) {
             for (const auto& s : m_MeshImportFilter) {
                 const std::string lowerExt = event.path.extension().string();
@@ -25,9 +60,7 @@ namespace Andromeda {
                 }
             }
         });
-        for(const auto& dir : m_AssetRegistry.getImportDirectories()) {
-            m_AssetRegistry.scanDirectory(dir);
-        }
+
         loadModels();
         loadDeviceIcons();
         loadEditorIcons();
@@ -700,6 +733,102 @@ void ResourceManager::loadAndStoreCubemap(const std::string& file) {
     void ResourceManager::setPreviewTextureID(const u32 meshID, const u32 textureID)
     {
         m_PreviewTextureIDs[meshID] = textureID;
+    }
+
+    ProjectSettings& ResourceManager::getProjectSettings() {
+        return m_ProjectSettings;
+    }
+
+    void ResourceManager::loadProjectSettings() {
+        const std::filesystem::path file = projectSettingsFile();
+        std::ifstream in(file);
+        if (!in) {
+            // First start of this project: keep the defaults and write them, so the file exists.
+            m_ProjectSettingsReadable = true;
+            saveProjectSettings();
+            return;
+        }
+
+        // Third argument false: broken JSON is reported by is_discarded() instead of an exception.
+        const nlohmann::json root = nlohmann::json::parse(in, nullptr, false);
+        if (root.is_discarded()) {
+            A_ERROR("Project settings {} are not valid JSON", file.string());
+        } else {
+            try {
+                // get() builds a new object first, so a wrong value leaves m_ProjectSettings untouched.
+                m_ProjectSettings = root.get<ProjectSettings>();
+                m_ProjectSettingsReadable = true;
+                return;
+            } catch (const nlohmann::json::exception& e) {
+                A_ERROR("Project settings {} contain a wrong value: {}", file.string(), e.what());
+            }
+        }
+        // Same rule as for the asset database: what could not be read is not overwritten. This
+        // session runs on the defaults, the file stays as it is so it can be repaired.
+        m_ProjectSettingsReadable = false;
+    }
+
+    bool ResourceManager::saveProjectSettings() const {
+        const std::filesystem::path file = projectSettingsFile();
+        if (!m_ProjectSettingsReadable) {
+            A_WARN("Project settings not saved: {} could not be read at startup and is left untouched", file.string());
+            return false;
+        }
+
+        std::string text;
+        try {
+            text = nlohmann::json(m_ProjectSettings).dump(4);
+        } catch (const nlohmann::json::exception& e) {
+            // dump() throws on strings that are not valid UTF-8.
+            A_WARN("Project settings not saved: {}", e.what());
+            return false;
+        }
+
+        std::error_code ec;
+        std::filesystem::create_directories(file.parent_path(), ec);
+        // Written next to the real file and swapped in, so a crash mid-write cannot leave half a file.
+        const std::filesystem::path temp = file.string() + ".tmp";
+        {
+            std::ofstream out(temp);
+            out << text;
+            if (!out) {
+                A_WARN("Could not write project settings {}", temp.string());
+                return false;
+            }
+        }
+        std::filesystem::rename(temp, file, ec);
+        if (ec) {
+            A_WARN("Could not replace project settings {}: {}", file.string(), ec.message());
+            return false;
+        }
+        return true;
+    }
+
+    std::filesystem::path ResourceManager::assetDatabaseFile() const {
+        return resolveProjectPath(m_ProjectSettings.assets.databaseDirectory) / "asset_db.json";
+    }
+
+    bool ResourceManager::saveAssetDatabase() const {
+        if (!m_AssetDatabaseReadable) {
+            return false;  // reported once at startup, the file is left for repair
+        }
+        const std::filesystem::path db = assetDatabaseFile();
+        if (!m_AssetRegistry.saveDatabase(db)) {
+            A_WARN("Could not write asset database {}", db.string());
+            return false;
+        }
+        return true;
+    }
+
+    void ResourceManager::scanAssetDirectory(const std::string& directory) {
+        const std::string resolved = resolveProjectPath(directory).generic_string();
+        m_AssetRegistry.addImportDirectory(resolved);
+        m_AssetRegistry.scanDirectory(resolved);
+        saveAssetDatabase();
+    }
+
+    void ResourceManager::forgetAssetDirectory(const std::string& directory) {
+        m_AssetRegistry.removeImportDirectory(resolveProjectPath(directory).generic_string());
     }
 
     AssetManagement::AssetRegistry& ResourceManager::getAssetRegistry() {
