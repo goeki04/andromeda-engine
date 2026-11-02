@@ -62,7 +62,6 @@ namespace Andromeda {
         });
 
         loadModels();
-        loadDeviceIcons();
         loadEditorIcons();
         registerDefaultPrimitives();
         loadAllCubeMaps();
@@ -236,18 +235,6 @@ void ResourceManager::loadAndStoreCubemap(const std::string& file) {
         }
 }
 
-    void ResourceManager::loadDeviceIcons()
-    {
-        std::string_view path = ASSET_PATH "icons/device/";
-        const std::vector<std::string> paths = Filesystem::getAllFilesInDirectory(path, m_MeshImportFilter);
-
-        for (auto& v : paths) {
-            std::string fileName = Filesystem::getFileName(v);
-            deviceType type = findDeviceIcon(fileName);
-            m_DeviceIcons[type] = CreateOpenGLTexture(v.c_str());
-        }
-    }
-
     u32 ResourceManager::getEditorIconID(const std::string& name)
     {
         auto it = m_EditorIcons.find(name);
@@ -272,8 +259,7 @@ void ResourceManager::loadAndStoreCubemap(const std::string& file) {
         MeshGPUHandle& gpuHandle = m_GPUMeshes[id];
         createMesh(gpuHandle, m_Meshes[id]);
 
-        m_ModelRecords[id] = ModelRecord{ id, name, deviceType::DEFAULT };
-        m_ModelIndexList.push_back(id);
+        m_MeshNames[id] = name;
         m_MeshIDbyName.emplace(name, id);
 
         return id;
@@ -291,15 +277,6 @@ void ResourceManager::loadAndStoreCubemap(const std::string& file) {
             m_EditorIcons[fileName] = CreateOpenGLTexture(v.c_str());
         }
     }
-
-    deviceType ResourceManager::findDeviceIcon(const std::string &iconName) {
-        for (auto& v : Filesystem::m_DirectoryNames) {
-            if (v.first.find(iconName) != std::string::npos) {
-                return v.second;
-            }
-        }
-        return deviceType::DEFAULT;
-    };
 
     u32 ResourceManager::getMeshVaoByID(const u32 meshID) const
     {
@@ -334,14 +311,22 @@ void ResourceManager::loadAndStoreCubemap(const std::string& file) {
 
     std::string ResourceManager::getMeshNameByID(const u32 id) const
     {
-        const auto it = m_ModelRecords.find(id);
-        return it != m_ModelRecords.end() ? it->second.name : std::string{};
+        const auto it = m_MeshNames.find(id);
+        return it != m_MeshNames.end() ? it->second : std::string{};
     }
 
     bool ResourceManager::tryGetMeshIDByName(const std::string& name, u32& out) const
     {
         const auto it = m_MeshIDbyName.find(name);
         if (it == m_MeshIDbyName.end()) return false;
+        out = it->second;
+        return true;
+    }
+
+    bool ResourceManager::tryGetMeshIDByGuid(const Guid& guid, u32& out) const
+    {
+        const auto it = m_MeshIDbyGuid.find(guid);
+        if (it == m_MeshIDbyGuid.end()) return false;
         out = it->second;
         return true;
     }
@@ -361,26 +346,14 @@ void ResourceManager::loadAndStoreCubemap(const std::string& file) {
         registerCustomMesh(std::move(sphere), "Default_Sphere");
     }
 
-    u32 ResourceManager::getModelRecordsSize() const
+    u32 ResourceManager::getMeshNamesSize() const
     {
-        return m_ModelRecords.size();
+        return static_cast<u32>(m_MeshNames.size());
     }
 
-    const std::unordered_map<uint32_t, ModelRecord>& ResourceManager::getModelRecords() const
+    const std::unordered_map<u32, std::string>& ResourceManager::getMeshNames() const
     {
-        return m_ModelRecords;
-    }
-
-    u32 ResourceManager::getModelCount() const {
-        return static_cast<u32>(m_ModelRecords.size());
-    }
-    const ModelRecord& ResourceManager::getModelData(u32 index) const {
-        u32 modelID = m_ModelIndexList.at(index);
-        return m_ModelRecords.at(modelID);
-    }
-
-    u32 ResourceManager::getDeviceIconID(const deviceType type) const {
-        return m_DeviceIcons.at(type).id;
+        return m_MeshNames;
     }
 
     // TODO(rhi): this function and loadModelTexture below call OpenGL directly, which no
@@ -405,7 +378,7 @@ void ResourceManager::loadAndStoreCubemap(const std::string& file) {
     //      main.cpp starts resourceManager before renderer, so there is none at start()
     //      time. Either the ResourceManager gets one wired in from main.cpp, or texture
     //      loading moves out of here into something the renderer owns.
-    // GLtexture itself does not leak outwards - getEditorIconID/getDeviceIconID return u32 -
+    // GLtexture itself does not leak outwards - getEditorIconID returns a u32 -
     // so the change stays inside this module plus the two rhi files.
     GLtexture ResourceManager::CreateOpenGLTexture(const char* path)
     {
@@ -620,15 +593,18 @@ void ResourceManager::loadAndStoreCubemap(const std::string& file) {
             id = m_MeshIDbyName.at(meshName);
         } else {
             id = m_NextMeshID++;
-            const deviceType dt = Filesystem::findDeviceTypeByPath(path);
 
             m_Meshes[id] = Andromeda::Mesh{};
 
-            m_ModelRecords[id] = ModelRecord{id, meshName, dt};
-            m_ModelIndexList.push_back(id);
+            m_MeshNames[id] = meshName;
 
             m_MeshIDbyName.emplace(meshName, id);
+
+            if (const AssetManagement::AssetRecord* record = m_AssetRegistry.findByPath(path)) {
+                m_MeshIDbyGuid[record->guid] = id;
+            }
         }
+
 
         aiNode* rootNode = scene->mRootNode;
         Mesh temp;

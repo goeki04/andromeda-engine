@@ -8,7 +8,6 @@
 #include <nlohmann/json.hpp>
 #include "a_glm_json_parser.hpp"
 #include "a_components.hpp"
-#include "a_model_record.hpp"
 #include "a_logger.hpp"
 #include <algorithm>
 #include <stdexcept>
@@ -267,14 +266,6 @@ namespace Andromeda {
  */
 namespace Andromeda::ECS::Component {
 
-    inline void to_json(nlohmann::json& j, const deviceType& e) {
-        j = e;
-    }
-
-    inline void from_json(const nlohmann::json& j, deviceType& e) {
-        e = static_cast<deviceType>(j.get<int>());
-    }
-
     /** @brief Serializes the ParticleSystem component (particle groups, ID counters, enabled flag, variables). */
     inline void to_json(nlohmann::json& j, const ParticleSystem& ps) {
         j["particleGroups"] = ps.particleGroups;
@@ -330,9 +321,6 @@ namespace Andromeda::ECS::Component {
 
     /** @brief Serializes the Tag component used for entity identification. */
     NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Tag, name)
-
-    /** @brief Serializes the Device component. */
-    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Device, type)
 
     /** @brief Serializes the MeshRenderer component. */
     NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MeshRenderer, meshID)

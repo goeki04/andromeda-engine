@@ -12,7 +12,6 @@
 #include <filesystem>
 #include <span>
 #include <vector>
-#include "a_model_record.hpp"
 namespace Andromeda {
 	/**
 	 * @namespace Andromeda::Filesystem
@@ -29,18 +28,6 @@ namespace Andromeda {
 			std::string name;                ///< Name of the directory (typically the leaf folder name).
 			std::vector<std::string> files;  ///< Paths/names of the files contained within.
 		};
-
-		/**
-		 * @brief Maps reserved asset subfolder names to the device type they contain.
-		 * @details Used by @c findDeviceTypeByPath() to classify models by the folder they live in
-		 *          (e.g. a model under "dsensor" is treated as a @c deviceType::SENSOR).
-		 */
-		static constexpr std::array<std::pair<std::string_view, deviceType>, 4> m_DirectoryNames{ {
-			{"dsensor",     deviceType::SENSOR},
-			{"dcontroller", deviceType::CONTROLLER},
-			{"dcable",      deviceType::CABLE},
-			{"dbreadboard", deviceType::BREADBOARD},
-		} };
 
 		/**
 		 * @brief Converts a string to lowercase in place (ASCII).
@@ -88,13 +75,6 @@ namespace Andromeda {
                 return (c >= 'A' && c <= 'Z') ? static_cast<char>(c + ('a' - 'A')) : c;
             });
         }
-
-		/**
-		 * @brief Determines the device type encoded in a path via the @c m_DirectoryNames convention.
-		 * @param path The file or directory path to inspect.
-		 * @return The matched @c deviceType, or @c deviceType::DEFAULT if no reserved folder name is present.
-		 */
-		deviceType findDeviceTypeByPath(const std::string& path);
 
 		/**
 		 * @brief Recursively collects all files under a directory whose extension matches the filter.

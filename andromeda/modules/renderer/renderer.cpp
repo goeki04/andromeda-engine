@@ -36,7 +36,7 @@ namespace Andromeda {
         m_OutlineUBO.initialize(sizeof(Generated::OutlineParamsBuffer));
 
         m_pbrMaterialUBO.initialize(sizeof(Generated::pbrMaterial));
-        m_AssetPreviewRenderer = std::make_unique<AssetPreviewRenderer>(m_ResourceManager, m_RenderContext,m_ResourceManager, &m_FrameConstants);
+        m_AssetPreviewRenderer = std::make_unique<AssetPreviewRenderer>(m_RenderContext, m_ResourceManager, &m_FrameConstants);
         m_FileChangedListerID = EventManager::getInstance().AddEventListener<MeshReloaded>([this](const MeshReloaded& event)
         {
             // Materials first: the thumbnail is rendered with them, so refreshing it beforehand

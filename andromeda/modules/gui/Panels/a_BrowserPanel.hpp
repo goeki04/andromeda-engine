@@ -1,8 +1,8 @@
 #pragma once
 #include "a_EditorPanel.hpp"
 #include "a_primitives.hpp"
-#include "a_model_record.hpp"
 #include "imgui.h"
+#include "a_AssetRegistry.hpp"
 
 namespace Andromeda::Gui {
     struct EditorContext;
@@ -37,9 +37,11 @@ namespace Andromeda::Gui {
          * specific device tile during a single frame.
          */
         struct Tile {
-            const ModelRecord& blueprint;   ///< Reference to the underlying device data.
-            u32 texID;         ///< GPU texture handle of the image to draw: a rendered model preview, or the device icon as a fallback.
-            i32 index;              ///< Unique index of the device in the provider list.
+            const AssetManagement::AssetRecord& asset; ///< The registry entry this tile shows.
+            u32 meshID;             ///< Loaded mesh of the asset, only valid if hasMesh is set.
+            bool hasMesh;           ///< False if no mesh was loaded for the file (0 is a valid mesh ID).
+            u32 texID;              ///< GPU texture handle of the rendered model preview, 0 if there is none yet.
+            i32 index;              ///< Index of the asset in the registry's record list.
 
             /**
              * @brief Whether the texture has to be drawn with its V axis flipped.
@@ -91,7 +93,7 @@ namespace Andromeda::Gui {
          * @param idx The index of the device.
          * @return True if the tile was clicked, false otherwise.
          */
-        bool handleTile(EditorContext& ctx, const ModelRecord& device, int idx, ImVec2 iconSize);
+        bool handleTile(EditorContext& ctx, const AssetManagement::AssetRecord& asset, int idx, ImVec2 iconSize);
 
         /**
          * @brief Handles 3D world interaction for dragging devices into the scene.

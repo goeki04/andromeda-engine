@@ -220,40 +220,49 @@ namespace Andromeda::Gui {
         int perRow = static_cast<int>(std::floor((availX + spacingX) / (iconSize.x + spacingX)));
         if (perRow < 1) perRow = 1;
 
-        const uint32_t itemCount = ctx.modelProvider->getModelCount();
-        bool anyTileClicked = false;
-        int visibleCount = 0;
+        if (ctx.assetRegistry == nullptr) {
+            return;
+        }
+        const std::vector<AssetManagement::AssetRecord>& records = ctx.assetRegistry->getRecords();
 
-        for (int i = 0; i < static_cast<int>(itemCount); ++i) {
-            const auto& device = ctx.modelProvider->getModelData(i);
-
-            if (m_SearchQuery[0] != '\0' && device.name.find(m_SearchQuery) == std::string::npos)
+        // Filtered first, laid out second: the registry also holds textures, shaders and
+        // scripts, so whether a tile is the last one in the grid is only known after filtering.
+        std::vector<int> visible;
+        for (int i = 0; i < static_cast<int>(records.size()); ++i) {
+            const AssetManagement::AssetRecord& record = records[i];
+            if (record.type != AssetManagement::AssetType::Mesh)
                 continue;
+            if (m_SearchQuery[0] != '\0' && record.name.find(m_SearchQuery) == std::string::npos)
+                continue;
+            visible.push_back(i);
+        }
 
-            if (handleTile(ctx, device, i, iconSize)) {
+        bool anyTileClicked = false;
+        for (int n = 0; n < static_cast<int>(visible.size()); ++n) {
+            const int i = visible[n];
+            if (handleTile(ctx, records[i], i, iconSize)) {
                 anyTileClicked = true;
             }
 
-            if ((visibleCount + 1) % perRow != 0 && i < (int)itemCount - 1) {
+            if ((n + 1) % perRow != 0 && n < static_cast<int>(visible.size()) - 1) {
                 ImGui::SameLine();
             }
-            visibleCount++;
         }
         if (ImGui::IsMouseClicked(0) && !anyTileClicked && ImGui::IsWindowHovered()) {
             ctx.state.selectedIdx = -1;
         }
     }
 
-    bool BrowserPanel::handleTile(EditorContext& ctx, const ModelRecord& device, int idx, ImVec2 iconSize) {
+    bool BrowserPanel::handleTile(EditorContext& ctx, const AssetManagement::AssetRecord& asset, int idx, ImVec2 iconSize) {
         ImGui::PushID(idx);
         ImGui::BeginGroup();
 
-        u32 texID = ctx.modelProvider->getPreviewTextureID(device.meshID);
-        const bool isPreview = texID != 0;
-        if (!isPreview) {
-            texID = ctx.modelProvider->getDeviceIconID(device.type);
-        }
-        Tile tile{ device, texID, idx, isPreview };
+        // No preview yet (or no mesh loaded for this file) leaves texID at 0, and
+        // drawTileVisuals() draws a plain box in its place.
+        u32 meshID = 0;
+        const bool hasMesh = ctx.resourceManager->tryGetMeshIDByGuid(asset.guid, meshID);
+        const u32 texID = hasMesh ? ctx.resourceManager->getPreviewTextureID(meshID) : 0;
+        Tile tile{ asset, meshID, hasMesh, texID, idx, texID != 0 };
         // Two lines are reserved whether or not the name needs them: with a per-tile height the
         // grid rows would be as tall as their tallest tile, so a single long name would space out
         // the whole row. A few pixels of slack under short names is the cheaper trade.
@@ -301,7 +310,7 @@ namespace Andromeda::Gui {
             dl->AddRect(tile.pMin, tile.pMax, IM_COL32(255, 255, 255, 100), 4.0f);
         }
 
-        const std::vector<std::string> lines = layoutLabel(tile.blueprint.name, tile.totalSize.x);
+        const std::vector<std::string> lines = layoutLabel(tile.asset.name, tile.totalSize.x);
         const float lineHeight = ImGui::GetTextLineHeight();
         float textY = tile.pMax.y + ImGui::GetStyle().ItemSpacing.y;
 
@@ -313,10 +322,10 @@ namespace Andromeda::Gui {
 
         // Once a name is cut, the tooltip is the only place the whole of it is still readable.
         // Two lines that together spell the name out are not cut, so no tooltip for those.
-        const bool truncated = lines.size() == 1 ? lines[0] != tile.blueprint.name
+        const bool truncated = lines.size() == 1 ? lines[0] != tile.asset.name
                                                  : lines[1].ends_with("...");
         if (tile.hovered && truncated) {
-            ImGui::SetTooltip("%s", tile.blueprint.name.c_str());
+            ImGui::SetTooltip("%s", tile.asset.name.c_str());
         }
     }
 
@@ -336,10 +345,11 @@ namespace Andromeda::Gui {
                 tileUV0(tile.flipV), tileUV1(tile.flipV), IM_COL32(255, 255, 255, 150));
         }
 
-        if (tile.dragEnded && ctx.cameraData->hasValidPickRay && ctx.state.hasLastHitpoint) {
+        // A file whose mesh failed to load has nothing to place.
+        if (tile.dragEnded && tile.hasMesh && ctx.cameraData->hasValidPickRay && ctx.state.hasLastHitpoint) {
             ECS::Component::Transform t;
             t.position = ctx.state.lastHitPoint;
-            ctx.sceneManager->addEntity(tile.blueprint.meshID, tile.blueprint.name, t);
+            ctx.sceneManager->addEntity(tile.meshID, tile.asset.name, t);
         }
     }
 }

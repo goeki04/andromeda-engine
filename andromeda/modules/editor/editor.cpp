@@ -33,7 +33,6 @@ namespace Andromeda::Editor {
         m_EditorContext.projectSettings = &rm->getProjectSettings();
         m_EditorContext.windowContext.glContext = Window::m_GlContext;
         m_EditorContext.windowContext.window = Window::g_Window;
-        m_EditorContext.modelProvider = rm;
         m_EditorContext.panelController = &m_GuiRenderer;
     }
 

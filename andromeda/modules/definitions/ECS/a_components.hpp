@@ -13,7 +13,6 @@
  */
 
 #include "a_math.hpp"
-#include "a_model_record.hpp"
 #include <algorithm>
 #include <span>
 #include <string>
@@ -78,13 +77,6 @@ namespace Andromeda::ECS::Component {
         std::string materialName = "PBRMaterial"; ///< Name of the material to look up/apply when rendering this entity.
     };
 
-    /**
-     * @brief Marks an entity as representing a physical hardware device (sensor, controller, etc.) in the scene.
-     */
-    struct Device
-    {
-        deviceType type; ///< The kind of device this entity represents (see @c deviceType in a_model_record.hpp).
-    };
 
     /**
      * @brief Links an entity to the mesh that should be drawn for it.

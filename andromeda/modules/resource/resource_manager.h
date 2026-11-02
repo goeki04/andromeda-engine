@@ -13,7 +13,6 @@
 #include "a_components.hpp"
 #include "OpenGL/a_opengl_texture.hpp"
 #include "a_geometry.hpp"
-#include "a_model_record.hpp"
 #include "OpenGL/a_opengl_handles.hpp"
 #include "a_primitives.hpp"
 #include "a_ISubsystem.hpp"
@@ -32,9 +31,8 @@ namespace Andromeda {
      * * The ResourceManager handles the asynchronous or synchronous loading, caching,
      * and distribution of all heavy assets. This includes 3D models (via Assimp),
      * textures, HDR/LDR cubemaps, UI icons, and the compilation of OpenGL shader programs.
-     * It implements the IModelProvider interface to supply model data to the Editor.
      */
-    class ResourceManager : public ISubsystem, public IModelProvider {
+    class ResourceManager : public ISubsystem {
     public:
 
         static constexpr std::array<std::string_view, 2> s_SupportedModelFormat{
@@ -44,9 +42,6 @@ namespace Andromeda {
 
         /** @brief CPU-side storage of loaded mesh geometry, mapped by unique ID. */
         std::unordered_map<u32, Andromeda::Mesh> m_Meshes;
-
-        /** @brief OpenGL texture handles for device-specific icons (e.g., ESP32, Sensors). */
-        std::unordered_map<deviceType, GLtexture> m_DeviceIcons;
 
         /** @brief OpenGL texture handles for UI/Editor icons, mapped by filename. */
         std::unordered_map<std::string, GLtexture> m_EditorIcons;
@@ -65,6 +60,8 @@ namespace Andromeda {
 
         /** @brief GPU textures loaded for model materials, keyed by absolute file path. */
         std::unordered_map<std::string, GLtexture> m_ModelTextures;
+
+        std::unordered_map<Guid, u32> m_MeshIDbyGuid; ///< Bridge from the registry to the loaded mesh, until the engine works with Guids itself.
 
         /**
          * @brief Loads a model texture once and returns its GPU id, 0 when it cannot be loaded.
@@ -105,10 +102,6 @@ namespace Andromeda {
          */
         void loadAllCubeMaps();
 
-        /**
-         * @brief Loads PNG/JPG device icons from the designated asset folder and registers them.
-         */
-        void loadDeviceIcons();
 
         /**
          * @brief Loads PNG/JPG editor UI icons from the designated asset folder and registers them.
@@ -121,13 +114,6 @@ namespace Andromeda {
          * @return The OpenGL texture ID. Throws an exception if the icon is not found.
          */
         u32 getEditorIconID(const std::string& name);
-
-        /**
-         * @brief Matches an icon filename to a specific hardware device type enum.
-         * @param iconName The filename of the icon to check.
-         * @return The corresponding deviceType, or deviceType::DEFAULT if no match is found.
-         */
-        static deviceType findDeviceIcon(const std::string& iconName);
 
         /**
          * @brief Retrieves the OpenGL Vertex Array Object (VAO) ID for a given mesh.
@@ -166,6 +152,16 @@ namespace Andromeda {
         [[nodiscard]] bool tryGetMeshIDByName(const std::string& name, u32& out) const;
 
         /**
+         * @brief Finds the loaded mesh that belongs to an asset of the registry.
+         * @details A bool plus out parameter rather than a sentinel: mesh IDs start at 0, so
+         *          the first loaded mesh has ID 0 and no ID value can mean "not found".
+         * @param guid Guid of a Mesh record in the AssetRegistry.
+         * @param out  Receives the mesh ID; left untouched if none was loaded for that asset.
+         * @return True if a mesh was loaded for the asset.
+         */
+        [[nodiscard]] bool tryGetMeshIDByGuid(const Guid& guid, u32& out) const;
+
+        /**
          * @brief Registers the built-in primitive meshes (Cube, Plane, Sphere) under
          *        stable names so that loaded scenes can always resolve them.
          */
@@ -173,15 +169,16 @@ namespace Andromeda {
 
         /**
          * @brief Gets the total amount of unique 3D models currently loaded in memory.
-         * @return The count of ModelRecords.
+         * @return The number of entries in getMeshNames().
          */
-        [[nodiscard]] u32 getModelRecordsSize() const;
+        [[nodiscard]] u32 getMeshNamesSize() const;
 
         /**
-         * @brief Retrieves the complete map of model records.
-         * @return A constant reference to the unordered_map of ModelRecords.
+         * @brief The display name of every loaded mesh, by mesh ID.
+         * @return A constant reference to the map of mesh names.
          */
-        [[nodiscard]] const std::unordered_map<uint32_t, ModelRecord>& getModelRecords() const;
+        [[nodiscard]] const std::unordered_map<u32, std::string>& getMeshNames() const;
+
 
         /**
          * @brief Utility to load a 2D image from disk directly into an OpenGL texture.
@@ -203,25 +200,6 @@ namespace Andromeda {
          */
         void loadAndStoreCubemap(const std::string& file);
 
-        /**
-         * @brief Returns the total number of loaded models (Implementation of IModelProvider).
-         * @return The model count.
-         */
-        [[nodiscard]] u32 getModelCount() const override;
-
-        /**
-         * @brief Retrieves metadata for a specific model (Implementation of IModelProvider).
-         * @param index The sequential index of the model.
-         * @return A constant reference to the ModelRecord.
-         */
-        [[nodiscard]] const ModelRecord& getModelData(u32 index) const override;
-
-        /**
-         * @brief Retrieves the OpenGL texture ID for a specific device type (Implementation of IModelProvider).
-         * @param type The deviceType enum.
-         * @return The OpenGL texture ID.
-         */
-        [[nodiscard]] u32 getDeviceIconID(deviceType type) const override;
 
         /**
          * @brief Dynamically registers a custom, procedurally generated mesh into the resource manager.
@@ -283,7 +261,7 @@ namespace Andromeda {
          */
         void destroyRHIResources(IGraphicsContext* ctx);
 
-        u32 getPreviewTextureID(const u32 meshID) const override;
+        u32 getPreviewTextureID(const u32 meshID) const;
         void setPreviewTextureID(const u32 meshID,const u32 textureID);
         AssetManagement::AssetRegistry& getAssetRegistry();
 
@@ -336,9 +314,8 @@ namespace Andromeda {
         ProjectSettings m_ProjectSettings;              /**< Loaded from ProjectSettings/project.json, edited by the editor. */
         bool m_ProjectSettingsReadable = true;          /**< False if project.json existed but could not be read. */
         bool m_AssetDatabaseReadable = false;           /**< False if asset_db.json existed but could not be read. */
-        std::unordered_map<u32, ModelRecord> m_ModelRecords;     /**< Stores metadata for all loaded models. */
+        std::unordered_map<u32, std::string> m_MeshNames;        /**< Display name of each loaded mesh, by mesh ID. */
         std::unordered_map<i32, MeshGPUHandle> m_GPUMeshes;      /**< Stores OpenGL VAO/VBO/EBO handles for loaded meshes. */
-        std::vector<u32> m_ModelIndexList;                       /**< Sequential list of model IDs for UI iteration. */
         std::unordered_map<std::string, u32> m_MeshIDbyName;     /**< Maps string names to internal Mesh IDs to prevent duplicates. */
         std::unordered_map<u32,u32> m_PreviewTextureIDs;
         EventListenerID m_OnFileChangedListener; /**< Listener ID for file change events, used to reload assets on-the-fly. */

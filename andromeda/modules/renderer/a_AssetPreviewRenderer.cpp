@@ -35,13 +35,6 @@ namespace Andromeda
     ///Call this function after creating the framebuffer for the assetpreviewrenderer
     void AssetPreviewRenderer::initialize()
     {
-        if (m_Provider == nullptr)
-        {
-            A_WARN("provider is nullptr, returning from AssetPreviewRenderer");
-            return;
-        }
-
-        const u32 modelCount = m_Provider->getModelCount();
         createFbo(m_RenderContext);
         SamplerState samplerState;
         samplerState.minFilter = FilterModeMin::Linear;
@@ -60,7 +53,7 @@ namespace Andromeda
             m_RenderContext, "PreviewPost_Shader", SHADER_PATH "outline.vert", SHADER_PATH "preview_post.frag");
         m_PostProcessMaterial = m_ResourceManager->createMaterial("PreviewPostMaterial", postHandle, m_RenderContext);
 
-        for (const u32 meshID : m_ResourceManager->getModelRecords() | std::views::keys)
+        for (const u32 meshID : m_ResourceManager->getMeshNames() | std::views::keys)
         {
             drawPreviewFramebuffer(meshID, samplerState, m_PostProcessMaterial, m_RenderPassSpecs);
         }
@@ -72,14 +65,11 @@ namespace Andromeda
     {
         // By mesh id, not by position: IDs and list indices happen to coincide today, but a
         // mesh removed at runtime would make them drift apart without a compiler error.
-        const auto& records = m_ResourceManager->getModelRecords();
-        const auto it = records.find(meshID);
-        if (it == records.end())
+        if (!m_ResourceManager->getMeshNames().contains(meshID))
         {
-            A_WARN("No model record for mesh id {}, skipping preview", meshID);
+            A_WARN("No mesh with id {}, skipping preview", meshID);
             return;
         }
-        const ModelRecord& record = it->second;
         Texture tex = m_RenderContext->generateTexture(256,256,outputTex,TextureFormat::RGBA8_UNORM);
         m_RenderContext->allocateTexture(tex);
         m_RenderContext->bindSamplerState(tex.textureID, outputTex);
@@ -89,7 +79,7 @@ namespace Andromeda
         m_RenderContext->setViewport(0, 0, 256, 256);
         m_RenderContext->clear(ClearFlags::All, Colors::Transparent);
         uploadCameraAndLightData();
-        renderFramebufferPreview(record);
+        renderFramebufferPreview(meshID);
 
         m_RenderContext->blitFramebuffer(m_PreviewFbo.get(), m_PreviewResolveFbo.get(), false);
 
@@ -103,12 +93,12 @@ namespace Andromeda
         // A refresh re-renders a thumbnail that already exists, so the entry being replaced
         // owns a GPU texture nobody else will free. Publish the new one before releasing the
         // old, so the asset browser never reads an id that has just been deleted.
-        const auto previous = m_PreviewTextures.find(record.meshID);
+        const auto previous = m_PreviewTextures.find(meshID);
         const bool hadPrevious = previous != m_PreviewTextures.end();
         Texture outdated = hadPrevious ? previous->second : Texture{};
 
-        m_PreviewTextures[record.meshID] = tex;
-        m_ResourceManager->setPreviewTextureID(record.meshID, tex.textureID);
+        m_PreviewTextures[meshID] = tex;
+        m_ResourceManager->setPreviewTextureID(meshID, tex.textureID);
 
         if (hadPrevious) {
             // Safe to delete right away rather than at the end of the frame, because the
@@ -119,7 +109,7 @@ namespace Andromeda
         }
     }
 
-    void AssetPreviewRenderer::drawPreviewMesh(const ModelRecord& record,const Mesh& mesh,const mat4& modelData)
+    void AssetPreviewRenderer::drawPreviewMesh(const u32 meshID, const Mesh& mesh, const mat4& modelData)
     {
         Generated::ObjectBuffer objectData;
         objectData.model = modelData;
@@ -128,13 +118,13 @@ namespace Andromeda
 
         const std::string materialName = "PBRMaterial";
 
-        const u32 vao = m_ResourceManager->getMeshVaoByID(record.meshID);
-        const u32 indexCount = m_ResourceManager->getMeshIndexSizeByID(record.meshID);
+        const u32 vao = m_ResourceManager->getMeshVaoByID(meshID);
+        const u32 indexCount = m_ResourceManager->getMeshIndexSizeByID(meshID);
         const auto material = m_ResourceManager->getMaterial(materialName);
 
         if (vao == 0 || !material)
         {
-            A_WARN("No Vao with ID {} or Material with name '{}' found", record.meshID, materialName);
+            A_WARN("No Vao with ID {} or Material with name '{}' found", meshID, materialName);
             return;
         }
         if (mesh.submeshes.size() < 2)
@@ -222,9 +212,9 @@ namespace Andromeda
 
     }
 
-    void AssetPreviewRenderer::renderFramebufferPreview(const ModelRecord& record)
+    void AssetPreviewRenderer::renderFramebufferPreview(const u32 meshID)
     {
-        const Mesh& mesh = m_ResourceManager->getMeshByID(record.meshID);
+        const Mesh& mesh = m_ResourceManager->getMeshByID(meshID);
         const ECS::Component::AABB aabb = mesh.getAABB();
 
         const vec3 extent = aabb.max - aabb.min;
@@ -234,6 +224,6 @@ namespace Andromeda
         mat4 model = amath::scale(mat4(1.0f), vec3(scale));
         model = amath::translate(model, -aabb.center);
 
-        drawPreviewMesh(record, mesh, model);
+        drawPreviewMesh(meshID, mesh, model);
     }
 }

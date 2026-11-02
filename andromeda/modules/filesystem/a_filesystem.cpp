@@ -5,23 +5,6 @@
 #include <ranges>
 #include <fstream>
 namespace Andromeda {
-    /// <summary>
-    /// This function sets the device type based on the path.
-    /// Sets the device type to default if not found.
-    /// </summary>
-    /// <param name="path">path which used to determine the device type based on the directory</param>
-    /// <returns></returns>
-    deviceType Filesystem::findDeviceTypeByPath(const std::string& path) {
-        std::string lowerString = path;
-        stringToLower(lowerString);
-        for (auto& [key, value] : m_DirectoryNames) {
-            if (lowerString.find(key) != std::string::npos) {
-                return value;
-            }
-        }
-        A_WARN("Device type not found for path: {}", path);
-        return deviceType::DEFAULT;
-    }
 
     std::vector<std::string> Filesystem::getAllFilesInDirectoryRecursive(const std::string& directory, std::span<const std::string> filter)
     {
