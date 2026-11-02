@@ -51,6 +51,11 @@ namespace Andromeda {
         saveAssetDatabase();
 
         EventManager::getInstance().AddEventListener<FileChanged>([this](const FileChanged& event) {
+            // These name a path that no longer exists - a rename reports the old name first, then
+            // the new one as RenamedTo. Loading them only ever failed with "Unable to open file".
+            if (event.action == FileAction::Removed || event.action == FileAction::RenamedFrom) {
+                return;
+            }
             for (const auto& s : m_MeshImportFilter) {
                 const std::string lowerExt = event.path.extension().string();
                 if (s == lowerExt) {
@@ -329,6 +334,18 @@ void ResourceManager::loadAndStoreCubemap(const std::string& file) {
         if (it == m_MeshIDbyGuid.end()) return false;
         out = it->second;
         return true;
+    }
+
+    bool ResourceManager::tryGetGuidByMeshID(const u32 meshID, Guid& out) const
+    {
+        // A linear search is fine: only the scene serializer asks, once per entity on save.
+        for (const auto& [guid, id] : m_MeshIDbyGuid) {
+            if (id == meshID) {
+                out = guid;
+                return true;
+            }
+        }
+        return false;
     }
 
     void ResourceManager::registerDefaultPrimitives()
@@ -805,6 +822,50 @@ void ResourceManager::loadAndStoreCubemap(const std::string& file) {
 
     void ResourceManager::forgetAssetDirectory(const std::string& directory) {
         m_AssetRegistry.removeImportDirectory(resolveProjectPath(directory).generic_string());
+    }
+
+    bool ResourceManager::renameAsset(const Guid& guid, const std::string& newName) {
+        const AssetManagement::AssetRecord* record = m_AssetRegistry.findByGuid(guid);
+        if (record == nullptr) {
+            return false;
+        }
+        // Windows refuses these characters, and silently drops a trailing dot or space -
+        // the file would then end up under a different name than the registry records.
+        if (newName.empty() || newName.find_first_of("\\/:*?\"<>|") != std::string::npos ||
+            newName.back() == '.' || newName.back() == ' ') {
+            A_WARN("'{}' is not a valid file name", newName);
+            return false;
+        }
+
+        const std::filesystem::path oldPath(record->path);
+        const std::filesystem::path newPath = oldPath.parent_path() / (newName + oldPath.extension().string());
+        if (newPath == oldPath) {
+            return true;
+        }
+        std::error_code ec;
+        if (std::filesystem::exists(newPath, ec)) {
+            A_WARN("Cannot rename '{}': '{}' already exists", oldPath.string(), newPath.string());
+            return false;
+        }
+        std::filesystem::rename(oldPath, newPath, ec);
+        if (ec) {
+            A_WARN("Could not rename '{}': {}", oldPath.string(), ec.message());
+            return false;
+        }
+
+        const std::string oldName = record->name;
+        m_AssetRegistry.moveAsset(guid, newPath.generic_string());
+
+        // Has to happen before the file watcher reports the renamed file: loadScene() then finds
+        // the mesh under its new name and reloads it in place instead of importing a second copy.
+        if (const auto mesh = m_MeshIDbyName.find(oldName); mesh != m_MeshIDbyName.end()) {
+            const u32 id = mesh->second;
+            m_MeshIDbyName.erase(mesh);
+            m_MeshIDbyName[record->name] = id;
+            m_MeshNames[id] = record->name;
+        }
+        saveAssetDatabase();
+        return true;
     }
 
     AssetManagement::AssetRegistry& ResourceManager::getAssetRegistry() {

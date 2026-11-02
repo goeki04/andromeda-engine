@@ -10,6 +10,7 @@
 #include <vector>
 #include "scene.hpp"
 #include "a_FloatingSlider.hpp"
+#include "imgui_stdlib.h"
 namespace Andromeda::Gui {
 
     namespace {
@@ -251,6 +252,13 @@ namespace Andromeda::Gui {
         if (ImGui::IsMouseClicked(0) && !anyTileClicked && ImGui::IsWindowHovered()) {
             ctx.state.selectedIdx = -1;
         }
+
+        // After the tile loop on purpose: the rename changes the registry's records,
+        // which must not happen while the loop above still walks over them.
+        if (m_RenameCommit) {
+            m_RenameCommit = false;
+            ctx.resourceManager->renameAsset(m_RenameGuid, m_RenameBuffer);
+        }
     }
 
     bool BrowserPanel::handleTile(EditorContext& ctx, const AssetManagement::AssetRecord& asset, int idx, ImVec2 iconSize) {
@@ -271,6 +279,12 @@ namespace Andromeda::Gui {
         tile.totalSize = { iconSize.x, iconSize.y + ImGui::GetStyle().ItemSpacing.y + labelHeight };
         tile.pMax = tile.pMin + ImVec2(iconSize.x, iconSize.y);
 
+        tile.renaming = m_Renaming && asset.guid == m_RenameGuid;
+        // The button covers the label area too, so without this the text field drawn on top of
+        // it below would never get the mouse.
+        if (tile.renaming) {
+            ImGui::SetNextItemAllowOverlap();
+        }
         ImGui::InvisibleButton("##tile_btn", tile.totalSize);
 
         tile.hovered = ImGui::IsItemHovered();
@@ -278,17 +292,80 @@ namespace Andromeda::Gui {
         tile.clicked = ImGui::IsItemClicked(0);
         tile.dragged = ImGui::IsMouseDragging(0, 2.0f);
         tile.dragEnded = ImGui::IsItemDeactivated() && ImGui::IsMouseReleased(0);
+
+        // Right after the button's state is read: the popup's own items would otherwise
+        // become the "last item" the queries above ask about.
+        if (ImGui::BeginPopupContextItem("##asset_context")) {
+            if (ImGui::MenuItem("Rename")) {
+                m_RenameGuid = asset.guid;
+                m_RenameBuffer = asset.name;
+                m_Renaming = true;
+                m_RenameFocus = true;
+            }
+            if (ImGui::MenuItem("Delete")) {
+            }
+            if (ImGui::MenuItem("Show in explorer")) {
+            }
+            ImGui::EndPopup();
+        }
         tile.selected = (ctx.state.selectedIdx == idx);
 
         if (tile.clicked) ctx.state.selectedIdx = idx;
 
         drawTileVisuals(ImGui::GetWindowDrawList(), tile);
+        if (tile.renaming) {
+            drawRenameField(tile);
+        }
         handleDragAndDrop(ctx, tile, iconSize);
 
         ImGui::EndGroup();
         ImGui::PopID();
 
         return tile.clicked;
+    }
+
+    void BrowserPanel::drawRenameField(const Tile& tile) {
+        // The field is made to look like the label it replaces: no frame, no background and no
+        // padding, so the text stays exactly where the name was instead of jumping down into a
+        // box. It starts where drawTileVisuals() would start the centred label line.
+        //
+        // The width has slack on purpose. Sized to the text alone, the field was always one
+        // keystroke too narrow: the new character overflowed it, ImGui scrolled the text by a
+        // quarter of the field, and that scroll stayed after the field had grown next frame -
+        // letters jumped around and seemed doubled. The field is invisible, so the spare room
+        // costs nothing. Only a name wider than the tile falls back to the tile's width, where
+        // scrolling is the only way to show it on one line anyway.
+        const float textWidth = ImGui::CalcTextSize(m_RenameBuffer.c_str()).x;
+        const float slack = ImGui::CalcTextSize("WWWW").x;
+        const bool fitsTile = textWidth < tile.totalSize.x;
+        const float x = fitsTile ? tile.pMin.x + (tile.totalSize.x - textWidth) * 0.5f : tile.pMin.x;
+        const float fieldWidth = fitsTile ? textWidth + slack : tile.totalSize.x;
+
+        ImGui::SetCursorScreenPos({ x, tile.pMax.y + ImGui::GetStyle().ItemSpacing.y });
+        ImGui::SetNextItemWidth(fieldWidth);
+        if (m_RenameFocus) {
+            ImGui::SetKeyboardFocusHere();
+            m_RenameFocus = false;
+        }
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0.0f, 0.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(0, 0, 0, 0));
+        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, IM_COL32(0, 0, 0, 0));
+        ImGui::PushStyleColor(ImGuiCol_FrameBgActive, IM_COL32(0, 0, 0, 0));
+        const bool entered = ImGui::InputText("##rename", &m_RenameBuffer,
+            ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
+        ImGui::PopStyleColor(3);
+        ImGui::PopStyleVar(2);
+
+        // Like Explorer: Enter or a click elsewhere keeps the new name, Escape throws it away.
+        if (entered) {
+            m_RenameCommit = true;
+            m_Renaming = false;
+        }
+        else if (ImGui::IsItemDeactivated()) {
+            m_RenameCommit = !ImGui::IsKeyPressed(ImGuiKey_Escape);
+            m_Renaming = false;
+        }
     }
 
     void BrowserPanel::drawTileVisuals(ImDrawList* dl, const Tile& tile) {
@@ -310,6 +387,9 @@ namespace Andromeda::Gui {
             dl->AddRect(tile.pMin, tile.pMax, IM_COL32(255, 255, 255, 100), 4.0f);
         }
 
+        if (tile.renaming) {
+            return;  // the rename field takes the label's place
+        }
         const std::vector<std::string> lines = layoutLabel(tile.asset.name, tile.totalSize.x);
         const float lineHeight = ImGui::GetTextLineHeight();
         float textY = tile.pMax.y + ImGui::GetStyle().ItemSpacing.y;

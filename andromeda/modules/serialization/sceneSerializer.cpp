@@ -29,15 +29,21 @@ namespace Andromeda {
 				root[typeName] = poolPtr->serializePool();
 			}
 
-			// MeshRenderer: store stable mesh names instead of volatile IDs.
+			// MeshRenderer: store the asset's Guid instead of the volatile ID, so a renamed or moved
+			// file is still found. The name is written as well: the built-in primitives have no file
+			// and so no Guid (their entry stays ""), and it keeps the file readable by hand.
 			if (registry.m_Pools.contains(std::type_index(typeid(ECS::Component::MeshRenderer)))) {
 				auto& meshPool = registry.getPool<ECS::Component::MeshRenderer>();
 				nlohmann::json mr;
 				mr["entities"] = meshPool.getEntities();
+				nlohmann::json guids = nlohmann::json::array();
 				nlohmann::json names = nlohmann::json::array();
 				for (const auto& comp : meshPool.data()) {
+					Guid guid;
+					guids.push_back(rm.tryGetGuidByMeshID(comp.meshID, guid) ? guid.toString() : std::string{});
 					names.push_back(rm.getMeshNameByID(comp.meshID));
 				}
+				mr["meshGuids"] = guids;
 				mr["meshNames"] = names;
 				root[meshTypeName] = mr;
 			}
@@ -109,16 +115,23 @@ namespace Andromeda {
             const auto& mr = root[meshName];
             const auto entities = mr.at("entities").get<std::vector<ECS::Entity>>();
             const auto names = mr.at("meshNames").get<std::vector<std::string>>();
+            // Scenes saved before the Guids were added have no "meshGuids" and resolve by name.
+            const auto guids = mr.value("meshGuids", std::vector<std::string>{});
 
-            // Translate stable mesh names back into the current session's mesh IDs,
+            // Translate the stored references back into the current session's mesh IDs,
             // then rebuild the pool from the resolved data.
             nlohmann::json rebuilt;
             rebuilt["entities"] = nlohmann::json::array();
             rebuilt["components"] = nlohmann::json::array();
             for (size_t i = 0; i < entities.size(); ++i) {
-                u32 id;
-                if (!rm.tryGetMeshIDByName(names[i], id)) {
-                    A_WARN("mesh '{}' not found; skipping entity {}", names[i], entities[i]);
+                u32 id = 0;
+                // The Guid first: it survives a rename, the name does not. The name is the fallback
+                // for primitives and old scenes, and for an asset whose Guid was lost with asset_db.json.
+                const std::optional<Guid> guid = i < guids.size() ? Guid::fromString(guids[i]) : std::nullopt;
+                const bool found = (guid && rm.tryGetMeshIDByGuid(*guid, id)) ||
+                                   (i < names.size() && rm.tryGetMeshIDByName(names[i], id));
+                if (!found) {
+                    A_WARN("mesh '{}' not found; skipping entity {}", i < names.size() ? names[i] : std::string{}, entities[i]);
                     continue;
                 }
                 rebuilt["entities"].push_back(entities[i]);

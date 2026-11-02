@@ -95,20 +95,30 @@ namespace Andromeda::Gui {
             std::replace(full.begin(), full.end(), '/', '\\');
             return full;
         }
+
+        /**
+         * @brief The reverse of displayPath(): turns a typed or picked path into its stored form.
+         * @details Relative to the project root when it lies inside the project, absolute otherwise,
+         *          always with '/' and without a trailing slash - so "assets" and "assets/" do not
+         *          end up as two entries. A drive root ("C:/") or "/" keeps its slash, without it
+         *          it would mean something else.
+         */
+        std::string toStoredPath(const std::string_view rawPath) {
+            namespace fs = std::filesystem;
+            const fs::path projectRoot = fs::path(ASSET_PATH).parent_path().parent_path();
+            const fs::path relative = fs::path(rawPath).lexically_normal().lexically_relative(projectRoot);
+
+            const bool insideProject = !relative.empty() && *relative.begin() != "..";
+            std::string path = (insideProject ? relative : fs::path(rawPath).lexically_normal()).generic_string();
+            while (path.size() > 1 && path.back() == '/' && path[path.size() - 2] != ':') {
+                path.pop_back();
+            }
+            return path;
+        }
     }
 
     void ProjectSettingsPanel::addDirectory(EditorContext& ctx, std::string_view rawPath) {
-        namespace fs = std::filesystem;
-        const fs::path projectRoot = fs::path(ASSET_PATH).parent_path().parent_path();
-        const fs::path relative = fs::path(rawPath).lexically_normal().lexically_relative(projectRoot);
-
-        const bool insideProject = !relative.empty() && *relative.begin() != "..";
-        std::string path = (insideProject ? relative : fs::path(rawPath).lexically_normal()).generic_string();
-        // One spelling for every entry: no trailing slash, so "assets" and "assets/" do not end up
-        // as two directories. A drive root ("C:/") or "/" keeps it - without, it would mean something else.
-        while (path.size() > 1 && path.back() == '/' && path[path.size() - 2] != ':') {
-            path.pop_back();
-        }
+        const std::string path = toStoredPath(rawPath);
 
         std::vector<std::string>& directories = ctx.projectSettings->assets.directories;
         if (path.empty() || std::ranges::find(directories, path) != directories.end()) {
@@ -249,8 +259,25 @@ namespace Andromeda::Gui {
         ImGui::SetItemTooltip("Browse for folders");
 
         ImGui::SeparatorText("Asset Database");
-        ImGui::InputText("Database folder", &assets.databaseDirectory);
-        m_Dirty |= ImGui::IsItemDeactivatedAfterEdit();
+        // Shown in full like the directory list, stored relative. The text lives in a member,
+        // not in a temporary rebuilt every frame: on the frame the field is left, ImGui reports
+        // the finished edit but writes nothing more into the buffer, so a temporary would
+        // already hold the old path again and the edit would be lost.
+        if (m_DatabaseInput.empty()) {
+            m_DatabaseInput = displayPath(assets.databaseDirectory);
+        }
+        ImGui::InputText("Database folder", &m_DatabaseInput);
+        if (ImGui::IsItemDeactivatedAfterEdit()) {
+            const std::string stored = toStoredPath(m_DatabaseInput);
+            if (!stored.empty()) {
+                assets.databaseDirectory = stored;
+                m_Dirty = true;
+            }
+        }
+        // Refreshed only while nobody types in it, so an edit in progress is not overwritten.
+        if (!ImGui::IsItemActive()) {
+            m_DatabaseInput = displayPath(assets.databaseDirectory);
+        }
         ImGui::TextDisabled("asset_db.json is stored in this folder.");
     }
 

@@ -38,6 +38,23 @@ namespace Andromeda::AssetManagement {
         return nullptr;
     }
 
+    bool AssetRegistry::moveAsset(const Guid& guid, const std::string& rawNewPath) {
+        const auto it = m_AssetRecordIndex.find(guid);
+        if (it == m_AssetRecordIndex.end()) {
+            return false;
+        }
+        const std::string newPath = normalizePath(rawNewPath);
+        if (m_PathToGuid.contains(newPath)) {
+            return false;
+        }
+        AssetRecord& record = m_AssetRecordsList[it->second];
+        m_PathToGuid.erase(record.path);
+        record.path = newPath;
+        record.name = Filesystem::getFileName(newPath);
+        m_PathToGuid[newPath] = guid;
+        return true;
+    }
+
     void AssetRegistry::scanDirectory(const std::string& directory) {
         namespace fs = std::filesystem;
         std::error_code ec;

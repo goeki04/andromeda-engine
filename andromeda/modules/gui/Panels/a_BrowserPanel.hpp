@@ -3,7 +3,7 @@
 #include "a_primitives.hpp"
 #include "imgui.h"
 #include "a_AssetRegistry.hpp"
-
+#include <string>
 namespace Andromeda::Gui {
     struct EditorContext;
 
@@ -30,6 +30,11 @@ namespace Andromeda::Gui {
 
     private:
         float m_IconScale = 1.0f;
+        Guid m_RenameGuid{};              ///< Asset whose name is being edited, valid while m_Renaming is set.
+        std::string m_RenameBuffer;       ///< Name typed into the text field under the tile.
+        bool m_Renaming = false;          ///< A tile shows the rename field instead of its label.
+        bool m_RenameFocus = false;       ///< Puts the keyboard into the field on the frame it appears.
+        bool m_RenameCommit = false;      ///< The edit was confirmed; renderGrid() applies it after the tile loop.
         /**
          * @struct Tile
          * @brief Internal data structure representing a single device entry in the browser grid.
@@ -59,6 +64,7 @@ namespace Andromeda::Gui {
             bool dragged = false;   ///< Is the user currently dragging this tile?
             bool dragEnded = false; ///< Was the drag operation released this frame?
             bool selected = false;  ///< Is this device currently selected in the editor?
+            bool renaming = false;  ///< The rename field is drawn in place of the label.
 
             ImVec2 pMin;            ///< Top-left screen coordinate of the icon.
             ImVec2 pMax;            ///< Bottom-right screen coordinate of the icon.
@@ -109,6 +115,14 @@ namespace Andromeda::Gui {
          * @param tile The pre-calculated tile data to render.
          */
         static void drawTileVisuals(ImDrawList* dl, const Tile& tile);
+
+        /**
+         * @brief Draws the text field that replaces a tile's label while it is being renamed.
+         * @details Enter or clicking elsewhere confirms, Escape cancels. A confirmed name is only
+         *          stored here and applied by renderGrid() once the tile loop is done.
+         * @param tile The tile being renamed.
+         */
+        void drawRenameField(const Tile& tile);
 
         char m_SearchQuery[128] = ""; ///< Buffer for the search input text.
     };

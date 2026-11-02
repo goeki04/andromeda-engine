@@ -107,6 +107,17 @@ namespace Andromeda::AssetManagement {
 
         [[nodiscard]] const AssetRecord* findByPath(const std::string& rawPath) const;
 
+        /**
+         * @brief Points an existing record at a new path after its file was renamed or moved.
+         * @details The Guid stays the same - that is what lets everything referring to the asset
+         *          survive the rename. Only the registry is updated, the file itself has to be
+         *          moved by the caller beforehand.
+         * @param guid       Guid of the record to update.
+         * @param rawNewPath The file's new path; the extension, and with it the type, is kept.
+         * @return False if the Guid is unknown or another record already uses the new path.
+         */
+        bool moveAsset(const Guid& guid, const std::string& rawNewPath);
+
         void scanDirectory(const std::string& directory);
 
         bool loadDatabase(const std::filesystem::path& file);

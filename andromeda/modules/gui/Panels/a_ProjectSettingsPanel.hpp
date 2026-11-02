@@ -40,6 +40,7 @@ namespace Andromeda::Gui {
         bool m_Dirty = false;           ///< Set by a finished edit; onGuiRender saves and clears it.
         i32 m_SelectedDirectory = -1;   ///< Row selected in the asset directory list, -1 for none.
         std::string m_NewDirectory;     ///< Path typed next to the + button.
+        std::string m_DatabaseInput;    ///< Full path shown in the database folder field, refreshed while not edited.
 
         ProjectSettingsTab m_SelectedTab = ProjectSettingsTab::General;
     };

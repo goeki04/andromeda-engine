@@ -162,6 +162,14 @@ namespace Andromeda {
         [[nodiscard]] bool tryGetMeshIDByGuid(const Guid& guid, u32& out) const;
 
         /**
+         * @brief The reverse of tryGetMeshIDByGuid(): the asset a loaded mesh was imported from.
+         * @param meshID ID of a loaded mesh.
+         * @param out    Receives the Guid; left untouched if the mesh has none.
+         * @return False for meshes without a file, such as the built-in primitives.
+         */
+        [[nodiscard]] bool tryGetGuidByMeshID(u32 meshID, Guid& out) const;
+
+        /**
          * @brief Registers the built-in primitive meshes (Cube, Plane, Sphere) under
          *        stable names so that loaded scenes can always resolve them.
          */
@@ -287,6 +295,17 @@ namespace Andromeda {
          *       cannot drop every record below a path yet.
          */
         void forgetAssetDirectory(const std::string& directory);
+
+        /**
+         * @brief Renames an asset's file on disk and keeps its Guid.
+         * @details Updates the registry, the loaded mesh's name and the asset database. The
+         *          extension stays as it is, so @p newName is the name without it.
+         * @param guid    Guid of the asset to rename.
+         * @param newName New file name without extension.
+         * @return False if the name is invalid, already taken or the file could not be renamed;
+         *         the reason is logged.
+         */
+        bool renameAsset(const Guid& guid, const std::string& newName);
     private:
         /** @brief Reads project.json; a missing file keeps the defaults and is written once. */
         void loadProjectSettings();
