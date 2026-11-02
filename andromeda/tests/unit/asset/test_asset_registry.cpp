@@ -183,6 +183,58 @@ TEST_F(AssetRegistryTest, MovingAnUnknownGuidIsRejected) {
 }
 
 // ----------------------------------------------------------------------------------------------
+// removeAsset: the registry forgets a deleted file, but not its Guid
+// ----------------------------------------------------------------------------------------------
+
+TEST_F(AssetRegistryTest, RemoveForgetsTheRecord) {
+    const std::filesystem::path file = addAsset("models/apo.obj");
+    AssetRegistry registry = startRegistry();
+    const Guid guid = guidOf(registry, file);
+
+    ASSERT_TRUE(registry.removeAsset(guid));
+
+    EXPECT_EQ(registry.findByGuid(guid), nullptr);
+    EXPECT_EQ(registry.findByPath(file), nullptr);
+    EXPECT_TRUE(registry.getRecords().empty());
+    EXPECT_FALSE(registry.removeAsset(guid)) << "a second remove has nothing left to remove";
+}
+
+TEST_F(AssetRegistryTest, RemoveKeepsTheOtherRecordsFindable) {
+    // Removing from the middle moves every later record one slot down. If their stored indices
+    // did not follow, findByGuid() would hand out the wrong record or read past the end.
+    const std::filesystem::path first = addAsset("models/a.obj");
+    const std::filesystem::path middle = addAsset("models/b.obj");
+    const std::filesystem::path last = addAsset("models/c.obj");
+    AssetRegistry registry(m_Paths);
+    registry.importAsset(first);
+    registry.importAsset(middle);
+    registry.importAsset(last);
+    const Guid firstGuid = guidOf(registry, first);
+    const Guid lastGuid = guidOf(registry, last);
+
+    ASSERT_TRUE(registry.removeAsset(guidOf(registry, middle)));
+
+    ASSERT_NE(registry.findByGuid(lastGuid), nullptr);
+    EXPECT_EQ(registry.findByGuid(lastGuid)->path, keyOf(last));
+    EXPECT_EQ(registry.findByGuid(firstGuid)->path, keyOf(first));
+    EXPECT_EQ(registry.findByPath(last)->guid, lastGuid);
+}
+
+TEST_F(AssetRegistryTest, RestoredFileGetsItsOldGuidBack) {
+    // The file comes back from the Recycle Bin: scenes that still refer to its Guid must find it.
+    const std::filesystem::path file = addAsset("models/apo.obj", "mesh bytes");
+    AssetRegistry registry = startRegistry();
+    const Guid guid = guidOf(registry, file);
+    ASSERT_TRUE(registry.removeAsset(guid));
+    std::filesystem::remove(file);
+
+    addAsset("models/apo.obj", "mesh bytes");
+    registry.scanDirectory(assets());
+
+    EXPECT_EQ(guidOf(registry, file), guid);
+}
+
+// ----------------------------------------------------------------------------------------------
 // renameAsset: file and record change together, the Guid stays
 // ----------------------------------------------------------------------------------------------
 

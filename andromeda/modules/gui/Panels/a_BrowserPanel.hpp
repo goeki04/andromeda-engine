@@ -35,6 +35,9 @@ namespace Andromeda::Gui {
         bool m_Renaming = false;          ///< A tile shows the rename field instead of its label.
         bool m_RenameFocus = false;       ///< Puts the keyboard into the field on the frame it appears.
         bool m_RenameCommit = false;      ///< The edit was confirmed; renderGrid() applies it after the tile loop.
+        Guid m_DeleteGuid{};              ///< Asset the delete confirmation is open for.
+        std::string m_DeleteName;         ///< Its name, shown in the confirmation.
+        bool m_OpenDeletePopup = false;   ///< Set by the context menu, opens the confirmation at panel level.
         /**
          * @struct Tile
          * @brief Internal data structure representing a single device entry in the browser grid.

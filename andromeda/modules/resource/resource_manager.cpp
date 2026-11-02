@@ -14,6 +14,7 @@
 #include <assimp/postprocess.h>
 #include "OpenGL/a_GLcubemap.hpp"
 #include "a_ProjectSettingsFile.hpp"
+#include "a_Trash.hpp"
 
 namespace Andromeda {
     namespace {
@@ -824,6 +825,23 @@ void ResourceManager::loadAndStoreCubemap(const std::string& file) {
             m_MeshIDbyName[record->name] = id;
             m_MeshNames[id] = record->name;
         }
+        saveAssetDatabase();
+        return true;
+    }
+
+    bool ResourceManager::deleteAsset(const Guid& guid) {
+        const AssetManagement::AssetRecord* record = m_AssetRegistry.findByGuid(guid);
+        if (record == nullptr) {
+            return false;
+        }
+        const std::string path = record->path; // copied: removeAsset() destroys the record
+        if (!OS::moveToTrash(Filesystem::fromUtf8(path))) {
+            A_WARN("Could not move '{}' to the Recycle Bin", path);
+            return false;
+        }
+        m_AssetRegistry.removeAsset(guid);
+        // The scene serializer must not save a Guid whose file is gone; the mesh itself stays loaded.
+        m_MeshIDbyGuid.erase(guid);
         saveAssetDatabase();
         return true;
     }

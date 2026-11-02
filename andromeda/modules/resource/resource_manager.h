@@ -314,6 +314,15 @@ namespace Andromeda {
          *         the reason is logged.
          */
         bool renameAsset(const Guid& guid, const std::string& newName);
+
+        /**
+         * @brief Moves an asset's file to the Recycle Bin and forgets its record.
+         * @details A loaded mesh stays in memory, so objects in the open scene keep showing it until
+         *          the scene is loaded again. The asset database is saved afterwards.
+         * @param guid Guid of the asset to delete.
+         * @return False if the asset is unknown or its file could not be moved; the reason is logged.
+         */
+        bool deleteAsset(const Guid& guid);
     private:
         /** @brief Reads project.json; a missing file keeps the defaults and is written once. */
         void loadProjectSettings();

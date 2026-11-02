@@ -92,6 +92,25 @@ namespace Andromeda::AssetManagement {
         return true;
     }
 
+    bool AssetRegistry::removeAsset(const Guid& guid) {
+        const auto it = m_AssetRecordIndex.find(guid);
+        if (it == m_AssetRecordIndex.end()) {
+            return false;
+        }
+        const size_t index = it->second;
+        m_KnownGuids[m_AssetRecordsList[index].path] = guid;
+        m_PathToGuid.erase(m_AssetRecordsList[index].path);
+        m_AssetRecordIndex.erase(it);
+        m_AssetRecordsList.erase(m_AssetRecordsList.begin() + static_cast<std::ptrdiff_t>(index));
+        // erase() moves every later record one slot down - their stored indices have to follow,
+        // or findByGuid() would hand out the wrong record. Erase rather than swap-and-pop keeps the
+        // order of the browser and of asset_db.json stable.
+        for (size_t i = index; i < m_AssetRecordsList.size(); ++i) {
+            m_AssetRecordIndex[m_AssetRecordsList[i].guid] = i;
+        }
+        return true;
+    }
+
     RenameResult AssetRegistry::renameAsset(const Guid& guid, const std::string_view newName) {
         namespace fs = std::filesystem;
         const AssetRecord* record = findByGuid(guid);

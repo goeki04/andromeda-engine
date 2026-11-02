@@ -79,6 +79,11 @@ namespace Andromeda::Gui{
         colors[ImGuiCol_ChildBg] = ImVec4(0.12f, 0.12f, 0.12f, 1.00f);
         colors[ImGuiCol_PopupBg] = ImVec4(0.08f, 0.08f, 0.08f, 0.94f);
 
+        // ImGui's dark preset dims behind modals with a light grey, which reads as a white fog over
+        // this almost black theme. Dim towards black instead, like the theme itself.
+        colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.00f, 0.00f, 0.00f, 0.35f);
+        colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.00f, 0.00f, 0.00f, 0.25f);
+
         // 0.32 rather than 0.20: with FrameBorderSize/WindowBorderSize enabled, 0.20 sat at
         // 1.08:1 against the button fill - the borders were drawn but effectively invisible.
         colors[ImGuiCol_Border] = ImVec4(0.32f, 0.32f, 0.32f, 1.00f);

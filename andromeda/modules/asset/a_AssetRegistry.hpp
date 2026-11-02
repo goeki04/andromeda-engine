@@ -155,6 +155,15 @@ namespace Andromeda::AssetManagement {
         bool moveAsset(const Guid& guid, const std::filesystem::path& newPath);
 
         /**
+         * @brief Forgets the record of a file that was deleted.
+         * @details Only the registry is updated, the file itself has to be removed by the caller.
+         *          The Guid is remembered for the file's path: if the file comes back (Recycle Bin,
+         *          git checkout), the next scan hands it its old Guid, so scenes still find it.
+         * @return False if the Guid is unknown.
+         */
+        bool removeAsset(const Guid& guid);
+
+        /**
          * @brief Renames an asset's file on disk and updates its record; the Guid stays the same.
          * @param guid    Guid of the asset to rename.
          * @param newName New file name without extension; the extension is kept.

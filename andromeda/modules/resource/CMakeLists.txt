@@ -18,4 +18,5 @@ target_link_libraries(resource PUBLIC
     filesystem
     asset
     project
+    os
 )

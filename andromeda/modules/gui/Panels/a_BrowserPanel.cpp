@@ -11,6 +11,7 @@
 #include "scene.hpp"
 #include "a_FloatingSlider.hpp"
 #include "imgui_stdlib.h"
+#include "a_RevealInFileBrowser.hpp"
 namespace Andromeda::Gui {
 
     namespace {
@@ -259,6 +260,28 @@ namespace Andromeda::Gui {
             m_RenameCommit = false;
             ctx.resourceManager->renameAsset(m_RenameGuid, m_RenameBuffer);
         }
+
+        // Opened here rather than in the context menu: the menu lives under the tile's PushID, so a
+        // popup opened there would get a different ID than the one BeginPopupModal asks for. Being
+        // after the tile loop also means the record is not removed while the loop still uses it.
+        if (m_OpenDeletePopup) {
+            ImGui::OpenPopup("Delete Asset");
+            m_OpenDeletePopup = false;
+        }
+        if (ImGui::BeginPopupModal("Delete Asset", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::Text("Move '%s' to the Recycle Bin?", m_DeleteName.c_str());
+            ImGui::TextDisabled("Scenes that use it lose this object the next time they are loaded.");
+            if (ImGui::Button("Delete")) {
+                ctx.resourceManager->deleteAsset(m_DeleteGuid);
+                ctx.state.selectedIdx = -1; // the indices behind the deleted record have shifted
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
     }
 
     bool BrowserPanel::handleTile(EditorContext& ctx, const AssetManagement::AssetRecord& asset, int idx, ImVec2 iconSize) {
@@ -303,8 +326,14 @@ namespace Andromeda::Gui {
                 m_RenameFocus = true;
             }
             if (ImGui::MenuItem("Delete")) {
+                m_DeleteGuid = asset.guid;
+                m_DeleteName = asset.name;
+                m_OpenDeletePopup = true;
             }
             if (ImGui::MenuItem("Show in explorer")) {
+                if (!OS::revealInFileBrowser(Filesystem::fromUtf8(asset.path))) {
+                    A_WARN("Could not show '{}' in Explorer", asset.path);
+                }
             }
             ImGui::EndPopup();
         }
