@@ -32,8 +32,8 @@ namespace Andromeda::Editor::Undo {
 	private:
 		std::vector<u8> data;              ///< Flat byte stream holding all queued commands (header + payload, back to back).
 		std::vector<size_t> commandOffsets; ///< Byte offset into @c data for the start of each command.
-		const size_t maxUndoSteps = 50;     ///< Maximum number of commands retained before the oldest is evicted.
 	public:
+		static constexpr size_t maxUndoSteps = 50; ///< Maximum number of commands retained before the oldest is evicted.
 
 		/**
 		 * @brief Appends raw bytes to the end of the command buffer.
