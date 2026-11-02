@@ -64,15 +64,25 @@ jobs:
           call conan\build\Release\generators\conanbuild.bat
           cmake --build --preset conan-release
 
-      # AndromedaTests was built but never executed before. The GL/window-bound
-      # suite (test_system_start.cpp) stays out - it needs a display and is
-      # gated behind -DANDROMEDA_BUILD_GL_TESTS=ON for local runs.
+      # Unit tests (offline, no GPU) and network tests (the WebSocket client against
+      # local mock servers on 127.0.0.1, no internet) both have to pass. The GL suite
+      # stays out - it needs a display and is gated behind -DANDROMEDA_BUILD_GL_TESTS=ON
+      # for local runs. Per-test timeouts are set in tests/CMakeLists.txt.
       - name: Test
         working-directory: andromeda
         shell: cmd
         run: |
           call conan\build\Release\generators\conanbuild.bat
-          ctest --preset conan-release --output-on-failure
+          ctest --preset conan-release -L "unit|network" --output-on-failure --output-junit test-results.xml
+
+      # Kept even when the tests fail - that is when the per-test results are needed.
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-windows
+          path: andromeda/conan/build/Release/test-results.xml
+          if-no-files-found: ignore
 
   engine-linux:
     name: Andromeda Engine (Linux)
@@ -131,7 +141,15 @@ jobs:
 
       - name: Test
         working-directory: andromeda
-        run: ctest --preset conan-release --output-on-failure
+        run: ctest --preset conan-release -L "unit|network" --output-on-failure --output-junit test-results.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-linux
+          path: andromeda/conan/build/Release/test-results.xml
+          if-no-files-found: ignore
 
   launcher:
     name: Andromeda Launcher
