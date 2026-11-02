@@ -1,73 +1,57 @@
 #include "sceneSerializer.hpp"
 #include "a_components.hpp"
 #include "generated_components.hpp"
+#include "a_filesystem.hpp"
 #include "a_logger.hpp"
 #include <algorithm>
 #include <fstream>
+#include <optional>
 #include <tuple>
 #include <type_traits>
-#include <iostream>
 #include <unordered_set>
 #include "a_Primitives.hpp"
 namespace Andromeda {
 
-	bool SceneSerializer::save(const std::string& filepath, ECS::ComponentRegistry& registry, ResourceManager& rm)
-	{
-		// Build and dump the whole JSON in memory before touching the file: an exception while serializing
-		// (e.g. a value nlohmann cannot write, such as a string that is not valid UTF-8) is logged and the
-		// save fails, instead of ending the editor or leaving a half-written scene file behind.
-		std::string text;
-		try {
-			nlohmann::json root;
-			const std::string meshTypeName = typeid(ECS::Component::MeshRenderer).name();
+    nlohmann::json SceneSerializer::toJson(ECS::ComponentRegistry& registry, const IMeshLookup& meshes)
+    {
+        nlohmann::json root;
+        const std::string meshTypeName = typeid(ECS::Component::MeshRenderer).name();
 
-			for (const auto &poolPtr: registry.m_Pools | std::views::values) {
-				const std::string typeName = poolPtr->getTypeName();
-				// The MeshRenderer pool is handled specially below: its volatile, session-local
-				// meshID must be persisted as a stable mesh name instead of a raw number.
-				if (typeName == meshTypeName) continue;
-				root[typeName] = poolPtr->serializePool();
-			}
+        for (const auto &poolPtr: registry.m_Pools | std::views::values) {
+            const std::string typeName = poolPtr->getTypeName();
+            // The MeshRenderer pool is handled specially below: its volatile, session-local
+            // meshID must be persisted as a stable reference instead of a raw number.
+            if (typeName == meshTypeName) continue;
+            root[typeName] = poolPtr->serializePool();
+        }
 
-			// MeshRenderer: store the asset's Guid instead of the volatile ID, so a renamed or moved
-			// file is still found. The name is written as well: the built-in primitives have no file
-			// and so no Guid (their entry stays ""), and it keeps the file readable by hand.
-			if (registry.m_Pools.contains(std::type_index(typeid(ECS::Component::MeshRenderer)))) {
-				auto& meshPool = registry.getPool<ECS::Component::MeshRenderer>();
-				nlohmann::json mr;
-				mr["entities"] = meshPool.getEntities();
-				nlohmann::json guids = nlohmann::json::array();
-				nlohmann::json names = nlohmann::json::array();
-				for (const auto& comp : meshPool.data()) {
-					Guid guid;
-					guids.push_back(rm.tryGetGuidByMeshID(comp.meshID, guid) ? guid.toString() : std::string{});
-					names.push_back(rm.getMeshNameByID(comp.meshID));
-				}
-				mr["meshGuids"] = guids;
-				mr["meshNames"] = names;
-				root[meshTypeName] = mr;
-			}
+        // MeshRenderer: store the asset's Guid instead of the volatile ID, so a renamed or moved
+        // file is still found. The name is written as well: the built-in primitives have no file
+        // and so no Guid (their entry stays ""), and it keeps the file readable by hand.
+        if (registry.m_Pools.contains(std::type_index(typeid(ECS::Component::MeshRenderer)))) {
+            auto& meshPool = registry.getPool<ECS::Component::MeshRenderer>();
+            nlohmann::json mr;
+            mr["entities"] = meshPool.getEntities();
+            nlohmann::json guids = nlohmann::json::array();
+            nlohmann::json names = nlohmann::json::array();
+            for (const auto& comp : meshPool.data()) {
+                Guid guid;
+                guids.push_back(meshes.tryGetGuidByMeshID(comp.meshID, guid) ? guid.toString() : std::string{});
+                names.push_back(meshes.getMeshNameByID(comp.meshID));
+            }
+            mr["meshGuids"] = guids;
+            mr["meshNames"] = names;
+            root[meshTypeName] = mr;
+        }
+        return root;
+    }
 
-			text = root.dump(4);
-		} catch (const std::exception& e) {
-			A_ERROR("Scene could not be serialized: {}", e.what());
-			return false;
-		}
-
-		std::ofstream file(filepath);
-		if (!file.is_open()) {
-			A_ERROR("Scene file '{}' could not be opened for writing", filepath);
-			return false;
-		}
-		file << text << std::endl;
-		return true;
-	}
     namespace {
         /**
          * @brief Loads the pool of every component type in @p directory that is present in @p root.
          * @details Driven by the generated ComponentDirectory, so a new component is loaded without
-         *          touching this file - save() already writes every pool generically. MeshRenderer is
-         *          skipped: its mesh IDs are session-local and need the name translation in load().
+         *          touching this file - toJson() already writes every pool generically. MeshRenderer is
+         *          skipped: its mesh IDs are session-local and need the translation in fromJson().
          * @return The highest entity ID found.
          */
         template<typename... Components>
@@ -90,65 +74,96 @@ namespace Andromeda {
         }
     }
 
-    bool SceneSerializer::load(const std::string& filepath, ECS::ComponentRegistry& registry, ResourceManager& rm)
+    bool SceneSerializer::fromJson(const nlohmann::json& root, ECS::ComponentRegistry& registry, const IMeshLookup& meshes)
     {
-        // Read and parse first, clear afterwards: a missing or broken file must leave the scene untouched.
-        std::ifstream file(filepath);
+        // Built aside and moved in at the end: an exception halfway through (a missing key, a value
+        // of the wrong type) must not leave the editor with half a scene.
+        ECS::ComponentRegistry loaded;
+        try {
+            ECS::Entity maxID = loadComponentPools(root, loaded, static_cast<ECS::Component::ComponentDirectory*>(nullptr));
+
+            const std::string meshName = typeid(ECS::Component::MeshRenderer).name();
+            if (root.contains(meshName)) {
+                const auto& mr = root[meshName];
+                const auto entities = mr.at("entities").get<std::vector<ECS::Entity>>();
+                const auto names = mr.at("meshNames").get<std::vector<std::string>>();
+                // Scenes saved before the Guids were added have no "meshGuids" and resolve by name.
+                const auto guids = mr.value("meshGuids", std::vector<std::string>{});
+
+                // Translate the stored references back into the current session's mesh IDs,
+                // then rebuild the pool from the resolved data.
+                nlohmann::json rebuilt;
+                rebuilt["entities"] = nlohmann::json::array();
+                rebuilt["components"] = nlohmann::json::array();
+                for (size_t i = 0; i < entities.size(); ++i) {
+                    u32 id = 0;
+                    // The Guid first: it survives a rename, the name does not. The name is the fallback
+                    // for primitives and old scenes, and for an asset whose Guid was lost with asset_db.json.
+                    const std::optional<Guid> guid = i < guids.size() ? Guid::fromString(guids[i]) : std::nullopt;
+                    const bool found = (guid && meshes.tryGetMeshIDByGuid(*guid, id)) ||
+                                       (i < names.size() && meshes.tryGetMeshIDByName(names[i], id));
+                    if (!found) {
+                        A_WARN("mesh '{}' not found; skipping entity {}", i < names.size() ? names[i] : std::string{}, entities[i]);
+                        continue;
+                    }
+                    rebuilt["entities"].push_back(entities[i]);
+                    rebuilt["components"].push_back(ECS::Component::MeshRenderer{ id });
+                }
+
+                auto& pool = loaded.getPool<ECS::Component::MeshRenderer>();
+                pool.deserializePool(rebuilt);
+                for (auto id : pool.getEntities()) {
+                    if (id > maxID) maxID = id;
+                }
+            }
+
+            if (maxID > 0 || !root.empty()) {
+                loaded.m_NextID = maxID + 1;
+            }
+            loaded.rebuildActiveEntities();
+        } catch (const std::exception& e) {
+            A_ERROR("Scene data could not be read: {}", e.what());
+            return false;
+        }
+
+        registry = std::move(loaded);
+        return true;
+    }
+
+	bool SceneSerializer::save(const std::string& filepath, ECS::ComponentRegistry& registry, const IMeshLookup& meshes)
+	{
+		// Build and dump the whole JSON in memory before touching the file: an exception while serializing
+		// (e.g. a value nlohmann cannot write, such as a string that is not valid UTF-8) is logged and the
+		// save fails, instead of ending the editor or leaving a half-written scene file behind.
+		std::string text;
+		try {
+			text = toJson(registry, meshes).dump(4) + "\n";
+		} catch (const std::exception& e) {
+			A_ERROR("Scene could not be serialized: {}", e.what());
+			return false;
+		}
+
+		if (!Filesystem::writeFileAtomic(filepath, text)) {
+			A_ERROR("Scene file '{}' could not be written", filepath);
+			return false;
+		}
+		return true;
+	}
+
+    bool SceneSerializer::load(const std::string& filepath, ECS::ComponentRegistry& registry, const IMeshLookup& meshes)
+    {
+        // Read and parse first, replace afterwards: a missing or broken file must leave the scene untouched.
+        std::ifstream file(filepath, std::ios::binary);
         if (!file.is_open()) {
             A_WARN("No scene file at '{}'", filepath);
             return false;
         }
 
-        nlohmann::json root;
-        try {
-            file >> root;
-        } catch (const nlohmann::json::exception& e) {
-            A_ERROR("Scene file '{}' could not be parsed: {}", filepath, e.what());
+        const nlohmann::json root = nlohmann::json::parse(file, nullptr, false);
+        if (root.is_discarded()) {
+            A_ERROR("Scene file '{}' could not be parsed", filepath);
             return false;
         }
-
-        registry.clearRegistry();
-        ECS::Entity maxID = loadComponentPools(root, registry, static_cast<ECS::Component::ComponentDirectory*>(nullptr));
-
-        const std::string meshName = typeid(ECS::Component::MeshRenderer).name();
-        if (root.contains(meshName)) {
-            const auto& mr = root[meshName];
-            const auto entities = mr.at("entities").get<std::vector<ECS::Entity>>();
-            const auto names = mr.at("meshNames").get<std::vector<std::string>>();
-            // Scenes saved before the Guids were added have no "meshGuids" and resolve by name.
-            const auto guids = mr.value("meshGuids", std::vector<std::string>{});
-
-            // Translate the stored references back into the current session's mesh IDs,
-            // then rebuild the pool from the resolved data.
-            nlohmann::json rebuilt;
-            rebuilt["entities"] = nlohmann::json::array();
-            rebuilt["components"] = nlohmann::json::array();
-            for (size_t i = 0; i < entities.size(); ++i) {
-                u32 id = 0;
-                // The Guid first: it survives a rename, the name does not. The name is the fallback
-                // for primitives and old scenes, and for an asset whose Guid was lost with asset_db.json.
-                const std::optional<Guid> guid = i < guids.size() ? Guid::fromString(guids[i]) : std::nullopt;
-                const bool found = (guid && rm.tryGetMeshIDByGuid(*guid, id)) ||
-                                   (i < names.size() && rm.tryGetMeshIDByName(names[i], id));
-                if (!found) {
-                    A_WARN("mesh '{}' not found; skipping entity {}", i < names.size() ? names[i] : std::string{}, entities[i]);
-                    continue;
-                }
-                rebuilt["entities"].push_back(entities[i]);
-                rebuilt["components"].push_back(ECS::Component::MeshRenderer{ id });
-            }
-
-            auto& pool = registry.getPool<ECS::Component::MeshRenderer>();
-            pool.deserializePool(rebuilt);
-            for (auto id : pool.getEntities()) {
-                if (id > maxID) maxID = id;
-            }
-        }
-
-        if (maxID > 0 || !root.empty()) {
-            registry.m_NextID = maxID + 1;
-        }
-        registry.rebuildActiveEntities();
-        return true;
+        return fromJson(root, registry, meshes);
     }
 }

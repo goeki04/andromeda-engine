@@ -21,6 +21,8 @@
 #include "a_Material.hpp"
 #include "a_event_manager.hpp"
 #include "a_AssetRegistry.hpp"
+#include "a_IMeshLookup.hpp"
+#include "a_ProjectPaths.hpp"
 #include "a_ProjectSettings.hpp"
 #include <filesystem>
 namespace Andromeda {
@@ -31,9 +33,12 @@ namespace Andromeda {
      * * The ResourceManager handles the asynchronous or synchronous loading, caching,
      * and distribution of all heavy assets. This includes 3D models (via Assimp),
      * textures, HDR/LDR cubemaps, UI icons, and the compilation of OpenGL shader programs.
+     * It answers the scene serializer's mesh questions through IMeshLookup.
      */
-    class ResourceManager : public ISubsystem {
+    class ResourceManager : public ISubsystem, public IMeshLookup {
     public:
+        /** @brief Sets up the project paths; nothing is loaded before start(). */
+        ResourceManager();
 
         static constexpr std::array<std::string_view, 2> s_SupportedModelFormat{
             ".fbx",
@@ -141,7 +146,7 @@ namespace Andromeda {
          * @param id The session-local mesh ID.
          * @return The mesh name, or an empty string if the ID is unknown.
          */
-        [[nodiscard]] std::string getMeshNameByID(u32 id) const;
+        [[nodiscard]] std::string getMeshNameByID(u32 id) const override;
 
         /**
          * @brief Resolves a stable mesh name to the current session's mesh ID.
@@ -149,7 +154,7 @@ namespace Andromeda {
          * @param out Receives the resolved mesh ID on success.
          * @return true if the name is known, false otherwise.
          */
-        [[nodiscard]] bool tryGetMeshIDByName(const std::string& name, u32& out) const;
+        [[nodiscard]] bool tryGetMeshIDByName(const std::string& name, u32& out) const override;
 
         /**
          * @brief Finds the loaded mesh that belongs to an asset of the registry.
@@ -159,7 +164,7 @@ namespace Andromeda {
          * @param out  Receives the mesh ID; left untouched if none was loaded for that asset.
          * @return True if a mesh was loaded for the asset.
          */
-        [[nodiscard]] bool tryGetMeshIDByGuid(const Guid& guid, u32& out) const;
+        [[nodiscard]] bool tryGetMeshIDByGuid(const Guid& guid, u32& out) const override;
 
         /**
          * @brief The reverse of tryGetMeshIDByGuid(): the asset a loaded mesh was imported from.
@@ -167,7 +172,7 @@ namespace Andromeda {
          * @param out    Receives the Guid; left untouched if the mesh has none.
          * @return False for meshes without a file, such as the built-in primitives.
          */
-        [[nodiscard]] bool tryGetGuidByMeshID(u32 meshID, Guid& out) const;
+        [[nodiscard]] bool tryGetGuidByMeshID(u32 meshID, Guid& out) const override;
 
         /**
          * @brief Registers the built-in primitive meshes (Cube, Plane, Sphere) under
@@ -276,6 +281,9 @@ namespace Andromeda {
         /** @brief The project's settings, loaded from ProjectSettings/project.json in start(). */
         ProjectSettings& getProjectSettings();
 
+        /** @brief Where the project lives; converts the paths stored in its settings. */
+        [[nodiscard]] const ProjectPaths& getProjectPaths() const;
+
         /**
          * @brief Writes the settings to ProjectSettings/project.json.
          * @return false if writing failed, or if the file could not be read at startup - a file that
@@ -329,6 +337,7 @@ namespace Andromeda {
          */
         static void MapCubemapFacesLDR(CubemapData& data, const std::string& path);
 
+        ProjectPaths m_ProjectPaths;                    /**< The project folder; declared before the registry, which is built from it. */
         AssetManagement::AssetRegistry m_AssetRegistry; /**< The central registry of all assets on disk, keyed by GUID. */
         ProjectSettings m_ProjectSettings;              /**< Loaded from ProjectSettings/project.json, edited by the editor. */
         bool m_ProjectSettingsReadable = true;          /**< False if project.json existed but could not be read. */

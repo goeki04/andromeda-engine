@@ -81,44 +81,23 @@ namespace Andromeda::Gui {
          * @brief Turns a stored asset directory into the full path shown in the list.
          * @details Entries are stored relative to the project root so a saved project still works
          *          when it is moved; the list shows them in full, with backslashes like Explorer.
-         *          Entries outside the project are stored absolute already and only get the separators.
-         *          Plain string work on purpose: going through std::filesystem::path::string() would
-         *          re-encode UTF-8 folder names with the ANSI code page.
+         *          The settings hold UTF-8 (JSON, ImGui), hence fromUtf8()/toUtf8() rather than
+         *          path::string(), which would re-encode folder names with the ANSI code page.
          */
-        std::string displayPath(const std::string& stored) {
-            const bool absolute = (stored.size() >= 2 && stored[1] == ':') ||
-                                  (!stored.empty() && (stored[0] == '/' || stored[0] == '\\'));
-            // ASSET_PATH is "<project>/assets/" - its parent is the project root.
-            static const std::string projectRoot =
-                std::filesystem::path(ASSET_PATH).parent_path().parent_path().generic_string();
-            std::string full = absolute ? stored : projectRoot + '/' + stored;
+        std::string displayPath(const ProjectPaths& paths, const std::string& stored) {
+            std::string full = Filesystem::toUtf8(paths.resolve(Filesystem::fromUtf8(stored)));
             std::replace(full.begin(), full.end(), '/', '\\');
             return full;
         }
 
-        /**
-         * @brief The reverse of displayPath(): turns a typed or picked path into its stored form.
-         * @details Relative to the project root when it lies inside the project, absolute otherwise,
-         *          always with '/' and without a trailing slash - so "assets" and "assets/" do not
-         *          end up as two entries. A drive root ("C:/") or "/" keeps its slash, without it
-         *          it would mean something else.
-         */
-        std::string toStoredPath(const std::string_view rawPath) {
-            namespace fs = std::filesystem;
-            const fs::path projectRoot = fs::path(ASSET_PATH).parent_path().parent_path();
-            const fs::path relative = fs::path(rawPath).lexically_normal().lexically_relative(projectRoot);
-
-            const bool insideProject = !relative.empty() && *relative.begin() != "..";
-            std::string path = (insideProject ? relative : fs::path(rawPath).lexically_normal()).generic_string();
-            while (path.size() > 1 && path.back() == '/' && path[path.size() - 2] != ':') {
-                path.pop_back();
-            }
-            return path;
+        /** @brief The reverse of displayPath(): a typed or picked path in the form the settings store it. */
+        std::string toStoredPath(const ProjectPaths& paths, const std::string_view rawPath) {
+            return Filesystem::toUtf8(paths.toStored(Filesystem::fromUtf8(rawPath)));
         }
     }
 
     void ProjectSettingsPanel::addDirectory(EditorContext& ctx, std::string_view rawPath) {
-        const std::string path = toStoredPath(rawPath);
+        const std::string path = toStoredPath(ctx.resourceManager->getProjectPaths(), rawPath);
 
         std::vector<std::string>& directories = ctx.projectSettings->assets.directories;
         if (path.empty() || std::ranges::find(directories, path) != directories.end()) {
@@ -200,6 +179,7 @@ namespace Andromeda::Gui {
 
     void ProjectSettingsPanel::drawAssets(EditorContext& ctx) {
         ProjectSettings::Assets& assets = ctx.projectSettings->assets;
+        const ProjectPaths& paths = ctx.resourceManager->getProjectPaths();
         if (m_SelectedDirectory >= static_cast<i32>(assets.directories.size())) {
             m_SelectedDirectory = -1;
         }
@@ -213,7 +193,7 @@ namespace Andromeda::Gui {
         for (i32 i = 0; i < static_cast<i32>(assets.directories.size()); ++i) {
             ImGui::PushID(i);
             char label[600];
-            std::snprintf(label, sizeof(label), "%s  %s", ICON_LC_FOLDER, displayPath(assets.directories[i]).c_str());
+            std::snprintf(label, sizeof(label), "%s  %s", ICON_LC_FOLDER, displayPath(paths, assets.directories[i]).c_str());
             if (ImGui::Selectable(label, m_SelectedDirectory == i)) {
                 m_SelectedDirectory = i;
             }
@@ -264,11 +244,11 @@ namespace Andromeda::Gui {
         // the finished edit but writes nothing more into the buffer, so a temporary would
         // already hold the old path again and the edit would be lost.
         if (m_DatabaseInput.empty()) {
-            m_DatabaseInput = displayPath(assets.databaseDirectory);
+            m_DatabaseInput = displayPath(paths, assets.databaseDirectory);
         }
         ImGui::InputText("Database folder", &m_DatabaseInput);
         if (ImGui::IsItemDeactivatedAfterEdit()) {
-            const std::string stored = toStoredPath(m_DatabaseInput);
+            const std::string stored = toStoredPath(paths, m_DatabaseInput);
             if (!stored.empty()) {
                 assets.databaseDirectory = stored;
                 m_Dirty = true;
@@ -276,7 +256,7 @@ namespace Andromeda::Gui {
         }
         // Refreshed only while nobody types in it, so an edit in progress is not overwritten.
         if (!ImGui::IsItemActive()) {
-            m_DatabaseInput = displayPath(assets.databaseDirectory);
+            m_DatabaseInput = displayPath(paths, assets.databaseDirectory);
         }
         ImGui::TextDisabled("asset_db.json is stored in this folder.");
     }

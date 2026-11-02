@@ -3,22 +3,60 @@
 #include <random>
 #include <filesystem>
 #include <fstream>
+#include <utility>
 #include <nlohmann/adl_serializer.hpp>
 #include <nlohmann/json.hpp>
 
 namespace {
-    std::string normalizePath(std::string_view path) {
-        return std::filesystem::path(path).lexically_normal().generic_string();
+    // The registry's spelling of a path: normalized, '/' separators, UTF-8. One spelling per file,
+    // so "a/./b.obj" and "a\\b.obj" find the same record. UTF-8 rather than path::generic_string():
+    // that converts to the Windows code page and throws for characters it cannot represent, which
+    // would let a single oddly named file stop the whole scan.
+    std::string toKey(const std::filesystem::path& path) {
+        return Andromeda::Filesystem::toUtf8(path.lexically_normal());
+    }
+
+    // By the extension of the path rather than getAssetTypeFromPath(std::string_view): that one would
+    // read the UTF-8 key in the system code page.
+    Andromeda::AssetManagement::AssetType typeOf(const std::string& key) {
+        return Andromeda::AssetManagement::getAssetTypeFromExtension(
+            Andromeda::Filesystem::toUtf8(Andromeda::Filesystem::fromUtf8(key).extension()));
     }
 }
 
 namespace Andromeda::AssetManagement {
-    void AssetRegistry::addImportDirectory(const std::string& directory) {
-        m_ImportDirectories.push_back(directory);
+    bool isValidAssetFileName(const std::string_view name) {
+        if (name.empty() || name.back() == '.' || name.back() == ' ') {
+            return false;
+        }
+        for (const char c : name) {
+            if (static_cast<unsigned char>(c) < 0x20 || std::string_view("\\/:*?\"<>|").find(c) != std::string_view::npos) {
+                return false;
+            }
+        }
+        // Windows reserves these device names, with or without an extension.
+        std::string upper(name);
+        std::ranges::transform(upper, upper.begin(), [](const char c) {
+            return (c >= 'a' && c <= 'z') ? static_cast<char>(c - ('a' - 'A')) : c;
+        });
+        constexpr std::array<std::string_view, 4> reserved{ "CON", "PRN", "AUX", "NUL" };
+        if (std::ranges::find(reserved, upper) != reserved.end()) {
+            return false;
+        }
+        const bool numberedDevice = upper.size() == 4 && (upper.starts_with("COM") || upper.starts_with("LPT")) &&
+                                    upper[3] >= '1' && upper[3] <= '9';
+        return !numberedDevice;
     }
 
-    void AssetRegistry::removeImportDirectory(const std::string& directory) {
-        m_ImportDirectories.erase(std::remove(m_ImportDirectories.begin(), m_ImportDirectories.end(), directory), m_ImportDirectories.end());
+    AssetRegistry::AssetRegistry(ProjectPaths paths)
+        : m_Paths(std::move(paths)) {}
+
+    void AssetRegistry::addImportDirectory(const std::filesystem::path& directory) {
+        m_ImportDirectories.push_back(toKey(directory));
+    }
+
+    void AssetRegistry::removeImportDirectory(const std::filesystem::path& directory) {
+        std::erase(m_ImportDirectories, toKey(directory));
     }
 
     const AssetRecord* AssetRegistry::findByGuid(const Guid& guid) const {
@@ -29,33 +67,67 @@ namespace Andromeda::AssetManagement {
         return nullptr;
     }
 
-    const AssetRecord* AssetRegistry::findByPath(const std::string& rawPath) const {
-        const std::string path = normalizePath(rawPath);
-        const auto it = m_PathToGuid.find(path);
+    const AssetRecord* AssetRegistry::findByPath(const std::filesystem::path& path) const {
+        const auto it = m_PathToGuid.find(toKey(path));
         if (it != m_PathToGuid.end()) {
             return findByGuid(it->second);
         }
         return nullptr;
     }
 
-    bool AssetRegistry::moveAsset(const Guid& guid, const std::string& rawNewPath) {
+    bool AssetRegistry::moveAsset(const Guid& guid, const std::filesystem::path& newPath) {
         const auto it = m_AssetRecordIndex.find(guid);
         if (it == m_AssetRecordIndex.end()) {
             return false;
         }
-        const std::string newPath = normalizePath(rawNewPath);
-        if (m_PathToGuid.contains(newPath)) {
+        const std::string key = toKey(newPath);
+        if (m_PathToGuid.contains(key)) {
             return false;
         }
         AssetRecord& record = m_AssetRecordsList[it->second];
         m_PathToGuid.erase(record.path);
-        record.path = newPath;
-        record.name = Filesystem::getFileName(newPath);
-        m_PathToGuid[newPath] = guid;
+        record.path = key;
+        record.name = Filesystem::getFileName(key);
+        m_PathToGuid[key] = guid;
         return true;
     }
 
-    void AssetRegistry::scanDirectory(const std::string& directory) {
+    RenameResult AssetRegistry::renameAsset(const Guid& guid, const std::string_view newName) {
+        namespace fs = std::filesystem;
+        const AssetRecord* record = findByGuid(guid);
+        if (record == nullptr) {
+            return { RenameStatus::UnknownAsset };
+        }
+        if (!isValidAssetFileName(newName)) {
+            return { RenameStatus::InvalidName };
+        }
+
+        const fs::path oldPath = Filesystem::fromUtf8(record->path);
+        fs::path fileName = Filesystem::fromUtf8(newName);
+        fileName += oldPath.extension();
+        const fs::path newPath = oldPath.parent_path() / fileName;
+        if (newPath == oldPath) {
+            return { RenameStatus::Unchanged };
+        }
+
+        // Checked before the file is touched: once it is renamed, a failing moveAsset() would leave
+        // file and record disagreeing. equivalent() lets a case-only change through - on Windows the
+        // old file answers to the new name, it is not a second file.
+        std::error_code ec;
+        const bool takenOnDisk = fs::exists(newPath, ec) && !fs::equivalent(oldPath, newPath, ec);
+        if (takenOnDisk || m_PathToGuid.contains(toKey(newPath))) {
+            return { RenameStatus::NameTaken };
+        }
+
+        fs::rename(oldPath, newPath, ec);
+        if (ec) {
+            return { RenameStatus::FileError, ec };
+        }
+        moveAsset(guid, newPath);
+        return { RenameStatus::Renamed };
+    }
+
+    void AssetRegistry::scanDirectory(const std::filesystem::path& directory) {
         namespace fs = std::filesystem;
         std::error_code ec;
 
@@ -65,7 +137,7 @@ namespace Andromeda::AssetManagement {
             if (!it->is_regular_file(fileEc)) {
                 continue;
             }
-            const std::string path = normalizePath(it->path().generic_string());
+            const std::string path = toKey(it->path());
             if (!isImportable(path)) {
                 continue;
             }
@@ -82,42 +154,34 @@ namespace Andromeda::AssetManagement {
 
     bool AssetRegistry::saveDatabase(const std::filesystem::path& file) const
     {
-        namespace fs = std::filesystem;
         nlohmann::json root;
         root["assets"] = nlohmann::json::array();
         for (const AssetRecord& record : m_AssetRecordsList) {
-            const fs::path relative = fs::path(record.path).lexically_relative(m_ProjectRoot);
-            const bool insideProject = !relative.empty() && *relative.begin() != "..";
             root["assets"].push_back({
                 {"guid", record.guid.toString()},
-                {"path", insideProject ? relative.generic_string() : record.path},
+                {"path", Filesystem::toUtf8(m_Paths.toStored(Filesystem::fromUtf8(record.path)))},
                 {"timestamp", record.fileTimestamp},
             });
         }
-
-        std::error_code ec;
-        fs::create_directories(file.parent_path(), ec);
-
-        const fs::path temp = file.string() + ".tmp";
-        {
-            std::ofstream out(temp);
-            if (!out) {
-                return false;
-            }
-            out << root.dump(4);
-            if (!out) {
-                return false;
-            }
-        }
-        fs::rename(temp, file, ec);
-        return !ec;
+        // Every string in here is UTF-8 from toUtf8() or toString(), so dump() cannot throw.
+        return Filesystem::writeFileAtomic(file, root.dump(4));
     }
 
     bool AssetRegistry::loadDatabase(const std::filesystem::path& file)
     {
-        std::ifstream in(file);
-        if (!in) {
+        std::error_code ec;
+        const bool exists = std::filesystem::exists(file, ec);
+        if (ec) {
+            return false;
+        }
+        if (!exists) {
             return true;
+        }
+        // Present but unreadable (locked, no permission): reporting "no file" here would let the
+        // caller save over it and hand every asset a new Guid.
+        std::ifstream in(file, std::ios::binary);
+        if (!in) {
+            return false;
         }
         const nlohmann::json root = nlohmann::json::parse(in, nullptr, false);
         if (root.is_discarded() || !root.contains("assets") || !root["assets"].is_array()) {
@@ -126,32 +190,33 @@ namespace Andromeda::AssetManagement {
 
         for (const nlohmann::json& entry : root["assets"])
         {
-            if (!entry.contains("guid") || !entry.contains("path"))
-            {
+            // A hand-edited or damaged entry is skipped, never thrown on: get<std::string>() on a number
+            // would end the editor during startup. The file asset just gets a new Guid.
+            if (!entry.is_object()) {
                 continue;
             }
-            const std::string stored = entry["path"].get<std::string>();
+            const auto guidField = entry.find("guid");
+            const auto pathField = entry.find("path");
+            if (guidField == entry.end() || pathField == entry.end() || !guidField->is_string() || !pathField->is_string()) {
+                continue;
+            }
+            const std::string& stored = pathField->get_ref<const std::string&>();
             if (stored.empty()) {
                 continue;
             }
-            const std::optional<Guid> guid = Guid::fromString(entry["guid"].get<std::string>());
+            const std::optional<Guid> guid = Guid::fromString(guidField->get_ref<const std::string&>());
             if (!guid)
             {
                 continue;
             }
-            const std::string path = normalizePath((m_ProjectRoot / entry["path"].get<std::string>()).generic_string());
-            m_KnownGuids.emplace(path, *guid);
+            m_KnownGuids.emplace(toKey(m_Paths.resolve(Filesystem::fromUtf8(stored))), *guid);
         }
         return true;
     }
 
-    // ASSET_PATH is "<project>/assets/" - its parent is the project root.
-    AssetRegistry::AssetRegistry()
-        : m_ProjectRoot(std::filesystem::path(ASSET_PATH).parent_path().parent_path()) {}
-
-    void AssetRegistry::importAsset(const std::string& rawPath) {
-        const std::string path = normalizePath(rawPath);
-        if (!isImportable(path)) {
+    void AssetRegistry::importAsset(const std::filesystem::path& path) {
+        const std::string key = toKey(path);
+        if (!isImportable(key)) {
             return;
         }
         std::error_code ec;
@@ -159,7 +224,7 @@ namespace Andromeda::AssetManagement {
         if (ec) {
             return;
         }
-        addRecord(path, lastWriteTime);
+        addRecord(key, lastWriteTime);
     }
 
     bool AssetRegistry::isImportable(const std::string& path) const {
@@ -167,7 +232,7 @@ namespace Andromeda::AssetManagement {
         if (m_PathToGuid.contains(path)) {
             return false;
         }
-        return getAssetTypeFromPath(path) != AssetType::Unknown;
+        return typeOf(path) != AssetType::Unknown;
     }
 
     void AssetRegistry::addRecord(const std::string& path, const std::filesystem::file_time_type lastWriteTime) {
@@ -178,7 +243,7 @@ namespace Andromeda::AssetManagement {
         record.guid = guid;
         record.name = Filesystem::getFileName(path);
         record.path = path;
-        record.type = getAssetTypeFromPath(path);
+        record.type = typeOf(path);
         record.fileTimestamp = static_cast<u64>(lastWriteTime.time_since_epoch().count());
         m_AssetRecordsList.push_back(std::move(record));
         m_PathToGuid[m_AssetRecordsList.back().path] = guid;
@@ -206,7 +271,7 @@ namespace Andromeda::AssetManagement {
 
             bytes[6] = static_cast<u8>((bytes[6] & 0x0F) | 0x40); // version 4 (random)
             bytes[8] = static_cast<u8>((bytes[8] & 0x3F) | 0x80); // variant RFC 9562
-                        
+
             return Guid{bytes};
         }
 

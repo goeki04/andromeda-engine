@@ -13,6 +13,7 @@
 #include "OpenGL/a_opengl_upload.hpp"
 #include <assimp/postprocess.h>
 #include "OpenGL/a_GLcubemap.hpp"
+#include "a_ProjectSettingsFile.hpp"
 
 namespace Andromeda {
     namespace {
@@ -20,18 +21,10 @@ namespace Andromeda {
         std::filesystem::path projectRoot() {
             return std::filesystem::path(ASSET_PATH).parent_path().parent_path();
         }
-
-        // Always here: it cannot live in a folder that is configured inside it.
-        std::filesystem::path projectSettingsFile() {
-            return projectRoot() / "ProjectSettings" / "project.json";
-        }
-
-        // Relative entries are resolved against the project root. operator/ with an absolute
-        // right-hand side returns that side unchanged, so absolute entries pass through as they are.
-        std::filesystem::path resolveProjectPath(const std::string& path) {
-            return projectRoot() / path;
-        }
     }
+
+    ResourceManager::ResourceManager()
+        : m_ProjectPaths(projectRoot()), m_AssetRegistry(m_ProjectPaths) {}
 
     void ResourceManager::start()
     {
@@ -41,10 +34,11 @@ namespace Andromeda {
         const std::filesystem::path db = assetDatabaseFile();
         m_AssetDatabaseReadable = m_AssetRegistry.loadDatabase(db);
         if (!m_AssetDatabaseReadable) {
-            A_ERROR("Asset database {} could not be read - left untouched, assets get temporary Guids this session", db.string());
+            A_ERROR("Asset database {} could not be read - left untouched, assets get temporary Guids this session", Filesystem::toUtf8(db));
         }
         for (const std::string& directory : m_ProjectSettings.assets.directories) {
-            const std::string resolved = resolveProjectPath(directory).generic_string();
+            // The settings hold UTF-8 (from JSON and ImGui), so the path is built with fromUtf8().
+            const std::filesystem::path resolved = m_ProjectPaths.resolve(Filesystem::fromUtf8(directory));
             m_AssetRegistry.addImportDirectory(resolved);
             m_AssetRegistry.scanDirectory(resolved);
         }
@@ -733,72 +727,43 @@ void ResourceManager::loadAndStoreCubemap(const std::string& file) {
     }
 
     void ResourceManager::loadProjectSettings() {
-        const std::filesystem::path file = projectSettingsFile();
-        std::ifstream in(file);
-        if (!in) {
-            // First start of this project: keep the defaults and write them, so the file exists.
-            m_ProjectSettingsReadable = true;
-            saveProjectSettings();
-            return;
-        }
-
-        // Third argument false: broken JSON is reported by is_discarded() instead of an exception.
-        const nlohmann::json root = nlohmann::json::parse(in, nullptr, false);
-        if (root.is_discarded()) {
-            A_ERROR("Project settings {} are not valid JSON", file.string());
-        } else {
-            try {
-                // get() builds a new object first, so a wrong value leaves m_ProjectSettings untouched.
-                m_ProjectSettings = root.get<ProjectSettings>();
+        const std::filesystem::path file = m_ProjectPaths.settingsFile();
+        ProjectSettingsFile::LoadResult loaded = ProjectSettingsFile::load(file);
+        m_ProjectSettings = std::move(loaded.settings);
+        switch (loaded.status) {
+            case ProjectSettingsFile::Status::Loaded:
                 m_ProjectSettingsReadable = true;
-                return;
-            } catch (const nlohmann::json::exception& e) {
-                A_ERROR("Project settings {} contain a wrong value: {}", file.string(), e.what());
-            }
+                break;
+            case ProjectSettingsFile::Status::Missing:
+                // First start of this project: keep the defaults and write them, so the file exists.
+                m_ProjectSettingsReadable = true;
+                saveProjectSettings();
+                break;
+            case ProjectSettingsFile::Status::Invalid:
+                // Same rule as for the asset database: what could not be read is not overwritten. This
+                // session runs on the defaults, the file stays as it is so it can be repaired.
+                A_ERROR("Project settings {} could not be read: {}", Filesystem::toUtf8(file), loaded.error);
+                m_ProjectSettingsReadable = false;
+                break;
         }
-        // Same rule as for the asset database: what could not be read is not overwritten. This
-        // session runs on the defaults, the file stays as it is so it can be repaired.
-        m_ProjectSettingsReadable = false;
     }
 
     bool ResourceManager::saveProjectSettings() const {
-        const std::filesystem::path file = projectSettingsFile();
+        const std::filesystem::path file = m_ProjectPaths.settingsFile();
         if (!m_ProjectSettingsReadable) {
-            A_WARN("Project settings not saved: {} could not be read at startup and is left untouched", file.string());
+            A_WARN("Project settings not saved: {} could not be read at startup and is left untouched", Filesystem::toUtf8(file));
             return false;
         }
-
-        std::string text;
-        try {
-            text = nlohmann::json(m_ProjectSettings).dump(4);
-        } catch (const nlohmann::json::exception& e) {
-            // dump() throws on strings that are not valid UTF-8.
-            A_WARN("Project settings not saved: {}", e.what());
-            return false;
-        }
-
-        std::error_code ec;
-        std::filesystem::create_directories(file.parent_path(), ec);
-        // Written next to the real file and swapped in, so a crash mid-write cannot leave half a file.
-        const std::filesystem::path temp = file.string() + ".tmp";
-        {
-            std::ofstream out(temp);
-            out << text;
-            if (!out) {
-                A_WARN("Could not write project settings {}", temp.string());
-                return false;
-            }
-        }
-        std::filesystem::rename(temp, file, ec);
-        if (ec) {
-            A_WARN("Could not replace project settings {}: {}", file.string(), ec.message());
+        std::string error;
+        if (!ProjectSettingsFile::save(file, m_ProjectSettings, &error)) {
+            A_WARN("Project settings not saved to {}: {}", Filesystem::toUtf8(file), error);
             return false;
         }
         return true;
     }
 
     std::filesystem::path ResourceManager::assetDatabaseFile() const {
-        return resolveProjectPath(m_ProjectSettings.assets.databaseDirectory) / "asset_db.json";
+        return m_ProjectPaths.resolve(Filesystem::fromUtf8(m_ProjectSettings.assets.databaseDirectory)) / "asset_db.json";
     }
 
     bool ResourceManager::saveAssetDatabase() const {
@@ -807,21 +772,21 @@ void ResourceManager::loadAndStoreCubemap(const std::string& file) {
         }
         const std::filesystem::path db = assetDatabaseFile();
         if (!m_AssetRegistry.saveDatabase(db)) {
-            A_WARN("Could not write asset database {}", db.string());
+            A_WARN("Could not write asset database {}", Filesystem::toUtf8(db));
             return false;
         }
         return true;
     }
 
     void ResourceManager::scanAssetDirectory(const std::string& directory) {
-        const std::string resolved = resolveProjectPath(directory).generic_string();
+        const std::filesystem::path resolved = m_ProjectPaths.resolve(Filesystem::fromUtf8(directory));
         m_AssetRegistry.addImportDirectory(resolved);
         m_AssetRegistry.scanDirectory(resolved);
         saveAssetDatabase();
     }
 
     void ResourceManager::forgetAssetDirectory(const std::string& directory) {
-        m_AssetRegistry.removeImportDirectory(resolveProjectPath(directory).generic_string());
+        m_AssetRegistry.removeImportDirectory(m_ProjectPaths.resolve(Filesystem::fromUtf8(directory)));
     }
 
     bool ResourceManager::renameAsset(const Guid& guid, const std::string& newName) {
@@ -829,32 +794,27 @@ void ResourceManager::loadAndStoreCubemap(const std::string& file) {
         if (record == nullptr) {
             return false;
         }
-        // Windows refuses these characters, and silently drops a trailing dot or space -
-        // the file would then end up under a different name than the registry records.
-        if (newName.empty() || newName.find_first_of("\\/:*?\"<>|") != std::string::npos ||
-            newName.back() == '.' || newName.back() == ' ') {
-            A_WARN("'{}' is not a valid file name", newName);
-            return false;
-        }
-
-        const std::filesystem::path oldPath(record->path);
-        const std::filesystem::path newPath = oldPath.parent_path() / (newName + oldPath.extension().string());
-        if (newPath == oldPath) {
-            return true;
-        }
-        std::error_code ec;
-        if (std::filesystem::exists(newPath, ec)) {
-            A_WARN("Cannot rename '{}': '{}' already exists", oldPath.string(), newPath.string());
-            return false;
-        }
-        std::filesystem::rename(oldPath, newPath, ec);
-        if (ec) {
-            A_WARN("Could not rename '{}': {}", oldPath.string(), ec.message());
-            return false;
-        }
-
         const std::string oldName = record->name;
-        m_AssetRegistry.moveAsset(guid, newPath.generic_string());
+        const std::string oldPath = record->path;
+
+        const AssetManagement::RenameResult result = m_AssetRegistry.renameAsset(guid, newName);
+        switch (result.status) {
+            case AssetManagement::RenameStatus::Renamed:
+                break;
+            case AssetManagement::RenameStatus::Unchanged:
+                return true;
+            case AssetManagement::RenameStatus::UnknownAsset:
+                return false;
+            case AssetManagement::RenameStatus::InvalidName:
+                A_WARN("'{}' is not a valid file name", newName);
+                return false;
+            case AssetManagement::RenameStatus::NameTaken:
+                A_WARN("Cannot rename '{}': an asset called '{}' already exists there", oldPath, newName);
+                return false;
+            case AssetManagement::RenameStatus::FileError:
+                A_WARN("Could not rename '{}': {}", oldPath, result.error.message());
+                return false;
+        }
 
         // Has to happen before the file watcher reports the renamed file: loadScene() then finds
         // the mesh under its new name and reloads it in place instead of importing a second copy.
@@ -866,6 +826,10 @@ void ResourceManager::loadAndStoreCubemap(const std::string& file) {
         }
         saveAssetDatabase();
         return true;
+    }
+
+    const ProjectPaths& ResourceManager::getProjectPaths() const {
+        return m_ProjectPaths;
     }
 
     AssetManagement::AssetRegistry& ResourceManager::getAssetRegistry() {
