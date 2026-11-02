@@ -68,6 +68,9 @@ namespace Andromeda {
 		 * @param callback Function called with the message content. Runs on the network thread.
 		 */
 		void onMessageReceived(std::function<void(const std::string&)> callback) override;
+
+		/** @copydoc IWebsocketClient::onConnectionStateChanged */
+		void onConnectionStateChanged(std::function<void(ConnectionState, const std::string&)> callback) override;
 	private:
 		std::shared_ptr<boost::asio::io_context> m_IoContext;	///< Keeps the io_context alive for the lifetime of the client.
 		boost::asio::ssl::context& m_SslContext;				///< TLS context supplied by the owner.
@@ -77,6 +80,17 @@ namespace Andromeda {
 		websocket::stream<beast::ssl_stream<beast::tcp_stream>> m_Stream;	///< TLS WebSocket stream running on its own strand.
 
 		std::function<void(const std::string&)> m_MessageCallback;	///< Callback invoked by the read loop for each message.
+		std::function<void(ConnectionState, const std::string&)> m_StateCallback; ///< Callback for connection state changes.
+
+		/** @brief Forwards a state change to the state callback, if one is set. */
+		void notifyState(ConnectionState state, const std::string& reason) const;
+
+		/**
+		 * @brief Marks an established connection as ended and reports Disconnected - once.
+		 * @details Both a disconnect() and the read loop seeing the closed stream end up here; only the
+		 *          first caller finds the flag still set, so the callback fires a single time.
+		 */
+		void markDisconnected(const std::string& reason);
 
 		/** @brief Spawns the read loop coroutine on the stream's strand. */
 		void startReadLoop();

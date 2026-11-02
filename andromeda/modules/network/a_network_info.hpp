@@ -6,7 +6,9 @@
  */
 
 #include "a_Primitives.hpp"
+#include <charconv>
 #include <string>
+#include <string_view>
 #include <cstdlib>
 #include <optional>
 #include "a_environment.hpp"
@@ -40,37 +42,47 @@ namespace Andromeda {
                 return {};
             }
 
-            std::string proxyUrl = *proxyEnv;
+            return parseProxyUrl(*proxyEnv);
+        }
 
-            auto schemeEnd = proxyUrl.find("://");
-            std::string hostPort = (schemeEnd != std::string::npos) ? proxyUrl.substr(schemeEnd + 3) : proxyUrl;
-
-            if (!hostPort.empty() && hostPort.back() == '/') {
-                hostPort.pop_back();
+		/**
+		 * @brief Parses a proxy URL as found in HTTPS_PROXY/HTTP_PROXY, e.g. "http://proxy.example:3128/".
+		 * @details The scheme, any path and user credentials ("user:pass@") are dropped - the WebSocket
+		 *          client cannot authenticate at a proxy, but ignoring the whole proxy would make it try to
+		 *          connect directly, which fails behind a corporate firewall without telling why. An IPv6
+		 *          host is written in brackets ("[::1]:3128") and returned without them.
+		 * @return Host and port, or an empty optional if the host is missing or the port is not a whole
+		 *         number from 1 to 65535.
+		 */
+        static std::optional<ProxySettings> parseProxyUrl(std::string_view url) {
+            if (const auto schemeEnd = url.find("://"); schemeEnd != std::string_view::npos) {
+                url.remove_prefix(schemeEnd + 3);
+            }
+            if (const auto pathStart = url.find('/'); pathStart != std::string_view::npos) {
+                url = url.substr(0, pathStart);
+            }
+            if (const auto credentialsEnd = url.rfind('@'); credentialsEnd != std::string_view::npos) {
+                url.remove_prefix(credentialsEnd + 1);
             }
 
-            auto colonPos = hostPort.find(':');
-            if (colonPos == std::string::npos) {
+            const auto colonPos = url.rfind(':');
+            if (colonPos == std::string_view::npos) {
                 return {};
             }
+            std::string_view host = url.substr(0, colonPos);
+            const std::string_view portText = url.substr(colonPos + 1);
+            if (host.size() >= 2 && host.front() == '[' && host.back() == ']') {
+                host = host.substr(1, host.size() - 2);
+            }
 
-            std::string host = hostPort.substr(0, colonPos);
-            std::string portStr = hostPort.substr(colonPos + 1);
-
-            if (host.empty() || portStr.empty()) {
+            // from_chars instead of std::stoi: stoi would accept "3128abc" as 3128.
+            i32 port = 0;
+            const char* portEnd = portText.data() + portText.size();
+            const auto [parsedEnd, ec] = std::from_chars(portText.data(), portEnd, port);
+            if (host.empty() || portText.empty() || ec != std::errc{} || parsedEnd != portEnd || port <= 0 || port > 65535) {
                 return {};
             }
-
-            try {
-                i32 port = std::stoi(portStr);
-                if (port <= 0 || port > 65535) {
-                    return {};
-                }
-                return ProxySettings{ host, port };
-            }
-            catch (const std::exception&) {
-                return {};
-            }
+            return ProxySettings{ std::string(host), port };
         }
 
 		/**

@@ -66,12 +66,14 @@ namespace Andromeda
 			));
 			co_await self->m_Stream.async_handshake(hostHeader, path, net::use_awaitable); //WebSocket handshake
 			self->m_IsConnected.store(true, std::memory_order_release);
+			self->notifyState(ConnectionState::Connected, {});
 			self->startReadLoop();
 
 			A_INFO("Successfully connected to WebSocket: {}", self->m_Req.host);
 		}
 		catch (const std::exception& e) {
 			//A_ERROR("Connection failed: {}", e.what());
+			self->notifyState(ConnectionState::Failed, e.what());
 		}
 	}
 
@@ -83,11 +85,12 @@ namespace Andromeda
 		try {
 			co_await self->m_Stream.async_close(websocket::close_code::normal, net::use_awaitable);
 			A_INFO("Successfully disconnected cleanly: {}", self->m_Req.host);
+			self->markDisconnected("closed by this side");
 		}
 		catch (const std::exception& e) {
 			A_ERROR("WebSocket closed: ({})", e.what());
+			self->markDisconnected(e.what());
 		}
-		self->m_IsConnected.store(false, std::memory_order_release);
 	}
 
 	void BoostWebsocketClient::send(const std::string& payload) {
@@ -104,12 +107,28 @@ namespace Andromeda
 		}
 		catch (const std::exception& e) {
 			A_ERROR("Send failed: {}", e.what());
-			self->m_IsConnected.store(false, std::memory_order_release);
+			self->markDisconnected(e.what());
 		}
 	}
 
 	void BoostWebsocketClient::onMessageReceived(std::function<void(const std::string&)> callback) {
 		m_MessageCallback = callback;
+	}
+
+	void BoostWebsocketClient::onConnectionStateChanged(std::function<void(ConnectionState, const std::string&)> callback) {
+		m_StateCallback = std::move(callback);
+	}
+
+	void BoostWebsocketClient::notifyState(const ConnectionState state, const std::string& reason) const {
+		if (m_StateCallback) {
+			m_StateCallback(state, reason);
+		}
+	}
+
+	void BoostWebsocketClient::markDisconnected(const std::string& reason) {
+		if (m_IsConnected.exchange(false, std::memory_order_acq_rel)) {
+			notifyState(ConnectionState::Disconnected, reason);
+		}
 	}
 
 	void BoostWebsocketClient::startReadLoop()
@@ -131,7 +150,7 @@ namespace Andromeda
 		}
 		catch (const std::exception& e) {
 			A_ERROR("Read loop error: {}", e.what());
-			self->m_IsConnected.store(false, std::memory_order_release);
+			self->markDisconnected(e.what());
 		}
 	}
 }
