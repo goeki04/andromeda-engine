@@ -6,7 +6,6 @@
 #include <cstdio>
 #include <vector>
 #include "IconsLucide.h"
-#include <filesystem>
 #include "a_EditorContext.hpp"
 #include "a_FolderDialog.hpp"
 #include "a_ProjectSettings.hpp"
@@ -263,6 +262,8 @@ namespace Andromeda::Gui {
 
     void ProjectSettingsPanel::drawPlugins(EditorContext& ctx) {
 
+        ImGui::InputTextWithHint(ICON_LC_SEARCH, "Search plugins...", &m_SearchBuffer);
+        ImGui::Separator();
     }
 
     void ProjectSettingsPanel::drawInput(EditorContext& ctx) {

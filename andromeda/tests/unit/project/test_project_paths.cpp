@@ -25,6 +25,10 @@ TEST_F(ProjectPathsTest, SettingsFileHasAFixedPlace) {
     EXPECT_EQ(m_Paths.settingsFile(), m_Root / "ProjectSettings" / "project.json");
 }
 
+TEST_F(ProjectPathsTest, PluginsDirectoryIsInsideTheProject) {
+    EXPECT_EQ(m_Paths.pluginsDirectory(), m_Root / "Plugins");
+}
+
 TEST_F(ProjectPathsTest, PathInsideTheProjectIsStoredRelative) {
     EXPECT_EQ(m_Paths.toStored(m_Root / "assets" / "models"), std::filesystem::path("assets/models"));
 }

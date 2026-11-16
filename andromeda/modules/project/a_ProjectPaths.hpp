@@ -39,6 +39,14 @@ namespace Andromeda {
         [[nodiscard]] std::filesystem::path settingsFile() const;
 
         /**
+         * @brief The folder the project's plugins live in, one subfolder per plugin.
+         * @details Plugins belong to the project, not to the engine: two projects can use different
+         *          plugins, and a project folder that is moved or checked out takes its plugins along.
+         *          Fixed like settingsFile(), so a plugin can be found before project.json is read.
+         */
+        [[nodiscard]] std::filesystem::path pluginsDirectory() const;
+
+        /**
          * @brief Stored path -> real path.
          * @details A relative path is anchored at the root, an absolute one is returned as it is.
          *          The result is lexically normalized ("a/./b/../c" becomes "a/c").

@@ -8,6 +8,7 @@ find_package(spdlog REQUIRED)
 add_library(core STATIC
         "a_subsystem_manager.cpp"
         "window_manager.cpp"
+        "a_PluginManager.cpp"
     )
 
 target_include_directories(core PUBLIC . service)

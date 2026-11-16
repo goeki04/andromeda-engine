@@ -1,0 +1,151 @@
+Hier ist ein extrem detaillierter **UI/UX-Styleguide** für das Design des Plugin-Managers, abgeleitet aus dem HTML-Prototypen. Dieser Guide dient dir als exakte Blaupause – sowohl für die Umsetzung in ImGui (mit allen Farb-, Padding- und Layout-Werten) als auch als Spezifikation für eventuelle Assets.
+
+---
+
+# Andromeda Engine — Plugin Manager UI Styleguide
+
+**Version:** 1.0.0
+
+**Design-Philosophie:** Modern, dunkel, funktional, „Developer-First“ (Inspiriert von VS Code Marketplace, Godot Asset Library und modernen IDEs).
+
+---
+
+## 1. Farbpalette (Color Palette)
+
+Das Farbschema basiert auf einem tiefen, satten Dark-Mode mit präzisen Akzenten für Status und Interaktion.
+
+| Rolle | Hex-Code | RGBA (ImGui konform) | Verwendung |
+| --- | --- | --- | --- |
+| **Background (Base)** | `#121418` | `(18, 20, 24, 255)` | Haupt-Hintergrund des Panels / Fensters |
+| **Card Background** | `#1a1d24` | `(26, 29, 36, 255)` | Hintergrund der einzelnen Plugin-Karten |
+| **Card Border** | `#2a2e39` | `(42, 46, 57, 255)` | Subtiler Rand um Karten und Suchfelder |
+| **Text Primary** | `#f0f2f5` | `(240, 242, 245, 255)` | Überschriften, Plugin-Namen, wichtige Labels |
+| **Text Secondary** | `#8b949e` | `(139, 148, 158, 255)` | Beschreibungen, IDs, Versionen, Autor |
+| **Accent (Primary)** | `#3b82f6` | `(59, 130, 246, 255)` | Primäre Buttons (Download), aktive Tabs, Switches |
+| **Accent Hover** | `#2563eb` | `(37, 99, 235, 255)` | Hover-Zustand für primäre Interaktionen |
+| **Success / Installed** | `#10b981` | `(16, 185, 129, 255)` | Badges und Buttons für „Installed“ / „Active“ |
+| **Error / Danger** | `#ef4444` | `(239, 68, 68, 255)` | Fehlermeldungen, ungültige Manifeste |
+
+---
+
+## 2. Typografie & Schrift Hierarchie
+
+* **Font-Familie:** Inter, Roboto oder Segoe UI (Clean Sans-Serif)
+* **Skalierung für ImGui:**
+* **Plugin Title:** 15px / Bold (`ImGui::PushFont(fontBold);`)
+* **Body Text / Description:** 13px / Regular
+* **Meta / Technical Tags:** 11px / Regular (IDs, API-Versionen, Load-Phase)
+
+
+
+---
+
+## 3. Layout & Geometrie (Spacing & Sizing)
+
+* **Card Dimensions:**
+* Höhe: Fixiert auf **`96px`** (bietet genug Platz für Icon, zweizeilige Beschreibung und Metadaten).
+* Padding innen: `12px` ringsherum.
+* Margin / Abstand zwischen Karten: `8px`.
+
+
+* **Thumbnail / Icon (Links):**
+* Größe: **`72px × 72px`** (Quadratisch, mit leichten abgerundeten Ecken von `4px`).
+* Hintergrund: Dunkler Farbverlauf oder Platzhalter-Icon (z. B. 3D-Cube, Zahnräder, Wolke).
+
+
+* **Aktionsbereich (Rechts):**
+* Feste Spaltenbreite für Buttons: ca. **`110px – 130px`**.
+* Vertikal zentriert rechts ausgerichtet.
+
+
+
+---
+
+## 4. UI-Komponenten Spezifikation
+
+### A. Navigation / Filter Tabs (Obere Leiste)
+
+* **Tabs:** `All Plugins`, `Installed`, `Store / Available`.
+* Aktiver Tab hat einen blauen Unterstreichungs-Balken (`#3b82f6`, Höhe `2px`) oder einen gefüllten Pill-Background.
+* **Suchleiste:** Volle Breite (oder flexibel), mit Such-Icon (`ICON_LC_SEARCH`) als Prefix im Feld und Placeholdertext *"Search plugins..."*.
+
+### B. Die Plugin-Karte (Plugin Card Widget)
+
+Der Kern des Layouts ist in 3 visuelle Spalten unterteilt:
+
+1. **Spalte 1 (Links - Visual):**
+* Das große quadratische Plugin-Icon (`72x72px`).
+* Bei Fehlern im Manifest wird ein roter Warn-Rahmen um das Icon gelegt.
+
+
+2. **Spalte 2 (Mitte - Content):**
+* **Zeile 1:** Plugin Name (Bold, Primary Text) + Version Badge (klein, dezenter Hintergrund, z. B. `v1.0.0`).
+* **Zeile 2:** Beschreibungstext (Max. 2 Zeilen, Secondary Text, mit Ellipsis `...` bei Überlänge).
+* **Zeile 3:** Metadaten-Leiste: `ID: com...` | `Load: Editor` | `API: v1` | `Author: Name`.
+
+
+3. **Spalte 3 (Rechts - Action & State):**
+* Abhängig vom Status des Plugins:
+* *Nicht installiert:* Blauer **Download / Install** Button mit Download-Icon.
+* *Installiert (Inaktiv):* Toggle-Switch (An/Aus) + kleiner Deinstallieren-Button.
+* *Installiert (Aktiv):* Grüne Status-Label *"Active"* + Toggle-Switch.
+* *Update verfügbar:* Gelber **Update** Button.
+
+
+
+
+
+---
+
+## 5. Visuelle UI-Referenz & Mockup-Skizze
+
+Da du nach beispielhaften Bildern/Visualisierungen für die UI-Elemente gefragt hast, skizziert die folgendeASCII-Darstellung die exakte visuelle Aufteilung und Gewichtung der Komponenten, wie sie im fertigen ImGui-Fenster aussehen wird:
+
+```text
++-------------------------------------------------------------------------------------------------------+
+| [O] All Plugins (12)    [ ] Installed (4)    [+] Store / Available (8)         [🔍 Search plugins...] |
++-------------------------------------------------------------------------------------------------------+
+|                                                                                                       |
+| +---------------------------------------------------------------------------------------------------+ |
+| | +------+  WEATHER OVERLAY                           v1.0.0      [Author: Goekdeniz Koeksal]       | |
+| | |      |  Shows the current weather conditions directly in the 3D viewport.                      | |
+| | | ⛅   |  --------------------------------------------------------------------------------------- | |
+| | |      |  ID: com.goekdeniz.weather-overlay  |  Load: Editor  |  API: v1          [ v Active ]   | |
+| | +------+                                                                                          | |
+| +---------------------------------------------------------------------------------------------------+ |
+|                                                                                                       |
+| +---------------------------------------------------------------------------------------------------+ |
+| | +------+  ANDROMEDA SHADER PACK                     v2.1.4      [Author: System Core]             | |
+| | |      |  Advanced PBR material shaders and post-processing filters for the renderer.            | |
+| | | ⚡   |  --------------------------------------------------------------------------------------- | |
+| | |      |  ID: com.andromeda.shaders          |  Load: Runtime |  API: v1         [ ↓ Download ]  | |
+| | +------+                                                                                          | |
+| +---------------------------------------------------------------------------------------------------+ |
+|                                                                                                       |
+| +---------------------------------------------------------------------------------------------------+ |
+| | +------+  LEGACY PARTICLE TOOL                  ⚠ ERROR v0.9.1      [Author: Unknown]             | |
+| | |      |  [!] Error: Missing 'library' binary target in plugin.json                               | |
+| | | ❌   |  --------------------------------------------------------------------------------------- | |
+| | |      |  ID: com.broken.particle            |  Load: Editor  |  API: v1          [ 🗑 Remove ]  | |
+| | +------+                                                                                          | |
+| +---------------------------------------------------------------------------------------------------+ |
++-------------------------------------------------------------------------------------------------------+
+
+```
+
+---
+
+## 6. Umsetzungsempfehlung für C++ / ImGui
+
+Wenn du das in C++ gießt, kapselst du das am besten in eine Funktion:
+
+```cpp
+bool DrawPluginCard(const PluginManifest& manifest, bool isInstalled, bool isEnabled, float cardWidth) {
+    // Hier werden die oben definierten Styles (ChildBg, Rounding, Spacing) 
+    // per ImGui::PushStyleColor / ImGui::PushStyleVar angewendet.
+    // ...
+}
+
+```
+
+Soll ich dir den exakten C++ Code für diese finale Widget-Funktion (inklusive Bild-Platzhalter und dem rechten Aktions-Button) zusammenschreiben?

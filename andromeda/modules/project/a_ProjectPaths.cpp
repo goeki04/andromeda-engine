@@ -18,6 +18,10 @@ namespace Andromeda {
         return m_Root / "ProjectSettings" / "project.json";
     }
 
+    std::filesystem::path ProjectPaths::pluginsDirectory() const {
+        return m_Root / "Plugins";
+    }
+
     std::filesystem::path ProjectPaths::resolve(const std::filesystem::path& stored) const {
         // operator/ returns the right-hand side unchanged when it is absolute.
         return withoutTrailingSeparator((m_Root / stored).lexically_normal());
