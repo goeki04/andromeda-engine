@@ -27,6 +27,8 @@ class CmakeTest(ConanFile):
         self.requires("spirv-reflect/1.4.350.0")
         self.requires("glslang/1.4.350.0")
         self.requires("stb/cci.20230920")
+        if self.settings.os == "Macos":
+            self.requires("metal-cpp/15.2")
         self.requires("protobuf/3.21.12")
         self.requires("openssl/4.0.1")
         self.requires("boost/1.91.0")

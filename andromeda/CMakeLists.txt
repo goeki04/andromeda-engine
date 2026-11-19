@@ -46,6 +46,8 @@ endif()
 
 if(WIN32)
     add_compile_definitions(ANDROMEDA_OS="Windows")
+elseif(APPLE)
+    add_compile_definitions(ANDROMEDA_OS="macOS")
 elseif(UNIX)
     add_compile_definitions(ANDROMEDA_OS="Linux")
 endif()
@@ -59,8 +61,8 @@ endif()
 # picks the matching *.cpp sources and dependencies for this). Only OpenGL has an actual
 # implementation right now; Vulkan/DirectX are reserved names for future backends.
 # Set via: cmake -DANDROMEDA_GRAPHICS_API=OpenGL ..
-set(ANDROMEDA_GRAPHICS_API "OpenGL" CACHE STRING "Graphics backend used by modules/renderer_rhi (OpenGL, Vulkan, DirectX)")
-set_property(CACHE ANDROMEDA_GRAPHICS_API PROPERTY STRINGS OpenGL Vulkan DirectX)
+set(ANDROMEDA_GRAPHICS_API "OpenGL" CACHE STRING "Graphics backend used by modules/renderer_rhi (OpenGL, Vulkan, DirectX, Metal)")
+set_property(CACHE ANDROMEDA_GRAPHICS_API PROPERTY STRINGS OpenGL Vulkan DirectX Metal)
 
 # NOTE: the `renderer` and `gui` modules still talk to OpenGL directly in places (raw gl*
 # calls, OpenGLContext hardcoded in Renderer::initRenderer). This switch only governs which

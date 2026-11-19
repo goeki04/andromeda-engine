@@ -35,9 +35,16 @@ elseif(ANDROMEDA_GRAPHICS_API STREQUAL "DirectX")
         "backend yet (only modules/renderer_rhi/OpenGL/ is implemented). Add "
         "modules/renderer_rhi/DirectX/*.cpp implementing ConstantBufferImpl/FramebufferImpl/etc. "
         "and list them here before building with DirectX.")
-
-else()
-    message(FATAL_ERROR "Unknown ANDROMEDA_GRAPHICS_API '${ANDROMEDA_GRAPHICS_API}'. Valid values: OpenGL, Vulkan, DirectX.")
+elseif(ANDROMEDA_GRAPHICS_API STREQUAL "Metal")
+    if(NOT APPLE)
+        message(FATAL_ERROR
+            "ANDROMEDA_GRAPHICS_API=Metal was selected, but modules/renderer_rhi has no Metal "
+            "backend yet (only modules/renderer_rhi/OpenGL/ is implemented). Add "
+            "modules/renderer_rhi/Metal/*.cpp implementing ConstantBufferImpl/FramebufferImpl/etc. "
+            "and list them here before building with Metal.")
+    endif()
+elseif(ANDROMEDA_GRAPHICS_API STREQUAL "Unknown")
+    message(FATAL_ERROR "Unknown ANDROMEDA_GRAPHICS_API '${ANDROMEDA_GRAPHICS_API}'. Valid values: OpenGL, Vulkan, DirectX, Metal.")
 endif()
 
 add_library(renderer_rhi STATIC
