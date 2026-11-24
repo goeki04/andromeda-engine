@@ -3,6 +3,7 @@
 #include <ranges>
 
 #include "a_primitives.hpp"
+#include <sstream>
 
 namespace Andromeda::Gui::Console {
 
