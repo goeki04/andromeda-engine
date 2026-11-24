@@ -90,3 +90,5 @@ target_link_libraries(renderer_rhi PUBLIC
 
     definitions
 )
+
+andromeda_group_sources_by_folder()

@@ -12,10 +12,10 @@ find_package(nlohmann_json REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 set(GEN_SCRIPT "${CMAKE_SOURCE_DIR}/metaData/gen_components.py")
-set(GEN_OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/ECS/generated_components.hpp")
+set(GEN_OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/generated_components.hpp")
 
 set(GEN_NAME_SCRIPT "${CMAKE_SOURCE_DIR}/metaData/gen_components_name.py")
-set(GEN_NAME_OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/ECS/generated_component_names.hpp")
+set(GEN_NAME_OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/generated_component_names.hpp")
 
 set(GEN_NODE_INPUT "${CMAKE_CURRENT_SOURCE_DIR}/gui/a_Nodes.hpp")
 set(GEN_NODE_OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/gui/generated_node_meta.hpp")
@@ -123,7 +123,11 @@ add_library(definitions INTERFACE
 		Math/a_glm_json_parser.hpp
         Engine/a_ProjectSettings.hpp)
 add_dependencies(definitions generate_ecs_metadata)
-target_sources(definitions INTERFACE ${GEN_OUTPUT} ${GEN_NAME_OUTPUT} ${GEN_META_OUTPUT} ${GEN_EVENT_OUTPUT} ${GEN_TELEMETRY_OUTPUT} ${GEN_NODE_OUTPUT})
+# PRIVATE (allowed on INTERFACE libraries since CMake 3.19): the headers belong to this
+# target only. INTERFACE copied them into the sources of every target linking definitions,
+# which put them into each target's group in IDE projects. Generation order is still
+# guaranteed by add_dependencies() above.
+target_sources(definitions PRIVATE ${GEN_OUTPUT} ${GEN_NAME_OUTPUT} ${GEN_META_OUTPUT} ${GEN_EVENT_OUTPUT} ${GEN_TELEMETRY_OUTPUT} ${GEN_NODE_OUTPUT})
 target_include_directories(definitions INTERFACE 
    .   
    Math
@@ -146,3 +150,11 @@ if(WIN32)
 endif()
 
 target_compile_definitions(definitions INTERFACE CPPHTTPLIB_OPENSSL_SUPPORT)
+
+if(APPLE)
+    # With OpenSSL support on macOS, httplib loads the system root certificates from the
+    # Keychain (SecTrustSettingsCopyCertificates, SecCertificateCopyData).
+    target_link_libraries(definitions INTERFACE "-framework Security" "-framework CoreFoundation")
+endif()
+
+andromeda_group_sources_by_folder()

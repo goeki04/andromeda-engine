@@ -26,3 +26,5 @@ target_link_libraries(editor PUBLIC
     gui
     resource
 )
+
+andromeda_group_sources_by_folder()

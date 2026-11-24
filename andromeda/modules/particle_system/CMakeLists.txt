@@ -13,3 +13,5 @@ target_link_libraries(particle_system PUBLIC
 	data
 	definitions
 )
+
+andromeda_group_sources_by_folder()

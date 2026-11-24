@@ -1,0 +1,12 @@
+# Local copy of the ConanCenter kuba-zip recipe (pulled in by assimp), identical
+# except for the sha256 below.
+#
+# GitHub now serves a v0.3.0 tag archive whose sha256 differs from the one pinned
+# in ConanCenter (feb70ae0...). The extracted contents were verified to be
+# byte-identical to `git clone --branch v0.3.0` (commit 617413eb). ConanCenter's
+# backup-source server, which would serve the original file, now requires login.
+# Only needed where kuba-zip builds from source (macOS / apple-clang).
+sources:
+  0.3.0:
+    sha256: 2ca9c1bdfb1666837489f1b5bc18730556eadc40d8523fae6c23a55fd0d8e120
+    url: https://github.com/kuba--/zip/archive/v0.3.0.tar.gz

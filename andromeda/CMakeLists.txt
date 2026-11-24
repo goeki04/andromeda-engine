@@ -3,6 +3,12 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 project(Andromeda LANGUAGES CXX)
 
+# Objective-C++ (.mm) for the macOS platform code that has to talk to Cocoa, e.g.
+# modules/os/macos. OBJCXX_STANDARD follows CMAKE_CXX_STANDARD unless set separately.
+if(APPLE)
+    enable_language(OBJCXX)
+endif()
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -89,6 +95,9 @@ set(PROTO_FILES
 )
 set(PROTOBUF_GENERATE_CPP_APPEND_PATH TRUE)
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${PROTO_FILES})
+
+# Folder structure for IDE generators (Xcode, VS solutions) - see cmake/SourceTree.cmake.
+include(cmake/SourceTree.cmake)
 
 add_subdirectory(modules/network)
 add_subdirectory(modules/core)
@@ -218,20 +227,23 @@ endif()
 # Dedicated TCP Server Executable
 # ==============================================================================
 
-add_executable(AndromedaMockServer
-    ${CMAKE_CURRENT_SOURCE_DIR}/mock/bmv080_tcp_ip_server.cpp
-)
-
-find_package(nlohmann_json REQUIRED)
-
-target_link_libraries(AndromedaMockServer PRIVATE
-    nlohmann_json::nlohmann_json
-    spdlog::spdlog
-
-    data
-)
-
+# The mock server is written against WinSock (WinSock2.h, ws2_32), so it is only
+# built on Windows until it gets a POSIX socket path.
 if(WIN32)
-    target_link_libraries(AndromedaMockServer PRIVATE ws2_32)
+    add_executable(AndromedaMockServer
+        ${CMAKE_CURRENT_SOURCE_DIR}/mock/bmv080_tcp_ip_server.cpp
+    )
+
+    find_package(nlohmann_json REQUIRED)
+
+    target_link_libraries(AndromedaMockServer PRIVATE
+        nlohmann_json::nlohmann_json
+        spdlog::spdlog
+        ws2_32
+
+        data
+    )
 endif()
 
+
+andromeda_group_sources_by_folder()

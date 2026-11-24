@@ -21,7 +21,7 @@ namespace Andromeda::OS {
      * @param startFolder Folder the dialog opens in, as UTF-8; empty for the system default.
      * @return The chosen folders as absolute UTF-8 paths, empty if the dialog was cancelled.
      */
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__APPLE__)
     std::vector<std::string> pickFolders(void* ownerWindow, std::string_view startFolder);
 #else
     // No native dialog on this platform yet. Returning nothing keeps the Linux build linking;

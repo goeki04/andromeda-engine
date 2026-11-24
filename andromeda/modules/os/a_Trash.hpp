@@ -1,7 +1,7 @@
 #pragma once
 #include <filesystem>
 namespace Andromeda::OS {
-	#ifdef _WIN32
+	#if defined(_WIN32) || defined(__APPLE__)
     bool moveToTrash(const std::filesystem::path& path);
 	#else
     inline bool moveToTrash(const std::filesystem::path& path) {

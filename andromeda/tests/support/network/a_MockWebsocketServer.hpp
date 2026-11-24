@@ -31,11 +31,19 @@ namespace Andromeda::Test {
      *          the client is tested end to end without the internet: fast, offline and deterministic.
      *          One client connection at a time is enough for the tests.
      */
+    /**
+     * @brief Settings for MockWebsocketServer.
+     * @details Declared outside the class on purpose: Clang rejects `Options options = {}` as a
+     *          default argument while a nested struct with default member initializers is still
+     *          incomplete (inside the enclosing class). Reachable as MockWebsocketServer::Options.
+     */
+    struct MockWebsocketServerOptions {
+        bool rejectUpgrade = false; ///< Answer the WebSocket upgrade with 403 Forbidden instead of accepting it.
+    };
+
     class MockWebsocketServer {
     public:
-        struct Options {
-            bool rejectUpgrade = false; ///< Answer the WebSocket upgrade with 403 Forbidden instead of accepting it.
-        };
+        using Options = MockWebsocketServerOptions;
 
         explicit MockWebsocketServer(const TestCertificates& certificates, Options options = {});
         ~MockWebsocketServer();
