@@ -179,9 +179,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Pinned to the release line the launcher is developed with (pubspec.lock:
+      # flutter >=3.38.4). An unpinned '3.x' picked up Flutter 3.47+, which deprecates
+      # package:flutter/material.dart in favour of package:material_ui - that migration
+      # is a change of its own, not something CI should force by surprise.
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.x'
+          flutter-version: '3.38.x'
           channel: stable
 
       - name: Inject Github Token
