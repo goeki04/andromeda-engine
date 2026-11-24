@@ -17,3 +17,5 @@ target_link_libraries(serialization PUBLIC
 	filesystem
 	definitions
 )
+
+andromeda_group_sources_by_folder()

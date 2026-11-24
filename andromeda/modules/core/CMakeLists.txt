@@ -20,3 +20,5 @@ target_link_libraries(core PUBLIC
     spdlog::spdlog
     definitions
 )
+
+andromeda_group_sources_by_folder()

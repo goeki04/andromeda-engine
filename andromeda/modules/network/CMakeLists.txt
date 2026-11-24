@@ -27,3 +27,5 @@ definitions
 core
 data
 )
+
+andromeda_group_sources_by_folder()

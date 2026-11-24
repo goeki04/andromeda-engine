@@ -12,3 +12,5 @@ target_link_libraries(asset PUBLIC
     filesystem
     definitions
 )
+
+andromeda_group_sources_by_folder()

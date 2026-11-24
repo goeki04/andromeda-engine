@@ -132,3 +132,5 @@ if(ANDROMEDA_BUILD_REFLECTION_TESTS)
     target_link_libraries(AndromedaReflectionTests PRIVATE GTest::gtest_main reflection)
     gtest_discover_tests(AndromedaReflectionTests PROPERTIES LABELS reflection)
 endif()
+
+andromeda_group_sources_by_folder()

@@ -20,3 +20,5 @@ target_link_libraries(resource PUBLIC
     project
     os
 )
+
+andromeda_group_sources_by_folder()

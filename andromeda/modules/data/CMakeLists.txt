@@ -12,3 +12,5 @@ target_link_libraries(data INTERFACE
 	nlohmann_json::nlohmann_json
 	definitions
 )
+
+andromeda_group_sources_by_folder()

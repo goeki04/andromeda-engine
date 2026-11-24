@@ -25,3 +25,5 @@ target_link_libraries(renderer PUBLIC
     renderer_rhi
     resource
 )
+
+andromeda_group_sources_by_folder()

@@ -10,3 +10,5 @@ target_link_libraries(project PUBLIC
     filesystem
     definitions
 )
+
+andromeda_group_sources_by_folder()

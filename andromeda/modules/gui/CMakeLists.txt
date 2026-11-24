@@ -67,3 +67,5 @@ target_link_libraries(gui PUBLIC
     data
     os
 )
+
+andromeda_group_sources_by_folder()

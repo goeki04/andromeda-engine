@@ -11,3 +11,5 @@ target_link_libraries(scene PUBLIC
 	resource
 	definitions
 )
+
+andromeda_group_sources_by_folder()

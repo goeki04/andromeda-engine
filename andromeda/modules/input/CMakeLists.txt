@@ -10,3 +10,5 @@ target_link_libraries(input PUBLIC
     definitions
     core
 )
+
+andromeda_group_sources_by_folder()
