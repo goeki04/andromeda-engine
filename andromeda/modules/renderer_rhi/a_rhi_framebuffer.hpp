@@ -6,7 +6,7 @@
  *        and its specification types.
  */
 
-#include "a_Primitives.hpp"
+#include "a_primitives.hpp"
 #include "a_texture.hpp"
 #include <vector>
 #include <memory>

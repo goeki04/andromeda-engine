@@ -7,7 +7,7 @@
  */
 
 #include "a_rhi_constant_buffer.hpp"
-#include "a_Primitives.hpp"
+#include "a_primitives.hpp"
 #include <GL/glew.h>
 
 namespace Andromeda {

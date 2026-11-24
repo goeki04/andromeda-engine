@@ -5,7 +5,7 @@
  * @brief Backend-agnostic shader storage buffer (SSBO) wrapper, implemented via the Pimpl idiom.
  */
 
-#include "a_Primitives.hpp"
+#include "a_primitives.hpp"
 #include "a_rhi_types.hpp"
 #include <memory>
 namespace Andromeda {

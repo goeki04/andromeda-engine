@@ -7,7 +7,7 @@
 #include "a_network_info.hpp"
 #include <memory>
 #include <boost/asio/buffer.hpp>
-#include "a_Primitives.hpp"
+#include "a_primitives.hpp"
 namespace Andromeda
 {
 	void BoostWebsocketClient::connect() {

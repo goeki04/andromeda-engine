@@ -9,7 +9,7 @@
 #include <tuple>
 #include <type_traits>
 #include <unordered_set>
-#include "a_Primitives.hpp"
+#include "a_primitives.hpp"
 namespace Andromeda {
 
     nlohmann::json SceneSerializer::toJson(ECS::ComponentRegistry& registry, const IMeshLookup& meshes)

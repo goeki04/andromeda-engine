@@ -5,7 +5,7 @@
  * @brief GPU-driven particle system data types (particle payload and emitter).
  */
 
-#include "a_Primitives.hpp"
+#include "a_primitives.hpp"
 #include "a_rhi_types.hpp"
 #include <variant>
 #include "a_rhi_storage_buffer.hpp"
