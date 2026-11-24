@@ -9,7 +9,10 @@ on:
 jobs:
   engine:
     name: Andromeda Engine (Windows)
-    runs-on: windows-latest
+    # VS 2022 (MSVC 19.4x) to match profiles/vs2022: ConanCenter ships prebuilt
+    # binaries for it. windows-latest has moved to VS 2026 (MSVC 19.5x), where most
+    # dependencies would have to build from source.
+    runs-on: windows-2022
 
     steps:
       - uses: actions/checkout@v4
@@ -35,6 +38,9 @@ jobs:
           echo "CL=/MP" >> $GITHUB_ENV
           echo "CONAN_CPU_COUNT=4" >> $GITHUB_ENV
 
+      # Same profile as build.ps1 for host and build context. Passing it as -pr:b
+      # matters: the detected default profile uses cppstd 14, which the build tools
+      # (spirv-tools via glslang) reject.
       - name: Detect Conan profile
         run: conan profile detect --force
 
@@ -50,10 +56,8 @@ jobs:
         working-directory: andromeda
         run: >
           conan install .
-          -s compiler=msvc
+          -pr profiles/vs2022 -pr:b profiles/vs2022
           -g VirtualBuildEnv
-          -s compiler.cppstd=20
-          -c tools.cmake.cmaketoolchain:generator=Ninja
           -s build_type=Release
           -of conan/
           --build=missing
