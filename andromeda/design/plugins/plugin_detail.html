@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plugin detail</title>
+<!--
+  Andromeda - Project Settings > Plugins: plugin detail page (design mockup, not engine code).
+  Opens in place of the list when a card is clicked; the arrow goes back.
+  Spec and decisions: design/plugins/README.md. Colors follow andromeda/styleguide.txt.
+-->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+:root{
+  --surface-0:#121418; --surface-1:#16191f; --surface-2:#1a1d24; --surface-3:#20242c;
+  --border:#2a2e39; --border-strong:#3a3f4d;
+  --text-primary:#f0f2f5; --text-secondary:#8b949e; --text-muted:#6b7380;
+  --fill-accent:#3b82f6; --bg-accent:rgba(59,130,246,.16); --text-accent:#7fb0ff;
+  --bg-success:rgba(16,185,129,.16); --text-success:#34d399;
+  --bg-warning:rgba(245,158,11,.16); --text-warning:#fbbf24;
+  --text-danger:#f87171;
+  --bg-neutral:rgba(139,148,158,.12);
+  --radius:6px;
+}
+*{box-sizing:border-box}
+body{margin:0;padding:24px;background:var(--surface-0);color:var(--text-primary);font:13px/1.4 Inter,Roboto,"Segoe UI",system-ui,sans-serif}
+input,select{background:var(--surface-0);color:var(--text-primary);border:1px solid var(--border);border-radius:var(--radius);padding:0 8px;font:inherit}
+.ps{max-width:760px;display:grid;grid-template-columns:132px minmax(0,1fr);border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface-1)}
+.nav{background:var(--surface-0);padding:12px 6px;border-right:1px solid var(--border)}
+.nav div{display:flex;gap:8px;align-items:center;padding:7px 8px;border-radius:var(--radius);color:var(--text-secondary)}
+.nav .on{background:var(--bg-accent);color:var(--text-accent)}
+.pill{font-size:11px;padding:1px 6px;border-radius:var(--radius);white-space:nowrap}
+.btn{font:inherit;font-size:12px;padding:4px 10px;border-radius:var(--radius);border:1px solid var(--border-strong);display:inline-flex;gap:6px;align-items:center;white-space:nowrap;cursor:pointer;background:transparent;color:var(--text-primary)}
+.ib{padding:4px 6px}
+.tg{width:30px;height:16px;border-radius:8px;position:relative;display:inline-block;cursor:pointer;background:var(--border-strong);transition:background-color 160ms linear;flex:none}
+.tg::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:6px;background:var(--text-primary);transition:transform 160ms linear}
+.tg.y{background:var(--fill-accent)}.tg.y::after{transform:translateX(14px)}
+.tabs{display:flex;gap:18px;border-bottom:1px solid var(--border);margin:16px 0 14px}
+.tab{padding:7px 0;color:var(--text-secondary);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab.on{color:var(--text-primary);border-bottom-color:var(--fill-accent)}
+.row{display:grid;grid-template-columns:150px minmax(0,1fr);gap:10px;align-items:center;padding:6px 0}
+.row label{color:var(--text-secondary);font-size:12px}
+.th{flex:1;min-width:0;height:88px;border-radius:var(--radius);background:var(--bg-neutral);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:20px;cursor:pointer}
+.side{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-size:12px;align-self:start}
+.kv{display:flex;justify-content:space-between;gap:8px;padding:4px 0}
+.kv span:first-child{color:var(--text-muted)}
+.lk{display:flex;gap:6px;align-items:center;color:var(--text-accent);padding:4px 0;cursor:pointer}
+.hide{display:none!important}
+</style>
+</head>
+<body>
+<div class="ps">
+ <div class="nav">
+  <div><i class="ti ti-adjustments-horizontal"></i>General</div>
+  <div><i class="ti ti-device-desktop"></i>Rendering</div>
+  <div><i class="ti ti-folder"></i>Assets</div>
+  <div class="on"><i class="ti ti-plug"></i>Plugins</div>
+  <div><i class="ti ti-keyboard"></i>Input</div>
+  <div><i class="ti ti-code"></i>Scripting</div>
+ </div>
+ <div style="padding:16px 18px;min-width:0">
+  <div style="display:grid;grid-template-columns:auto 56px minmax(0,1fr) auto;gap:12px;align-items:center">
+   <button class="btn ib" title="Back to plugins"><i class="ti ti-arrow-left"></i></button>
+   <div style="width:56px;height:56px;border-radius:var(--radius);background:var(--bg-success);color:var(--text-success);display:flex;align-items:center;justify-content:center;font-size:28px"><i class="ti ti-home-bolt"></i></div>
+   <div style="min-width:0">
+    <div style="display:flex;gap:6px;align-items:center;min-width:0"><span style="font-weight:500;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">Bosch Smart Home</span><span class="pill" style="background:var(--bg-neutral);color:var(--text-secondary)">v1.2.0</span><span class="pill" style="background:var(--bg-warning);color:var(--text-warning)">v1.3.0 available</span></div>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:5px;display:flex;gap:8px;align-items:center">by Goekdeniz Koeksal<span>·</span><i class="ti ti-brand-windows" title="Windows"></i><i class="ti ti-brand-apple" title="macOS"></i></div>
+   </div>
+   <div style="display:flex;gap:6px;align-items:center">
+    <button class="btn"><i class="ti ti-refresh"></i>Update</button>
+    <button class="btn ib" title="Show in Finder / Explorer"><i class="ti ti-folder-open"></i></button>
+    <button class="btn ib" title="Remove from project" style="color:var(--text-danger)"><i class="ti ti-trash"></i></button>
+    <span class="tg y" role="switch" aria-checked="true" style="margin-left:4px"></span>
+   </div>
+  </div>
+
+  <div class="tabs">
+   <span class="tab on" data-t="ov">Overview</span>
+   <span class="tab" data-t="st">Settings</span>
+   <span class="tab" data-t="cl">Changelog</span>
+  </div>
+
+  <div id="ov" class="pane" style="display:grid;grid-template-columns:minmax(0,1fr) 156px;gap:16px">
+   <div style="min-width:0">
+    <p style="margin:0 0 12px;line-height:1.65">Connects to a Bosch Smart Home Controller on your network and adds every paired device to the scene as an entity.</p>
+    <div style="font-size:12px;font-weight:500;margin-bottom:6px">What it adds</div>
+    <ul style="margin:0 0 14px;padding-left:18px;line-height:1.75;color:var(--text-secondary)">
+     <li>Thermostats, window contacts, and lights as entities</li>
+     <li>Live state while the editor is open</li>
+     <li>Devices grouped under SmartHome/Bosch</li>
+    </ul>
+    <div style="display:flex;gap:8px">
+     <div class="th"><i class="ti ti-photo"></i></div>
+     <div class="th"><i class="ti ti-photo"></i></div>
+     <div class="th"><i class="ti ti-photo"></i></div>
+    </div>
+   </div>
+   <div class="side">
+    <div class="kv"><span>Installed</span><span>v1.2.0</span></div>
+    <div class="kv"><span>Latest</span><span>v1.3.0</span></div>
+    <div class="kv"><span>Size</span><span>3.8 MB</span></div>
+    <div class="kv"><span>License</span><span>MIT</span></div>
+    <div class="kv"><span>Added</span><span>12 Nov 2026</span></div>
+    <div style="border-top:1px solid var(--border);margin:8px 0"></div>
+    <div class="lk"><i class="ti ti-book"></i>Documentation</div>
+    <div class="lk"><i class="ti ti-brand-github"></i>Repository</div>
+    <div class="lk"><i class="ti ti-bug"></i>Report an issue</div>
+   </div>
+  </div>
+
+  <div id="st" class="pane hide">
+   <div class="row"><label for="ip">Controller address</label><input id="ip" type="text" value="192.168.178.40" style="height:28px;font-size:12px"></div>
+   <div class="row"><label for="iv">Refresh interval</label><select id="iv" style="height:28px;font-size:12px"><option>Live (push)</option><option>Every 5 s</option><option>Every 30 s</option></select></div>
+   <div class="row"><label>Show offline devices</label><span><span class="tg" role="switch" aria-checked="false"></span></span></div>
+   <div style="font-size:11px;color:var(--text-muted);margin-top:8px">Saved with this project.</div>
+  </div>
+
+  <div id="cl" class="pane hide">
+   <div style="font-weight:500;font-size:12px;margin-bottom:4px">v1.3.0</div>
+   <ul style="margin:0 0 10px;padding-left:18px;line-height:1.7;color:var(--text-secondary)"><li>Support for smart radiator thermostats II</li><li>Faster reconnect after the controller restarts</li></ul>
+   <div style="font-weight:500;font-size:12px;margin-bottom:4px">v1.2.0 <span style="font-weight:400;color:var(--text-muted)">installed</span></div>
+   <ul style="margin:0;padding-left:18px;line-height:1.7;color:var(--text-secondary)"><li>Window contacts as scene entities</li></ul>
+  </div>
+ </div>
+</div>
+<script>
+document.querySelectorAll('.tg').forEach(t=>t.onclick=()=>{const on=t.classList.toggle('y');t.setAttribute('aria-checked',on);});
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===t));document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('hide',p.id!==t.dataset.t));});
+</script>
+</body>
+</html>

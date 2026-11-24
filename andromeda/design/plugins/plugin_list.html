@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plugin list</title>
+<!--
+  Andromeda - Project Settings > Plugins: plugin list (design mockup, not engine code).
+  Spec and decisions: design/plugins/README.md. Colors follow andromeda/styleguide.txt.
+  Interactive: filter menu, per-card Update, Update all (sequential, no layout jumps), animated toggles.
+-->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+:root{
+  --surface-0:#121418; --surface-1:#16191f; --surface-2:#1a1d24; --surface-3:#20242c;
+  --border:#2a2e39; --border-strong:#3a3f4d;
+  --text-primary:#f0f2f5; --text-secondary:#8b949e; --text-muted:#6b7380;
+  --fill-accent:#3b82f6; --on-accent:#ffffff; --bg-accent:rgba(59,130,246,.16); --text-accent:#7fb0ff; --border-accent:#3b82f6;
+  --bg-success:rgba(16,185,129,.16); --text-success:#34d399; --border-success:#10b981;
+  --bg-warning:rgba(245,158,11,.16); --text-warning:#fbbf24; --border-warning:#f59e0b;
+  --bg-danger:rgba(239,68,68,.16); --text-danger:#f87171; --border-danger:#ef4444;
+  --bg-neutral:rgba(139,148,158,.12);
+  --radius:6px; --font-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;padding:24px;background:var(--surface-0);color:var(--text-primary);font:13px/1.4 Inter,Roboto,"Segoe UI",system-ui,sans-serif}
+input{background:var(--surface-0);color:var(--text-primary);border:1px solid var(--border);border-radius:var(--radius);padding:0 8px;font:inherit}
+input::placeholder{color:var(--text-muted)}
+.ps{max-width:760px;display:grid;grid-template-columns:132px minmax(0,1fr);border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface-1)}
+.nav{background:var(--surface-0);padding:10px 6px;border-right:1px solid var(--border)}
+.nav div{display:flex;gap:8px;align-items:center;padding:6px 8px;border-radius:var(--radius);color:var(--text-secondary)}
+.nav .on{background:var(--bg-accent);color:var(--text-accent)}
+.card{display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface-2);margin-bottom:8px;cursor:pointer}
+.ic{width:48px;height:48px;border-radius:var(--radius);display:flex;align-items:center;justify-content:center;font-size:22px}
+.desc{color:var(--text-secondary);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.by{font-size:11px;color:var(--text-muted);margin-top:4px;display:flex;gap:6px;align-items:center}
+.pill{font-size:11px;padding:1px 6px;border-radius:var(--radius);white-space:nowrap;transition:opacity 200ms linear}
+.act{display:flex;gap:10px;align-items:center}
+.tg{width:30px;height:16px;border-radius:8px;position:relative;display:inline-block;cursor:pointer;background:var(--border-strong);transition:background-color 160ms linear;flex:none}
+.tg::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:6px;background:var(--text-primary);transition:transform 160ms linear}
+.tg.y{background:var(--fill-accent)}.tg.y::after{transform:translateX(14px)}
+.btn{font:inherit;font-size:12px;padding:4px 10px;border-radius:var(--radius);border:1px solid var(--border-strong);display:inline-flex;gap:6px;align-items:center;white-space:nowrap;cursor:pointer;background:transparent;color:var(--text-primary)}
+.us{overflow:hidden;max-width:110px;transition:max-width 220ms linear,opacity 220ms linear}
+.us.gone{max-width:0;opacity:0}
+.ub{position:relative;overflow:hidden;width:92px;justify-content:center}
+.bar{position:absolute;left:0;bottom:0;height:2px;width:0;background:var(--fill-accent);transition:width 120ms linear}
+.slot{width:150px;display:flex;justify-content:flex-end}
+.hide{display:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{display:inline-block;animation:spin 900ms linear infinite}
+</style>
+</head>
+<body>
+<div class="ps">
+ <div class="nav">
+  <div><i class="ti ti-adjustments-horizontal"></i>General</div>
+  <div><i class="ti ti-device-desktop"></i>Rendering</div>
+  <div><i class="ti ti-folder"></i>Assets</div>
+  <div class="on"><i class="ti ti-plug"></i>Plugins</div>
+  <div><i class="ti ti-keyboard"></i>Input</div>
+  <div><i class="ti ti-code"></i>Scripting</div>
+ </div>
+ <div id="main" style="padding:12px 14px;min-width:0">
+  <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:var(--radius);background:var(--bg-neutral);color:var(--text-secondary);font-size:12px;margin-bottom:10px">
+   <i class="ti ti-folder-cog" style="font-size:16px"></i>
+   <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Plugins for <b style="font-weight:500;color:var(--text-primary)">SmartHome Demo</b> · stored in <code style="font-family:var(--font-mono)">Plugins/</code> of this project</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;position:relative">
+   <button class="btn" id="fbtn"><i class="ti ti-filter"></i><span id="flabel">All</span><i class="ti ti-chevron-down"></i></button>
+   <input type="text" placeholder="Search plugins" style="flex:1;min-width:0;height:28px;font-size:12px">
+   <button class="btn"><i class="ti ti-file-plus"></i>Add from file</button>
+   <div class="slot" id="slot"><button class="btn" id="upall" style="background:var(--fill-accent);color:var(--on-accent);border-color:transparent;width:150px;justify-content:center"><i class="ti ti-refresh"></i><span id="uptxt">Update all (2)</span></button></div>
+   <div id="fmenu" class="hide" style="position:absolute;top:32px;left:0;z-index:2;background:var(--surface-3);border:1px solid var(--border);border-radius:var(--radius);padding:4px;min-width:150px">
+    <div class="fo" data-f="all" style="padding:6px 8px;cursor:pointer">All</div>
+    <div class="fo" data-f="installed" style="padding:6px 8px;cursor:pointer">Installed</div>
+    <div class="fo" data-f="available" style="padding:6px 8px;cursor:pointer">Available</div>
+    <div class="fo" data-f="update" style="padding:6px 8px;cursor:pointer">Updates</div>
+   </div>
+  </div>
+
+  <div class="card" data-cat="installed update" data-new="v1.3.0">
+   <div class="ic" style="background:var(--bg-success);color:var(--text-success)"><i class="ti ti-home-bolt"></i></div>
+   <div style="min-width:0">
+    <div style="display:flex;gap:6px;align-items:center"><span style="font-weight:500">Bosch Smart Home</span><span class="pill ver" style="background:var(--bg-neutral);color:var(--text-secondary)">v1.2.0</span><span class="pill av" style="background:var(--bg-warning);color:var(--text-warning)">v1.3.0 available</span></div>
+    <div class="desc">Devices from the Bosch Smart Home Controller as scene entities.</div>
+    <div class="by">by Goekdeniz Koeksal<span>·</span><i class="ti ti-brand-windows"></i><i class="ti ti-brand-apple"></i></div>
+   </div>
+   <div class="act"><div class="us"><button class="btn ub one"><span class="lab"><i class="ti ti-refresh"></i> Update</span><span class="bar"></span></button></div><span class="tg y" role="switch" aria-checked="true"></span></div>
+  </div>
+
+  <div class="card" data-cat="installed update" data-new="v1.1.0">
+   <div class="ic" style="background:var(--bg-accent);color:var(--text-accent)"><i class="ti ti-cloud"></i></div>
+   <div style="min-width:0">
+    <div style="display:flex;gap:6px;align-items:center"><span style="font-weight:500">Weather Overlay</span><span class="pill ver" style="background:var(--bg-neutral);color:var(--text-secondary)">v1.0.0</span><span class="pill av" style="background:var(--bg-warning);color:var(--text-warning)">v1.1.0 available</span></div>
+    <div class="desc">Current weather in the viewport, from the Home Assistant weather entity.</div>
+    <div class="by"><span class="pill" style="background:var(--bg-accent);color:var(--text-accent)"><i class="ti ti-rocket"></i> Andromeda Engine</span><span>·</span><i class="ti ti-brand-windows"></i><i class="ti ti-brand-apple"></i></div>
+   </div>
+   <div class="act"><div class="us"><button class="btn ub one"><span class="lab"><i class="ti ti-refresh"></i> Update</span><span class="bar"></span></button></div><span class="tg" role="switch" aria-checked="false"></span></div>
+  </div>
+
+  <div class="card" data-cat="available">
+   <div class="ic" style="background:var(--bg-neutral);color:var(--text-secondary)"><i class="ti ti-sparkles"></i></div>
+   <div style="min-width:0">
+    <div style="display:flex;gap:6px;align-items:center"><span style="font-weight:500">Shader Pack</span><span class="pill" style="background:var(--bg-neutral);color:var(--text-secondary)">v2.1.4</span></div>
+    <div class="desc">Extra PBR materials and post-processing passes.</div>
+    <div class="by"><span class="pill" style="background:var(--bg-accent);color:var(--text-accent)"><i class="ti ti-rocket"></i> Andromeda Engine</span><span>·</span><i class="ti ti-brand-windows"></i><i class="ti ti-brand-apple"></i></div>
+   </div>
+   <div class="act"><button class="btn"><i class="ti ti-download"></i>Add to project</button></div>
+  </div>
+
+  <div class="card" data-cat="installed" style="border-color:var(--border-danger)">
+   <div class="ic" style="background:var(--bg-danger);color:var(--text-danger)"><i class="ti ti-alert-triangle"></i></div>
+   <div style="min-width:0">
+    <div style="display:flex;gap:6px;align-items:center"><span style="font-weight:500">Legacy Particle Tool</span><span class="pill" style="background:var(--bg-danger);color:var(--text-danger)">Can't load</span></div>
+    <div class="desc" style="color:var(--text-danger)">Needs plugin API v0, this engine provides v1.</div>
+   </div>
+   <div class="act"><button class="btn"><i class="ti ti-trash"></i>Remove</button></div>
+  </div>
+
+  <div id="empty" class="hide" style="padding:16px;text-align:center;color:var(--text-muted);font-size:12px">All plugins are up to date.</div>
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:11px;color:var(--text-muted);margin-top:4px">
+   <span><i class="ti ti-info-circle"></i> Changes apply when the project is reopened.</span>
+   <button class="btn" id="reset" style="font-size:11px;padding:2px 8px">Reset demo</button>
+  </div>
+ </div>
+</div>
+<script>
+const $=s=>document.querySelector(s),$$=s=>document.querySelectorAll(s);
+const main=$('#main'),listHTML=main.innerHTML;
+let slotHTML,filter='all',busy=false;
+const names={all:'All',installed:'Installed',available:'Available',update:'Updates'};
+function pending(){return [...$$('.card')].filter(c=>c.dataset.cat.includes('update')&&!c.dataset.done);}
+function applyFilter(){$$('.card').forEach(c=>{const cats=c.dataset.cat.split(' ');const keep=c.dataset.done&&filter==='update';c.classList.toggle('hide',!(filter==='all'||cats.includes(filter)||keep));});$('#empty').classList.toggle('hide',!(filter==='update'&&!$$('.card:not(.hide)').length));}
+function setSlot(){const slot=$('#slot'),n=pending().length;if(busy)return;if(n>0){slot.innerHTML=slotHTML;$('#uptxt').textContent='Update all ('+n+')';$('#upall').onclick=updateAll;}else{slot.innerHTML='<span id="ok" style="width:150px;display:inline-flex;justify-content:flex-end;gap:6px;align-items:center;font-size:12px;color:var(--text-success);opacity:0;transition:opacity 200ms linear"><i class="ti ti-circle-check"></i>All up to date</span>';requestAnimationFrame(()=>requestAnimationFrame(()=>{const o=$('#ok');if(o)o.style.opacity=1;}));}}
+function runOne(card){return new Promise(res=>{const b=card.querySelector('.ub'),lab=b.querySelector('.lab'),bar=b.querySelector('.bar');b.style.pointerEvents='none';lab.innerHTML='<i class="ti ti-loader-2 spin"></i> 0%';let p=0;const t=setInterval(()=>{p=Math.min(100,p+Math.round(8+Math.random()*14));bar.style.width=p+'%';lab.innerHTML='<i class="ti ti-loader-2 spin"></i> '+p+'%';if(p>=100){clearInterval(t);finish(card);res();}},110);});}
+function finish(card){const b=card.querySelector('.ub'),lab=b.querySelector('.lab'),bar=b.querySelector('.bar');bar.style.width='0';lab.innerHTML='<i class="ti ti-check"></i> Updated';b.style.color='var(--text-success)';b.style.borderColor='var(--border-success)';const av=card.querySelector('.av');av.style.opacity=0;card.querySelector('.ver').textContent=card.dataset.new;card.dataset.done='1';setTimeout(()=>av.remove(),220);setTimeout(()=>card.querySelector('.us').classList.add('gone'),1400);}
+async function updateAll(){if(busy)return;busy=true;const cards=pending(),btn=$('#upall');btn.style.pointerEvents='none';btn.style.background='transparent';btn.style.color='var(--text-primary)';btn.style.borderColor='var(--border-strong)';for(let i=0;i<cards.length;i++){$('#uptxt').textContent='Updating '+(i+1)+' of '+cards.length;btn.querySelector('i').className='ti ti-loader-2 spin';await runOne(cards[i]);}busy=false;setSlot();}
+function wire(){
+ $$('.one').forEach(b=>b.onclick=async e=>{e.stopPropagation();if(busy)return;busy=true;await runOne(b.closest('.card'));busy=false;setSlot();});
+ $$('.tg').forEach(t=>t.onclick=e=>{e.stopPropagation();const on=t.classList.toggle('y');t.setAttribute('aria-checked',on);});
+ $('#fbtn').onclick=e=>{e.stopPropagation();$('#fmenu').classList.toggle('hide');};
+ $$('.fo').forEach(o=>o.onclick=()=>{filter=o.dataset.f;$('#flabel').textContent=names[filter];$('#fmenu').classList.add('hide');applyFilter();});
+ $('#reset').onclick=()=>{main.innerHTML=listHTML;busy=false;filter='all';init();};
+}
+document.addEventListener('click',()=>{const m=$('#fmenu');if(m)m.classList.add('hide');});
+function init(){slotHTML=$('#slot').innerHTML;wire();setSlot();applyFilter();}
+init();
+</script>
+</body>
+</html>
