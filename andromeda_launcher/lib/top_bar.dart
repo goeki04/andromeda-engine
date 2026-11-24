@@ -13,7 +13,8 @@ class TopBar extends StatelessWidget {
       blur: 30,
       color: const Color(0x66080808),
       border: Border(
-        bottom: BorderSide(color: Colors.white.withValues(alpha: 0.06), width: 0.5),
+        bottom:
+            BorderSide(color: Colors.white.withValues(alpha: 0.06), width: 0.5),
       ),
       padding: EdgeInsets.zero,
       child: Stack(

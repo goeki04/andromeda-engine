@@ -21,6 +21,12 @@ fi
 CLANG_MAJOR="$(clang --version | sed -n 's/.*version \([0-9]*\).*/\1/p' | head -1)"
 echo "Using clang ${CLANG_MAJOR}"
 
+# Local recipes that are not (or not correctly) on ConanCenter.
+conan export ./conan-recipes/directx-shader-compiler --version 1.9.2602
+# kuba-zip (via assimp): ConanCenter's pinned source hash no longer matches GitHub,
+# see conan-recipes/kuba-zip/conandata.yml.
+conan export ./conan-recipes/kuba-zip --version 0.3.0
+
 for build_type in Debug Release; do
     conan install . \
         -pr profiles/linux -pr:b profiles/linux \

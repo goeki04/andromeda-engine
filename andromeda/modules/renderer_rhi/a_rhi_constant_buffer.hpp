@@ -5,7 +5,7 @@
  * @brief Backend-agnostic constant/uniform buffer (UBO) wrapper, implemented via the Pimpl idiom.
  */
 
-#include "a_Primitives.hpp"
+#include "a_primitives.hpp"
 #include <memory>
 namespace Andromeda {
 

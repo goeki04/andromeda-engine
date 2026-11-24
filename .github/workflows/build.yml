@@ -9,7 +9,10 @@ on:
 jobs:
   engine:
     name: Andromeda Engine (Windows)
-    runs-on: windows-latest
+    # VS 2022 (MSVC 19.4x) to match profiles/vs2022: ConanCenter ships prebuilt
+    # binaries for it. windows-latest has moved to VS 2026 (MSVC 19.5x), where most
+    # dependencies would have to build from source.
+    runs-on: windows-2022
 
     steps:
       - uses: actions/checkout@v4
@@ -23,7 +26,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.conan2/p
-          key: ${{ runner.os }}-conan-${{ hashFiles('andromeda/conanfile.py') }}
+          key: ${{ runner.os }}-conan-${{ hashFiles('andromeda/conanfile.py', 'andromeda/conan-recipes/**', 'andromeda/profiles/**') }}
           restore-keys: |
             ${{ runner.os }}-conan-
 
@@ -35,17 +38,26 @@ jobs:
           echo "CL=/MP" >> $GITHUB_ENV
           echo "CONAN_CPU_COUNT=4" >> $GITHUB_ENV
 
+      # Same profile as build.ps1 for host and build context. Passing it as -pr:b
+      # matters: the detected default profile uses cppstd 14, which the build tools
+      # (spirv-tools via glslang) reject.
       - name: Detect Conan profile
         run: conan profile detect --force
+
+      # Recipes that are not on ConanCenter (see build.ps1). Without this step
+      # `conan install` cannot resolve libclang and directx-shader-compiler.
+      - name: Export local Conan recipes
+        working-directory: andromeda
+        run: |
+          conan export ./conan-recipes/directx-shader-compiler --version 1.9.2602
+          conan export ./conan-recipes/libclang --version 21.1.8
 
       - name: Install dependencies
         working-directory: andromeda
         run: >
           conan install .
-          -s compiler=msvc
+          -pr profiles/vs2022 -pr:b profiles/vs2022
           -g VirtualBuildEnv
-          -s compiler.cppstd=20
-          -c tools.cmake.cmaketoolchain:generator=Ninja
           -s build_type=Release
           -of conan/
           --build=missing
@@ -108,7 +120,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.conan2/p
-          key: ${{ runner.os }}-conan-${{ hashFiles('andromeda/conanfile.py') }}
+          key: ${{ runner.os }}-conan-${{ hashFiles('andromeda/conanfile.py', 'andromeda/conan-recipes/**', 'andromeda/profiles/**') }}
           restore-keys: |
             ${{ runner.os }}-conan-
 
@@ -119,6 +131,15 @@ jobs:
       # the runner actually ships. Detect it instead of hardcoding.
       - name: Detect Clang version
         run: echo "CLANG_MAJOR=$(clang --version | sed -n 's/.*version \([0-9]*\).*/\1/p' | head -1)" >> $GITHUB_ENV
+
+      # Recipes that are not (or not correctly) on ConanCenter (see build.sh).
+      # kuba-zip is needed here but not on Windows: with clang there are no prebuilt
+      # binaries, and building ConanCenter's recipe from source fails its sha256 check.
+      - name: Export local Conan recipes
+        working-directory: andromeda
+        run: |
+          conan export ./conan-recipes/directx-shader-compiler --version 1.9.2602
+          conan export ./conan-recipes/kuba-zip --version 0.3.0
 
       - name: Install dependencies
         working-directory: andromeda
@@ -158,9 +179,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Pinned to the release line the launcher is developed with (pubspec.lock:
+      # flutter >=3.38.4). An unpinned '3.x' picked up Flutter 3.47+, which deprecates
+      # package:flutter/material.dart in favour of package:material_ui - that migration
+      # is a change of its own, not something CI should force by surprise.
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.x'
+          flutter-version: '3.38.x'
           channel: stable
 
       - name: Inject Github Token
@@ -169,6 +194,8 @@ jobs:
         run: |
           mkdir -p lib
           echo "const String kGithubToken = '${{ secrets.GH_TOKEN }}';" > lib/config.dart
+          # Generated file: format it, so the formatting check below only judges real sources.
+          dart format lib/config.dart
 
       - name: Get dependencies
         working-directory: andromeda_launcher

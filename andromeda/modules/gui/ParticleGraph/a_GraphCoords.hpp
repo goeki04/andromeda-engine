@@ -9,7 +9,7 @@
  */
 
 #include "imgui.h"
-#include "a_Primitives.hpp"
+#include "a_primitives.hpp"
 
 namespace Andromeda::Gui {
 

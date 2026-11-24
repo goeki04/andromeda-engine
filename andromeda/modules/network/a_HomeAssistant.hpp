@@ -5,7 +5,7 @@
  * @brief Service handling the Home Assistant WebSocket API.
  */
 
-#include "a_Primitives.hpp"
+#include "a_primitives.hpp"
 #include "a_IWebsocketClient.hpp"
 #include <string>
 #include <boost/asio/io_context.hpp>

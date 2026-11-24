@@ -5,7 +5,7 @@
  * @brief Helpers for reading the HTTP proxy configuration from the environment.
  */
 
-#include "a_Primitives.hpp"
+#include "a_primitives.hpp"
 #include <charconv>
 #include <string>
 #include <string_view>

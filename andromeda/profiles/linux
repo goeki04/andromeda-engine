@@ -26,6 +26,10 @@ build_type=Release
 # (missing spirv-tools include dirs). We don't need it, so disable everywhere
 # (this profile is passed as both -pr and -pr:b).
 glslang/*:enable_optimizer=False
+# SDL pulls in pulseaudio on Linux, and pulseaudio asks for openssl/[>=1.1 <4] for its
+# optional RAOP (AirPlay) sink - that conflicts with the openssl/4.x the engine requires.
+# The engine does not need RAOP.
+pulseaudio/*:with_openssl=False
 
 [conf]
 tools.cmake.cmaketoolchain:generator=Ninja

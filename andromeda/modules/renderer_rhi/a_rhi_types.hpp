@@ -5,7 +5,7 @@
  * @brief Backend-agnostic enums and small POD types shared across the RHI (render hardware interface).
  */
 
-#include "a_Primitives.hpp"
+#include "a_primitives.hpp"
 #include <string>
 namespace Andromeda {
     /**

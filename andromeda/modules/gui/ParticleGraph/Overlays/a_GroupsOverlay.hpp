@@ -6,7 +6,7 @@
  */
 
 #include "a_components.hpp"
-#include "a_Primitives.hpp"
+#include "a_primitives.hpp"
 
 namespace Andromeda::Gui::Overlay {
 

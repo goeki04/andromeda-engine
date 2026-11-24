@@ -6,7 +6,7 @@
  */
 
 #include <string>
-#include "a_Primitives.hpp"
+#include "a_primitives.hpp"
 #include "a_IGraphicsContext.hpp"
 namespace Andromeda::RendererRHI {
 

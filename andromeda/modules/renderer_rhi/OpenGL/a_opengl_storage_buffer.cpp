@@ -7,7 +7,7 @@
  */
 
 #include "a_rhi_storage_buffer.hpp"
-#include "a_Primitives.hpp"
+#include "a_primitives.hpp"
 #include "a_logger.hpp"
 #include <GL/glew.h>
 

@@ -16,7 +16,7 @@
 #include "OpenGL/a_opengl_handles.hpp"
 #include "a_primitives.hpp"
 #include "a_ISubsystem.hpp"
-#include "a_cubemapData.hpp"
+#include "a_CubemapData.hpp"
 #include "a_IGraphicsContext.hpp"
 #include "a_Material.hpp"
 #include "a_event_manager.hpp"

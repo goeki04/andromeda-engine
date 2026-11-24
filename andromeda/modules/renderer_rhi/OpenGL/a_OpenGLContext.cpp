@@ -2,14 +2,14 @@
 #include "a_OpenGLContext.hpp"
 #include "a_OpenGLContext.hpp"
 #include "a_OpenGLContext.hpp"
-#include "a_Primitives.hpp"
+#include "a_primitives.hpp"
 #include "a_logger.hpp"
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include "a_rhi_constant_buffer.hpp"
 #include "a_rhi_framebuffer.hpp"
-#include "a_cubemapData.hpp"
+#include "a_CubemapData.hpp"
 #include "a_samplerState.hpp"
 #include "a_opengl_texture.hpp"
 #include "a_opengl_sampler.hpp"

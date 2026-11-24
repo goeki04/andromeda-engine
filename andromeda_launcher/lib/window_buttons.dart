@@ -48,7 +48,8 @@ class _WindowButtonState extends State<_WindowButton> {
               size: const Size(10, 10),
               painter: _WinIconPainter(
                 type: widget.type,
-                color: _hover && isClose ? Colors.white : const Color(0xCCFFFFFF),
+                color:
+                    _hover && isClose ? Colors.white : const Color(0xCCFFFFFF),
               ),
             ),
           ),
@@ -118,4 +119,3 @@ class _WinIconPainter extends CustomPainter {
   bool shouldRepaint(_WinIconPainter old) =>
       old.type != type || old.color != color;
 }
-
