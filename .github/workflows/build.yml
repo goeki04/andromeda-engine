@@ -23,7 +23,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.conan2/p
-          key: ${{ runner.os }}-conan-${{ hashFiles('andromeda/conanfile.py') }}
+          key: ${{ runner.os }}-conan-${{ hashFiles('andromeda/conanfile.py', 'andromeda/conan-recipes/**', 'andromeda/profiles/**') }}
           restore-keys: |
             ${{ runner.os }}-conan-
 
@@ -37,6 +37,14 @@ jobs:
 
       - name: Detect Conan profile
         run: conan profile detect --force
+
+      # Recipes that are not on ConanCenter (see build.ps1). Without this step
+      # `conan install` cannot resolve libclang and directx-shader-compiler.
+      - name: Export local Conan recipes
+        working-directory: andromeda
+        run: |
+          conan export ./conan-recipes/directx-shader-compiler --version 1.9.2602
+          conan export ./conan-recipes/libclang --version 21.1.8
 
       - name: Install dependencies
         working-directory: andromeda
@@ -108,7 +116,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.conan2/p
-          key: ${{ runner.os }}-conan-${{ hashFiles('andromeda/conanfile.py') }}
+          key: ${{ runner.os }}-conan-${{ hashFiles('andromeda/conanfile.py', 'andromeda/conan-recipes/**', 'andromeda/profiles/**') }}
           restore-keys: |
             ${{ runner.os }}-conan-
 
@@ -119,6 +127,15 @@ jobs:
       # the runner actually ships. Detect it instead of hardcoding.
       - name: Detect Clang version
         run: echo "CLANG_MAJOR=$(clang --version | sed -n 's/.*version \([0-9]*\).*/\1/p' | head -1)" >> $GITHUB_ENV
+
+      # Recipes that are not (or not correctly) on ConanCenter (see build.sh).
+      # kuba-zip is needed here but not on Windows: with clang there are no prebuilt
+      # binaries, and building ConanCenter's recipe from source fails its sha256 check.
+      - name: Export local Conan recipes
+        working-directory: andromeda
+        run: |
+          conan export ./conan-recipes/directx-shader-compiler --version 1.9.2602
+          conan export ./conan-recipes/kuba-zip --version 0.3.0
 
       - name: Install dependencies
         working-directory: andromeda
@@ -169,6 +186,8 @@ jobs:
         run: |
           mkdir -p lib
           echo "const String kGithubToken = '${{ secrets.GH_TOKEN }}';" > lib/config.dart
+          # Generated file: format it, so the formatting check below only judges real sources.
+          dart format lib/config.dart
 
       - name: Get dependencies
         working-directory: andromeda_launcher

@@ -19,21 +19,28 @@ class DirectXShaderCompiler(ConanFile):
     # from the GitHub release metadata. Ensures the download can't silently
     # be swapped/corrupted.
     _windows_sha256 = "a1e89031421cf3c1fca6627766ab3020ca4f962ac7e2caa7fab2b33a8436151e"
+    # Prebuilt Linux x86_64 release asset (bin/dxc + lib/libdxcompiler.so, rpath $ORIGIN/../lib).
+    _linux_sha256 = "a1d3e3b5e1c5685b3eb27d5e8890e41d87df45def05112a2d6f1a63a931f7d60"
 
     # Microsoft publishes no macOS binaries, so on macOS DXC is built from the
     # release tag v{version}.
     _git_url = "https://github.com/microsoft/DirectXShaderCompiler.git"
 
     def validate(self):
-        if self.settings.os not in ("Windows", "Macos"):
+        if self.settings.os not in ("Windows", "Linux", "Macos"):
             raise ConanInvalidConfiguration(
-                "directx-shader-compiler currently only packages Windows (prebuilt) and macOS (from source).")
+                "directx-shader-compiler currently only packages Windows/Linux (prebuilt) and macOS (from source).")
+        if self.settings.os == "Linux" and self.settings.arch != "x86_64":
+            raise ConanInvalidConfiguration("Microsoft only publishes x86_64 DXC binaries for Linux.")
 
     def build(self):
         if self.settings.os == "Windows":
             url = f"https://github.com/microsoft/DirectXShaderCompiler/releases/download/v{self.version}/dxc_2026_02_20.zip"
             # get() downloads the zip and extracts it directly into the build folder
             get(self, url, sha256=self._windows_sha256)
+        elif self.settings.os == "Linux":
+            url = f"https://github.com/microsoft/DirectXShaderCompiler/releases/download/v{self.version}/linux_dxc_2026_02_20.x86_64.tar.gz"
+            get(self, url, sha256=self._linux_sha256)
         else:
             self._build_from_source()
 
@@ -74,6 +81,15 @@ class DirectXShaderCompiler(ConanFile):
                  dst=os.path.join(self.package_folder, "lib"))
             copy(self, "*", src=os.path.join(self.build_folder, "inc"),
                  dst=os.path.join(self.package_folder, "include"))
+            copy(self, "LICENSE*", src=self.build_folder,
+                 dst=os.path.join(self.package_folder, "licenses"))
+            return
+
+        if self.settings.os == "Linux":
+            # The release tarball already has the bin/ + lib/ + include/ layout dxc expects.
+            for folder in ("bin", "lib", "include"):
+                copy(self, "*", src=os.path.join(self.build_folder, folder),
+                     dst=os.path.join(self.package_folder, folder))
             copy(self, "LICENSE*", src=self.build_folder,
                  dst=os.path.join(self.package_folder, "licenses"))
             return
