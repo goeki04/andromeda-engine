@@ -3,7 +3,7 @@
 
 namespace Andromeda::OS{
 
-    #ifdef _WIN32
+#if defined(_WIN32) || defined(__APPLE__)
     bool revealInFileBrowser(const std::filesystem::path& path);
     #else
     inline bool revealInFileBrowser(const std::filesystem::path& path){

@@ -229,9 +229,15 @@ namespace Andromeda::Gui {
         }
         ImGui::SameLine();
         if (ImGui::SmallButton(ICON_LC_FOLDER_OPEN)) {
-            void* hwnd = SDL_GetPointerProperty(SDL_GetWindowProperties(ctx.windowContext.window),
-                                                SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
-            for (const std::string& path : OS::pickFolders(hwnd, ASSET_PATH)) {
+            const SDL_PropertiesID windowProps = SDL_GetWindowProperties(ctx.windowContext.window);
+#if defined(_WIN32)
+            void* owner = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
+#elif defined(__APPLE__)
+            void* owner = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
+#else
+            void* owner = nullptr;
+#endif
+            for (const std::string& path : OS::pickFolders(owner, ASSET_PATH)) {
                 addDirectory(ctx, path);
             }
         }
