@@ -287,7 +287,8 @@ class _DialogButton extends StatefulWidget {
   final String label;
   final bool filled;
   final VoidCallback onTap;
-  const _DialogButton({required this.label, required this.filled, required this.onTap});
+  const _DialogButton(
+      {required this.label, required this.filled, required this.onTap});
 
   @override
   State<_DialogButton> createState() => _DialogButtonState();

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'glass.dart';
 import 'package:url_launcher/url_launcher.dart';
+
 class _NavItem {
   final IconData icon;
   final String tip;
@@ -18,7 +19,8 @@ const List<_NavItem?> _items = [
   _NavItem(Icons.tune, 'Einstellungen'),
   null, // spacer + divider
   _NavItem(Icons.menu_book_outlined, 'Dokumentation'),
-  _NavItem(Icons.code_rounded, 'GitHub', url: 'https://github.com/goeki04/andromeda-engine'),
+  _NavItem(Icons.code_rounded, 'GitHub',
+      url: 'https://github.com/goeki04/andromeda-engine'),
 ];
 
 class IconBar extends StatelessWidget {
@@ -45,7 +47,8 @@ class IconBar extends StatelessWidget {
       blur: 30,
       color: const Color(0x73060606), // rgba(6,6,6,0.45)
       border: Border(
-        right: BorderSide(color: Colors.white.withValues(alpha:0.05), width: 0.5),
+        right:
+            BorderSide(color: Colors.white.withValues(alpha: 0.05), width: 0.5),
       ),
       padding: const EdgeInsets.symmetric(vertical: 16),
       child: Column(
@@ -65,7 +68,7 @@ class _Divider extends StatelessWidget {
       width: 24,
       height: 0.5,
       margin: const EdgeInsets.symmetric(vertical: 6),
-      color: Colors.white.withValues(alpha:0.07),
+      color: Colors.white.withValues(alpha: 0.07),
     );
   }
 }
@@ -87,10 +90,10 @@ class _IconButtonState extends State<_IconButton> {
     final active = widget.item.active;
     final bg = active
         ? amber.withValues(alpha: .12)
-        : (_hover ? Colors.white.withValues(alpha:0.06) : Colors.transparent);
+        : (_hover ? Colors.white.withValues(alpha: 0.06) : Colors.transparent);
     final fg = active
         ? amber.withValues(alpha: 0.90)
-        : Colors.white.withValues(alpha:_hover ? 0.85 : 0.50);
+        : Colors.white.withValues(alpha: _hover ? 0.85 : 0.50);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
@@ -106,32 +109,32 @@ class _IconButtonState extends State<_IconButton> {
                 ? () => launchUrl(Uri.parse(widget.item.url!))
                 : null,
             child: Stack(
-            alignment: Alignment.centerLeft,
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: bg,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(widget.item.icon, size: 18, color: fg),
-              ),
-              if (active)
-                Container(
-                  width: 2,
-                  height: 20,
+              alignment: Alignment.centerLeft,
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  width: 38,
+                  height: 38,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE8A230).withValues(alpha: 0.85),
-                    borderRadius: const BorderRadius.only(
-                      topRight: Radius.circular(2),
-                      bottomRight: Radius.circular(2),
+                    color: bg,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(widget.item.icon, size: 18, color: fg),
+                ),
+                if (active)
+                  Container(
+                    width: 2,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE8A230).withValues(alpha: 0.85),
+                      borderRadius: const BorderRadius.only(
+                        topRight: Radius.circular(2),
+                        bottomRight: Radius.circular(2),
+                      ),
                     ),
                   ),
-                ),
-            ],
-          ),
+              ],
+            ),
           ),
         ),
       ),

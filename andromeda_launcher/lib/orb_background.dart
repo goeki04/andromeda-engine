@@ -121,6 +121,5 @@ class _OrbPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_OrbPainter old) =>
-      old.t != t || old.smooth != smooth;
+  bool shouldRepaint(_OrbPainter old) => old.t != t || old.smooth != smooth;
 }

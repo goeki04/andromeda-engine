@@ -58,14 +58,16 @@ class ProjectService extends ChangeNotifier {
       final f = await _file();
       if (!await f.exists()) return;
       final data = jsonDecode(await f.readAsString()) as List;
-      _projects = data.map((e) => Project.fromJson(e as Map<String, dynamic>)).toList();
+      _projects =
+          data.map((e) => Project.fromJson(e as Map<String, dynamic>)).toList();
       notifyListeners();
     } catch (_) {}
   }
 
   Future<void> _save() async {
     final f = await _file();
-    await f.writeAsString(jsonEncode(_projects.map((p) => p.toJson()).toList()));
+    await f
+        .writeAsString(jsonEncode(_projects.map((p) => p.toJson()).toList()));
   }
 
   Future<void> add(String path) async {
@@ -80,10 +82,12 @@ class ProjectService extends ChangeNotifier {
     final projectPath = '$parentPath${Platform.pathSeparator}$name';
     final dir = Directory(projectPath);
     if (!await dir.exists()) await dir.create(recursive: true);
-    final projectFile = File('$projectPath${Platform.pathSeparator}project.json');
+    final projectFile =
+        File('$projectPath${Platform.pathSeparator}project.json');
     await projectFile.writeAsString(jsonEncode({'name': name}));
     if (_projects.any((p) => p.path == projectPath)) return;
-    _projects.add(Project(name: name, path: projectPath, lastOpened: DateTime.now()));
+    _projects.add(
+        Project(name: name, path: projectPath, lastOpened: DateTime.now()));
     notifyListeners();
     await _save();
   }

@@ -40,7 +40,6 @@ class _ProjectListState extends State<ProjectList> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -52,7 +51,10 @@ class _ProjectListState extends State<ProjectList> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _Hero(onImport: _import, onCreate: _create,),
+            _Hero(
+              onImport: _import,
+              onCreate: _create,
+            ),
             Container(
               height: 0.5,
               margin: const EdgeInsets.symmetric(horizontal: 22),
@@ -60,7 +62,10 @@ class _ProjectListState extends State<ProjectList> {
             ),
             Expanded(
               child: all.isEmpty
-                  ? _EmptyState(onImport: _import, onCreate: _create,)
+                  ? _EmptyState(
+                      onImport: _import,
+                      onCreate: _create,
+                    )
                   : RawScrollbar(
                       controller: _controller,
                       thumbColor: Colors.white.withValues(alpha: 0.10),
@@ -112,7 +117,8 @@ class _Hero extends StatelessWidget {
           const SizedBox(height: 8),
           RichText(
             text: TextSpan(
-              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w200, height: 1.2),
+              style: const TextStyle(
+                  fontSize: 26, fontWeight: FontWeight.w200, height: 1.2),
               children: [
                 TextSpan(
                   text: 'Deine Projekte\n',
@@ -191,7 +197,11 @@ class _HeroButton extends StatefulWidget {
   final IconData? icon;
   final bool filled;
   final VoidCallback onTap;
-  const _HeroButton({required this.label, required this.filled, required this.onTap, this.icon});
+  const _HeroButton(
+      {required this.label,
+      required this.filled,
+      required this.onTap,
+      this.icon});
 
   @override
   State<_HeroButton> createState() => _HeroButtonState();
@@ -297,8 +307,7 @@ class _ProjectRowState extends State<_ProjectRow> {
   }
 
   Future<void> _showContextMenu(Offset globalPos) async {
-    final overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox;
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     final selected = await showMenu<String>(
       context: context,
       position: RelativeRect.fromRect(
@@ -385,12 +394,14 @@ class _ProjectRowState extends State<_ProjectRow> {
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: _hover ? 0.08 : 0.04),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: _hover ? 0.15 : 0.07),
+                      color:
+                          Colors.white.withValues(alpha: _hover ? 0.15 : 0.07),
                       width: 0.5,
                     ),
                   ),
@@ -403,10 +414,12 @@ class _ProjectRowState extends State<_ProjectRow> {
                           color: Colors.white.withValues(alpha: 0.05),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.08), width: 0.5),
+                              color: Colors.white.withValues(alpha: 0.08),
+                              width: 0.5),
                         ),
                         child: Icon(p.icon,
-                            size: 16, color: Colors.white.withValues(alpha: 0.62)),
+                            size: 16,
+                            color: Colors.white.withValues(alpha: 0.62)),
                       ),
                       const SizedBox(width: 14),
                       Expanded(

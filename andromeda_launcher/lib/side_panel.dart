@@ -10,9 +10,10 @@ class SidePanel extends StatelessWidget {
     return GlassContainer(
       width: 280,
       blur: 30,
-      color: const Color(0x66060606), 
+      color: const Color(0x66060606),
       border: Border(
-        left: BorderSide(color: Colors.white.withValues(alpha: 0.05), width: 0.5),
+        left:
+            BorderSide(color: Colors.white.withValues(alpha: 0.05), width: 0.5),
       ),
       child: const Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -87,7 +88,8 @@ class _EngineCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.03),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08), width: 0.5),
+        border:
+            Border.all(color: Colors.white.withValues(alpha: 0.08), width: 0.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -117,7 +119,8 @@ class _EngineCard extends StatelessWidget {
                   Text(
                     'aktuell',
                     style: TextStyle(
-                        fontSize: 10, color: Colors.white.withValues(alpha: 0.52)),
+                        fontSize: 10,
+                        color: Colors.white.withValues(alpha: 0.52)),
                   ),
                 ],
               ),
@@ -128,11 +131,13 @@ class _EngineCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(99),
             child: Stack(
               children: [
-                Container(height: 2, color: Colors.white.withValues(alpha: 0.07)),
+                Container(
+                    height: 2, color: Colors.white.withValues(alpha: 0.07)),
                 FractionallySizedBox(
                   widthFactor: 0.72,
                   child: Container(
-                      height: 2, color: const Color(0xFFE8A230).withValues(alpha: 0.70)),
+                      height: 2,
+                      color: const Color(0xFFE8A230).withValues(alpha: 0.70)),
                 ),
               ],
             ),
@@ -140,7 +145,8 @@ class _EngineCard extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             'v0.5.0 Beta verfügbar',
-            style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.40)),
+            style: TextStyle(
+                fontSize: 10, color: Colors.white.withValues(alpha: 0.40)),
           ),
         ],
       ),
@@ -191,7 +197,8 @@ class _StatCell extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.03),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.07), width: 0.5),
+        border:
+            Border.all(color: Colors.white.withValues(alpha: 0.07), width: 0.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -207,7 +214,8 @@ class _StatCell extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             label,
-            style: TextStyle(fontSize: 9.5, color: Colors.white.withValues(alpha: 0.48)),
+            style: TextStyle(
+                fontSize: 9.5, color: Colors.white.withValues(alpha: 0.48)),
           ),
         ],
       ),
@@ -222,7 +230,7 @@ class _NewsFeed extends StatefulWidget {
 }
 
 class _NewsFeedState extends State<_NewsFeed> {
-List _commits = [];
+  List _commits = [];
 
   @override
   void initState() {
@@ -237,16 +245,18 @@ List _commits = [];
 
   @override
   Widget build(BuildContext context) {
-    if(_commits.isEmpty) return const SizedBox();
+    if (_commits.isEmpty) return const SizedBox();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for(var i = 0; i < _commits.length; i++)
+        for (var i = 0; i < _commits.length; i++)
           _NewsItem(
-          title: (_commits[i]['sha'] as String).substring(0,7), 
-          body: (_commits[i]['commit']['message'] as String).split('\n').first,
-          showDivider: i > 0)
+              title: (_commits[i]['sha'] as String).substring(0, 7),
+              body: (_commits[i]['commit']['message'] as String)
+                  .split('\n')
+                  .first,
+              showDivider: i > 0)
       ],
     );
   }
@@ -299,7 +309,8 @@ class _NewsItem extends StatelessWidget {
                       ),
                       TextSpan(
                         text: '— $body',
-                        style: TextStyle(color: Colors.white.withValues(alpha:0.58)),
+                        style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.58)),
                       ),
                     ],
                   ),

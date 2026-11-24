@@ -7,13 +7,22 @@ import 'project_list.dart';
 import 'project_service.dart';
 import 'side_panel.dart';
 
-void main() async{
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await windowManager.ensureInitialized();
   await ProjectService.instance.load();
-  const WindowOptions options = WindowOptions(size: Size(1200, 800), minimumSize: Size(600, 400),
-  center: true,  titleBarStyle: TitleBarStyle.hidden);
-  await windowManager.waitUntilReadyToShow(options, () async {await windowManager.show(); await windowManager.focus(); },);
+  const WindowOptions options = WindowOptions(
+      size: Size(1200, 800),
+      minimumSize: Size(600, 400),
+      center: true,
+      titleBarStyle: TitleBarStyle.hidden);
+  await windowManager.waitUntilReadyToShow(
+    options,
+    () async {
+      await windowManager.show();
+      await windowManager.focus();
+    },
+  );
 
   runApp(const AndromedaApp());
 }
