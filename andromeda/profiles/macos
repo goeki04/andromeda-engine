@@ -1,0 +1,38 @@
+# Conan profile for building Andromeda on macOS (Apple Silicon) with Apple Clang.
+#
+# IMPORTANT: compiler.version must match your installed Apple Clang major version.
+# The value below is only a fallback - build_macos.sh detects the installed
+# apple-clang and overrides it with -s/-s:b compiler.version=<detected>.
+# Check your version with:   clang --version
+#
+# build_type is passed on the command line (-s build_type=Debug/Release).
+
+[settings]
+os=Macos
+# Minimum deployment target. The ConanCenter metal-cpp/15.2 recipe refuses any
+# os.version below 15.2, so the engine targets macOS 15.2+.
+os.version=15.2
+arch=armv8
+compiler=apple-clang
+compiler.version=21
+compiler.cppstd=20
+compiler.libcxx=libc++
+# Default build_type. The host build_type is overridden per run with
+# -s build_type=Debug/Release; this default is what the build context
+# (tool_requires built from source) uses, which must not be None.
+build_type=Release
+
+[options]
+# The glslang 1.4.350.0 recipe fails to build its SPIR-V optimizer from source
+# (missing spirv-tools include dirs). We don't need it, so disable everywhere
+# (this profile is passed as both -pr and -pr:b).
+glslang/*:enable_optimizer=False
+
+[conf]
+tools.cmake.cmaketoolchain:generator=Ninja
+
+[buildenv]
+# CMake 4 dropped support for cmake_minimum_required(VERSION < 3.5). Several
+# ConanCenter recipes still declare older minimums and fail to configure from
+# source. This env var tells CMake 4 to treat them as 3.5 instead of erroring.
+CMAKE_POLICY_VERSION_MINIMUM=3.5
